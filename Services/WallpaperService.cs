@@ -189,9 +189,9 @@ namespace ProductivityWallpaper.Services
         // --- 播放动作视频 (核心优化：淡入淡出 + 缓冲) ---
         private async void PlayActionVideo(string videoPath)
         {
-            if (_actionVideoWindow != null) return; // 简单防抖，防止连点
+            if (_actionVideoWindow != null) return;
 
-            // 1. 获取时长
+            // 1. 获取时长 (保持不变)
             long durationMs = 3000;
             if (_tempLibVLC != null)
             {
@@ -206,37 +206,42 @@ namespace ProductivityWallpaper.Services
                 catch { }
             }
 
-            // 2. 创建 Action 窗口 (完全透明)
+            // 1. 创建窗口 (此时它是 1x1 大小，位于 -32000)
             _actionVideoWindow = CreateHiddenVideoWindow(videoPath);
+
+            // 2. 显示窗口
+            // 这一步是为了让 HwndHost 初始化。
+            // 因为它是 1x1 像素且在屏幕外，用户完全看不到任何“弹窗”或“闪烁”。
             _actionVideoWindow.Show();
 
-            // 3. 注入层级：Action 盖在 Idle 之上
+            // 3. 挂载到桌面
+            // 此时窗口变成了 WorkerW 的子窗口，但它仍然是 1x1 像素
             InjectActionLayer(_actionVideoWindow, _idleVideoWindow, _currentUiWindow);
 
-            // 4. [缓冲] 给 VLC 一点时间渲染第一帧，避免淡入时看到黑框
-            // 虽然不精准，但在本机播放 200ms 通常足够
-            await Task.Delay(200);
+            // 4. [缓冲等待]
+            // 此时 VLC 开始加载视频。我们在它还是 1x1 的时候等待一小会儿。
+            // 防止拉大后先显示黑屏再出画面。
+            await Task.Delay(100);
 
-            // 5. [淡入] Action Window 从透明变实 (300ms)
-            // 此时 Idle 还在下面播放，用户看到的是混合渐变
-            await FadeWindowAsync(_actionVideoWindow, 0, 1, 300);
+            // 5. [瞬间展开] 手动将窗口设置为全屏尺寸
+            var helper = new WindowInteropHelper(_actionVideoWindow);
+            int screenW = (int)SystemParameters.PrimaryScreenWidth;
+            int screenH = (int)SystemParameters.PrimaryScreenHeight;
 
-            // --- 此时 Action 已经完全覆盖了 Idle ---
+            // 使用 SetWindowPos 瞬间拉伸，跳过“最大化”动画
+            // 参数说明: HWND_TOP, x=0, y=0, w=ScreenW, h=ScreenH, NOACTIVATE
+            Win32Api.SetWindowPos(helper.Handle, Win32Api.HWND_TOP, 0, 0, screenW, screenH, Win32Api.SWP_NOACTIVATE);
 
-            // 6. [后台重置 Idle] 
-            // 既然看不见 Idle 了，我们趁机销毁旧的，创建一个新的并从头播放
-            // 这样等 Action 消失时，Idle 刚好是从第一帧开始的
+            // 8. 后台重置 Idle (保持不变)
             ResetIdleVideoInBackground();
 
-            // 7. [等待播放] 减去前面的耗时
-            // 缓冲200ms + 淡入300ms = 500ms 已过
-            int remainingTime = (int)durationMs - 500 - 300; // 再预留 300ms 给淡出
+            // 9. 等待播放结束
+            int remainingTime = (int)durationMs - 500 - 300;
             if (remainingTime > 0) await Task.Delay(remainingTime);
 
-            // 8. [淡出] Action Window 变透明，露出底下的新 Idle (300ms)
+            // 10. 淡出并关闭
             await FadeWindowAsync(_actionVideoWindow, 1, 0, 300);
 
-            // 9. [清理]
             if (_actionVideoWindow != null)
             {
                 _actionVideoWindow.Visibility = Visibility.Hidden;
@@ -307,12 +312,37 @@ namespace ProductivityWallpaper.Services
         private VideoPlayerWindow CreateHiddenVideoWindow(string path)
         {
             var win = new VideoPlayerWindow(path);
-            win.Opacity = 0; // 关键：初始全透
-            win.ShowInTaskbar = false;
+
+            // 1. 将窗口移动到屏幕外
             win.WindowStartupLocation = WindowStartupLocation.Manual;
             win.Left = -32000;
             win.Top = -32000;
+
+            // 2. [核心修复] 将尺寸设置为 1x1 像素
+            // 这样，当调用 Show() 时，它虽然是可见的，但只是一个不可见的像素点
+            win.Width = 1;
+            win.Height = 1;
+
+            // 3. 去除边框和任务栏图标
+            win.WindowStyle = WindowStyle.None;
+            win.ResizeMode = ResizeMode.NoResize;
+            win.ShowInTaskbar = false;
+
+            // 注意：不要设置 AllowsTransparency = true，这会导致 HwndHost 不显示
             return win;
+        }
+
+        private void EnableLayeredWindow(Window window)
+        {
+            var helper = new WindowInteropHelper(window);
+            helper.EnsureHandle(); // 关键：强制创建句柄，但不显示窗口
+
+            IntPtr hwnd = helper.Handle;
+            int exStyle = Win32Api.GetWindowLong(hwnd, Win32Api.GWL_EXSTYLE);
+
+            // 添加 WS_EX_LAYERED (0x80000) 和 WS_EX_TRANSPARENT (0x20)
+            // 这样 WPF 的 Opacity 属性就能在 AllowsTransparency="False" 的情况下生效了
+            Win32Api.SetWindowLong(hwnd, Win32Api.GWL_EXSTYLE, exStyle | Win32Api.WS_EX_LAYERED | Win32Api.WS_EX_TRANSPARENT);
         }
 
         public void ApplyVideoWallpaper(string path, int monitorIndex)
