@@ -1,0 +1,12 @@
+﻿{
+  "AppTitle": "生产力壁纸工具",
+  "Menu_Wallpaper": "壁纸管理",
+  "Menu_AI": "AI 创作室",
+  "Menu_Settings": "设置",
+  "Tray_Show": "显示主窗口",
+  "Tray_Exit": "退出程序",
+  "Btn_Generate": "生成提示词",
+  "Btn_ApplyWallpaper": "应用壁纸",
+  "Label_Language": "界面语言",
+  "Msg_ExitConfirm": "确定要退出程序吗？"
+}
