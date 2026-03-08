@@ -30,24 +30,12 @@ namespace ProductivityWallpaper.Converters
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             // Return a style for feature buttons
-            // Active state uses gradient background
+            // Both states use the same CornerRadius (10) for consistent shape
             if (value is bool boolValue && boolValue)
             {
-                return Application.Current.Resources["PrimaryButtonStyle"];
+                return Application.Current.Resources["ActiveFeatureButtonStyle"];
             }
-            // Default state uses transparent background
-            return new Style(typeof(Button))
-            {
-                Setters = 
-                {
-                    new Setter(Button.BackgroundProperty, Application.Current.Resources["BackgroundBlockBrush"]),
-                    new Setter(Button.ForegroundProperty, Application.Current.Resources["TextPrimaryBrush"]),
-                    new Setter(Button.BorderThicknessProperty, new Thickness(0)),
-                    new Setter(Button.PaddingProperty, new Thickness(16, 8, 16, 8)),
-                    new Setter(Button.HeightProperty, 40.0),
-                    new Setter(Button.HorizontalAlignmentProperty, HorizontalAlignment.Stretch)
-                }
-            };
+            return Application.Current.Resources["FeatureButtonStyle"];
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

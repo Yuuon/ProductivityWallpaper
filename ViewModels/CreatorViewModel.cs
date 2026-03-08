@@ -17,6 +17,9 @@ namespace ProductivityWallpaper.ViewModels
         [ObservableProperty]
         private string _currentThemeName = string.Empty;
         
+        [ObservableProperty]
+        private bool _isEditingThemeName;
+        
         // Feature selection states
         [ObservableProperty]
         private bool _isThemePreviewSelected = true;
@@ -73,13 +76,14 @@ namespace ProductivityWallpaper.ViewModels
         [RelayCommand]
         private void StartCreating()
         {
-            if (!string.IsNullOrWhiteSpace(NewThemeName))
-            {
-                CurrentThemeName = NewThemeName;
-                IsWelcomePage = false;
-                IsCreatingPage = true;
-                SelectFeature("ThemePreview");
-            }
+            // Use user input if provided, otherwise use default placeholder text
+            CurrentThemeName = string.IsNullOrWhiteSpace(NewThemeName) 
+                ? "输入主题名字..." 
+                : NewThemeName.Trim();
+            
+            IsWelcomePage = false;
+            IsCreatingPage = true;
+            SelectFeature("ThemePreview");
         }
         
         [RelayCommand]
@@ -145,9 +149,15 @@ namespace ProductivityWallpaper.ViewModels
         }
         
         [RelayCommand]
-        private void EditThemeName()
+        private void ToggleEditThemeName()
         {
-            // Show dialog to edit theme name
+            IsEditingThemeName = true;
+        }
+        
+        [RelayCommand]
+        private void FinishEditThemeName()
+        {
+            IsEditingThemeName = false;
         }
         
         private void LoadFeatureContent(string featureName)

@@ -5,7 +5,8 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              mc:Ignorable="d">
 
-    <Grid Background="{StaticResource BackgroundMainBrush}">
+    <Grid Background="{StaticResource BackgroundMainBrush}"
+          MouseDown="CreatorView_MouseDown">
         <!-- Welcome Page -->
         <Grid Visibility="{Binding IsWelcomePage, Converter={StaticResource BooleanToVisibilityConverter}}">
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="600">
@@ -15,22 +16,34 @@
                            TextAlignment="Center"
                            Margin="0,0,0,32"/>
                 
-                <!-- Theme Name Input -->
+                <!-- Theme Name Input with Centered Placeholder -->
                 <Border Background="{StaticResource BackgroundBlockBrush}"
                         BorderBrush="{StaticResource BorderLineBrush}"
                         BorderThickness="1"
                         CornerRadius="15"
                         Height="40"
                         Margin="0,0,0,24">
-                    <TextBox Text="{Binding NewThemeName, UpdateSourceTrigger=PropertyChanged}"
-                             Background="Transparent"
-                             BorderThickness="0"
-                             Foreground="{StaticResource TextPrimaryBrush}"
-                             CaretBrush="{StaticResource TextPrimaryBrush}"
-                             FontSize="14"
-                             Padding="16,0"
-                             VerticalContentAlignment="Center"
-                             Tag="{DynamicResource Creator_ThemeNamePlaceholder}"/>
+                    <Grid>
+                        <!-- Placeholder Text (shown when input is empty) -->
+                        <TextBlock Text="{DynamicResource Creator_ThemeNamePlaceholder}"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontSize="14"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   IsHitTestVisible="False"
+                                   Visibility="{Binding NewThemeName, Converter={StaticResource StringEmptyToVisibilityConverter}}"/>
+                        <!-- Actual Input -->
+                        <TextBox Text="{Binding NewThemeName, UpdateSourceTrigger=PropertyChanged}"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 Foreground="{StaticResource TextPrimaryBrush}"
+                                 CaretBrush="{StaticResource TextPrimaryBrush}"
+                                 FontSize="14"
+                                 Padding="16,0"
+                                 VerticalContentAlignment="Center"
+                                 HorizontalContentAlignment="Center"
+                                 TextAlignment="Center"/>
+                    </Grid>
                 </Border>
                 
                 <!-- Create Button -->
@@ -194,25 +207,68 @@
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
                 
-                <!-- Theme Name Header -->
-                <StackPanel Grid.Row="0" 
-                            Orientation="Horizontal"
-                            HorizontalAlignment="Center"
-                            Margin="0,0,0,24">
-                    <TextBlock Text="{Binding CurrentThemeName}"
-                               Style="{StaticResource SubHeaderTextStyle}"/>
-                    <Button Command="{Binding EditThemeNameCommand}"
-                            Background="Transparent"
-                            BorderThickness="0"
-                            Padding="8,0,0,0"
-                            Cursor="Hand">
-                        <Path Data="M525 148.414H531M528 137.414C528.265 137.149 528.625 137 529 137C529.186 137 529.37 137.037 529.541 137.108C529.713 137.179 529.869 137.283 530 137.414C530.131 137.546 530.235 137.701 530.307 137.873C530.378 138.045 530.414 138.228 530.414 138.414C530.414 138.6 530.378 138.784 530.307 138.955C530.235 139.127 530.131 139.283 530 139.414L521.667 147.748L519 148.414L519.667 145.748L528 137.414Z"
-                              Stroke="{StaticResource IconBrush}"
-                              StrokeThickness="1.6"
-                              Width="16" Height="16"
-                              Stretch="Uniform"/>
-                    </Button>
-                </StackPanel>
+                <!-- Theme Name Header (Left Aligned) -->
+                <Grid Grid.Row="0" 
+                      HorizontalAlignment="Left"
+                      Height="32"
+                      Margin="0,0,0,24">
+                    <!-- Display Mode -->
+                    <StackPanel Orientation="Horizontal" 
+                                VerticalAlignment="Center"
+                                Visibility="{Binding IsEditingThemeName, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+                        <TextBlock Text="{Binding CurrentThemeName}"
+                                   Style="{StaticResource SubHeaderTextStyle}"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,8,0"/>
+                        <Button Command="{Binding ToggleEditThemeNameCommand}"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                Padding="8"
+                                Cursor="Hand"
+                                Width="32"
+                                Height="32"
+                                VerticalAlignment="Center">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border Background="{TemplateBinding Background}" 
+                                                        Width="{TemplateBinding Width}"
+                                                        Height="{TemplateBinding Height}">
+                                                    <ContentPresenter HorizontalAlignment="Center" 
+                                                                      VerticalAlignment="Center"/>
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </Button.Style>
+                            <Path Data="M525 148.414H531M528 137.414C528.265 137.149 528.625 137 529 137C529.186 137 529.37 137.037 529.541 137.108C529.713 137.179 529.869 137.283 530 137.414C530.131 137.546 530.235 137.701 530.307 137.873C530.378 138.045 530.414 138.228 530.414 138.414C530.414 138.6 530.378 138.784 530.307 138.955C530.235 139.127 530.131 139.283 530 139.414L521.667 147.748L519 148.414L519.667 145.748L528 137.414Z"
+                                  Stroke="{StaticResource IconBrush}"
+                                  StrokeThickness="1.6"
+                                  Width="16" Height="16"
+                                  Stretch="Uniform"/>
+                        </Button>
+                    </StackPanel>
+                    <!-- Edit Mode -->
+                    <TextBox x:Name="ThemeNameTextBox"
+                             Text="{Binding CurrentThemeName, UpdateSourceTrigger=PropertyChanged}"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             FontSize="18"
+                             FontWeight="SemiBold"
+                             Foreground="{StaticResource TextPrimaryBrush}"
+                             CaretBrush="{StaticResource TextPrimaryBrush}"
+                             MinWidth="200"
+                             MaxWidth="400"
+                             Height="32"
+                             VerticalAlignment="Center"
+                             VerticalContentAlignment="Center"
+                             Visibility="{Binding IsEditingThemeName, Converter={StaticResource BooleanToVisibilityConverter}}"
+                             LostFocus="ThemeNameTextBox_LostFocus"
+                             KeyDown="ThemeNameTextBox_KeyDown"/>
+                </Grid>
                 
                 <!-- Feature Content -->
                 <Grid Grid.Row="1">

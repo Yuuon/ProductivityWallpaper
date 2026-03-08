@@ -6,6 +6,8 @@ namespace ProductivityWallpaper.ViewModels
 {
     public partial class MyThemeViewModel : ObservableObject
     {
+        private readonly MainViewModel _mainViewModel;
+        
         [ObservableProperty]
         private bool _isUsageHistorySelected = true;
         
@@ -22,7 +24,7 @@ namespace ProductivityWallpaper.ViewModels
         private bool _hasSelectedTheme;
         
         [ObservableProperty]
-        private bool _hasContent = true;
+        private bool _hasContent = false;
         
         [ObservableProperty]
         private string _emptyMessage = "Nothing here yet\nGo find themes you like~";
@@ -30,25 +32,13 @@ namespace ProductivityWallpaper.ViewModels
         [ObservableProperty]
         private string _actionButtonText = "Browse Workshop";
         
-        public MyThemeViewModel()
+        public MyThemeViewModel(MainViewModel mainViewModel)
         {
-            LoadMockData();
-        }
-        
-        private void LoadMockData()
-        {
-            // Mock data - in real app this would come from local storage
-            for (int i = 0; i < 6; i++)
-            {
-                ThemeItems.Add(new ThemeItem
-                {
-                    Name = $"My Theme {i + 1}",
-                    Author = "You",
-                    FileSize = 30.5 + i,
-                    Resolution = "1920x1080",
-                    Type = "Video"
-                });
-            }
+            _mainViewModel = mainViewModel;
+            // ThemeItems will be loaded from local storage in the future
+            // For now, start with empty collection to show empty state
+            // Initialize with correct localized strings
+            ShowUsageHistory();
         }
         
         [RelayCommand]
@@ -56,9 +46,13 @@ namespace ProductivityWallpaper.ViewModels
         {
             IsUsageHistorySelected = true;
             IsMyWorksSelected = false;
-            EmptyMessage = "Nothing here yet\nGo find themes you like~";
-            ActionButtonText = "Browse Workshop";
-            HasContent = ThemeItems.Count > 0;
+            // Get localized strings from application resources
+            EmptyMessage = System.Windows.Application.Current.TryFindResource("MyThemes_EmptyHistoryMessage") as string 
+                ?? "Nothing here yet\nGo find themes you like~";
+            ActionButtonText = System.Windows.Application.Current.TryFindResource("MyThemes_GoToWorkshop") as string 
+                ?? "Browse Workshop";
+            // HasContent should reflect actual usage history data (currently empty)
+            HasContent = false;
         }
         
         [RelayCommand]
@@ -66,8 +60,12 @@ namespace ProductivityWallpaper.ViewModels
         {
             IsUsageHistorySelected = false;
             IsMyWorksSelected = true;
-            EmptyMessage = "Nothing here yet\nGo create your own theme~";
-            ActionButtonText = "Start Creating";
+            // Get localized strings from application resources
+            EmptyMessage = System.Windows.Application.Current.TryFindResource("MyThemes_EmptyWorksMessage") as string 
+                ?? "Nothing here yet\nGo create your own theme~";
+            ActionButtonText = System.Windows.Application.Current.TryFindResource("MyThemes_GoCreate") as string 
+                ?? "Start Creating";
+            // HasContent reflects user's created themes
             HasContent = ThemeItems.Count > 0;
         }
         
@@ -84,10 +82,12 @@ namespace ProductivityWallpaper.ViewModels
             if (IsUsageHistorySelected)
             {
                 // Navigate to Workshop
+                _mainViewModel.NavigateToWorkshopCommand.Execute(null);
             }
             else
             {
                 // Navigate to Creator
+                _mainViewModel.NavigateToCreatorCommand.Execute(null);
             }
         }
         

@@ -137,6 +137,35 @@
         <Setter Property="BorderBrush" Value="Transparent"/>
     </Style>
     
+    <!-- ==================== Feature Button Styles (Creator Page Sidebar) ==================== -->
+    <!-- Feature Button - Default State -->
+    <Style x:Key="FeatureButtonStyle" TargetType="Button">
+        <Setter Property="Height" Value="40"/>
+        <Setter Property="Background" Value="{StaticResource BackgroundBlockBrush}"/>
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="{TemplateBinding Background}" 
+                            CornerRadius="10"
+                            Padding="16,0">
+                        <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    
+    <!-- Feature Button - Active State -->
+    <Style x:Key="ActiveFeatureButtonStyle" TargetType="Button" BasedOn="{StaticResource FeatureButtonStyle}">
+        <Setter Property="Background" Value="{StaticResource PrimaryGradientBrush}"/>
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+    </Style>
+    
     <!-- ==================== Input Styles ==================== -->
     <!-- Search Box Style -->
     <Style x:Key="SearchBoxStyle" TargetType="TextBox">

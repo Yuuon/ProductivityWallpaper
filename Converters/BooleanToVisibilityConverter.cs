@@ -46,4 +46,22 @@ namespace ProductivityWallpaper.Converters
             return false;
         }
     }
+    
+    public class StringEmptyToVisibilityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            // Returns Visible if string is null or empty
+            if (value is string str && string.IsNullOrEmpty(str))
+            {
+                return Visibility.Visible;
+            }
+            return Visibility.Collapsed;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
 }
