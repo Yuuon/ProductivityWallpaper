@@ -1,4 +1,4 @@
-﻿using System.IO;
+using System.IO;
 using System.Text.Json;
 
 namespace ProductivityWallpaper.Services
@@ -6,6 +6,7 @@ namespace ProductivityWallpaper.Services
     public class AppConfig
     {
         public string LastLibraryPath { get; set; } = "";
+        public string MediaLibraryPath { get; set; } = System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyPictures);
     }
 
     public class ConfigService
@@ -20,29 +21,43 @@ namespace ProductivityWallpaper.Services
 
         public void Load()
         {
+            // Start with default values
+            Config = new AppConfig();
+            
             if (File.Exists(ConfigFile))
             {
                 try
                 {
                     var json = File.ReadAllText(ConfigFile);
-                    Config = JsonSerializer.Deserialize<AppConfig>(json) ?? new AppConfig();
+                    var loadedConfig = JsonSerializer.Deserialize<AppConfig>(json);
+                    if (loadedConfig != null)
+                    {
+                        // Only override if value is not empty
+                        if (!string.IsNullOrEmpty(loadedConfig.LastLibraryPath))
+                            Config.LastLibraryPath = loadedConfig.LastLibraryPath;
+                        if (!string.IsNullOrEmpty(loadedConfig.MediaLibraryPath))
+                            Config.MediaLibraryPath = loadedConfig.MediaLibraryPath;
+                    }
                 }
                 catch
                 {
-                    Config = new AppConfig();
+                    // Use defaults if load fails
                 }
             }
-            else
-            {
-                Config = new AppConfig();
-            }
+            
+            // Save to ensure file exists with current values
+            Save();
         }
 
         public void Save()
         {
             try
             {
-                var options = new JsonSerializerOptions { WriteIndented = true };
+                var options = new JsonSerializerOptions 
+                { 
+                    WriteIndented = true,
+                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                };
                 File.WriteAllText(ConfigFile, JsonSerializer.Serialize(Config, options));
             }
             catch { /* Handle save error */ }

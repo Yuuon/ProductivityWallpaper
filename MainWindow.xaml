@@ -1,4 +1,4 @@
-﻿<Window x:Class="ProductivityWallpaper.MainWindow"
+<Window x:Class="ProductivityWallpaper.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -6,107 +6,220 @@
         xmlns:vm="clr-namespace:ProductivityWallpaper.ViewModels"
         xmlns:views="clr-namespace:ProductivityWallpaper.Views"
         mc:Ignorable="d"
-        Title="{Binding WindowTitle}" Height="600" Width="900"
-        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        Title="{DynamicResource AppTitle}" 
+        Height="810" Width="1440"
+        MinHeight="600" MinWidth="900"
+        WindowStyle="None" 
+        AllowsTransparency="True" 
+        Background="{StaticResource BackgroundMainBrush}"
         ResizeMode="CanResizeWithGrip">
 
     <WindowChrome.WindowChrome>
-        <WindowChrome GlassFrameThickness="0" CornerRadius="10" CaptionHeight="40"/>
+        <WindowChrome GlassFrameThickness="0" CornerRadius="0" CaptionHeight="98"/>
     </WindowChrome.WindowChrome>
 
-    <!-- 关键修复：资源必须在使用之前定义，移到此处 -->
     <Window.Resources>
-        <!-- Title Bar Button Style -->
-        <Style x:Key="TitleButtonStyle" TargetType="Button">
+        <!-- Navigation Button Style -->
+        <Style x:Key="NavButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="20,10"/>
+            <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
+                        <TextBlock Text="{TemplateBinding Content}" 
+                                   Foreground="{TemplateBinding Foreground}"
+                                   FontSize="{TemplateBinding FontSize}"
+                                   FontWeight="{TemplateBinding FontWeight}"
+                                   VerticalAlignment="Center"/>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#3E3E42"/>
-                </Trigger>
-            </Style.Triggers>
         </Style>
-
-        <!-- Sidebar Menu Button Style -->
-        <Style x:Key="MenuButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="#AAAAAA"/>
-            <Setter Property="Height" Value="50"/>
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="Template">
+        
+        <!-- Active Navigation Button Style with Gradient Text -->
+        <Style x:Key="ActiveNavButtonStyle" TargetType="Button" BasedOn="{StaticResource NavButtonStyle}">
+            <Setter Property="Foreground">
                 <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}">
-                            <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" Margin="20,0,0,0"/>
-                        </Border>
-                    </ControlTemplate>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                        <GradientStop Offset="0" Color="#4586FF"/>
+                        <GradientStop Offset="1" Color="#FF90A9"/>
+                    </LinearGradientBrush>
                 </Setter.Value>
             </Setter>
+        </Style>
+        
+        <!-- Navigation Button Style Selector -->
+        <Style x:Key="NavButtonStyleSelector" TargetType="Button" BasedOn="{StaticResource NavButtonStyle}">
             <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#3E3E42"/>
-                    <Setter Property="Foreground" Value="White"/>
-                </Trigger>
+                <DataTrigger Binding="{Binding CurrentNavigation}" Value="Workshop">
+                    <Setter Property="Style" Value="{StaticResource ActiveNavButtonStyle}"/>
+                </DataTrigger>
             </Style.Triggers>
         </Style>
     </Window.Resources>
 
-    <Border Background="#2D2D30" CornerRadius="10" BorderBrush="#3E3E42" BorderThickness="1">
-        <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="40"/>
-                <!-- Custom Title Bar -->
-                <RowDefinition Height="*"/>
-            </Grid.RowDefinitions>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="98"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header / Navigation Bar -->
+        <Grid Grid.Row="0" Background="{StaticResource BackgroundMainBrush}">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="200"/>
-                <!-- Sidebar -->
+                <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Title Bar -->
-            <Grid Grid.Row="0" Grid.ColumnSpan="2" MouseLeftButtonDown="TitleBar_MouseDown" Background="Transparent">
-                <TextBlock Text="{DynamicResource AppTitle}" Foreground="#E1E1E1" VerticalAlignment="Center" Margin="15,0,0,0" FontWeight="Bold"/>
-
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" WindowChrome.IsHitTestVisibleInChrome="True">
-                    <Button Content="-" Width="40" Click="Minimize_Click" Style="{StaticResource TitleButtonStyle}"/>
-                    <Button Content="X" Width="40" Click="Close_Click" Style="{StaticResource TitleButtonStyle}"/>
-                </StackPanel>
-            </Grid>
-
-            <!-- Sidebar Navigation -->
-            <StackPanel Grid.Row="1" Grid.Column="0" Background="#252526">
-                <!-- 这里的 StaticResource 现在可以正确找到上方的 Style 了 -->
-                <Button Content="{DynamicResource Menu_Wallpaper}" Command="{Binding NavigateToWallpaperCommand}" Style="{StaticResource MenuButtonStyle}"/>
-                <Button Content="{DynamicResource Menu_AI}" Command="{Binding NavigateToAiToolCommand}" Style="{StaticResource MenuButtonStyle}"/>
-                <Button Content="{DynamicResource Menu_Settings}" Command="{Binding NavigateToSettingsCommand}" Style="{StaticResource MenuButtonStyle}"/>
+            <!-- Logo and App Title -->
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="42,0,0,0" VerticalAlignment="Center">
+                <!-- Logo -->
+                <Border Width="32" Height="32" CornerRadius="10">
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                            <GradientStop Offset="0" Color="#4586FF"/>
+                            <GradientStop Offset="1" Color="#FF90A9"/>
+                        </LinearGradientBrush>
+                    </Border.Background>
+                </Border>
+                <!-- App Title -->
+                <TextBlock Text="{DynamicResource AppTitle}" 
+                           Margin="16,0,0,0"
+                           FontSize="18"
+                           FontWeight="Bold"
+                           Foreground="{StaticResource TextPrimaryBrush}"
+                           VerticalAlignment="Center"/>
             </StackPanel>
 
-            <!-- Main Content Area -->
-            <!-- DataTemplates 依赖于类型编译。应用本修复后，请“重新生成解决方案”，类型错误通常会消失 -->
-            <ContentControl Grid.Row="1" Grid.Column="1" Content="{Binding CurrentView}" Margin="20">
-                <ContentControl.Resources>
-                    <DataTemplate DataType="{x:Type vm:WallpaperViewModel}">
-                        <views:WallpaperView/>
-                    </DataTemplate>
-                    <DataTemplate DataType="{x:Type vm:AiToolViewModel}">
-                        <views:AiToolView/>
-                    </DataTemplate>
-                    <DataTemplate DataType="{x:Type vm:SettingsViewModel}">
-                        <views:SettingsView/>
-                    </DataTemplate>
-                </ContentControl.Resources>
-            </ContentControl>
+            <!-- Navigation Tabs -->
+            <StackPanel Grid.Column="1" 
+                        Orientation="Horizontal" 
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center">
+                <Button Content="{DynamicResource Nav_Workshop}" 
+                        Command="{Binding NavigateToWorkshopCommand}"
+                        WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource NavButtonStyle}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding CurrentNavigation}" Value="Workshop">
+                                    <Setter Property="Foreground">
+                                        <Setter.Value>
+                                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                                <GradientStop Offset="0" Color="#4586FF"/>
+                                                <GradientStop Offset="1" Color="#FF90A9"/>
+                                            </LinearGradientBrush>
+                                        </Setter.Value>
+                                    </Setter>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+                <Button Content="{DynamicResource Nav_Creator}" 
+                        Command="{Binding NavigateToCreatorCommand}"
+                        Margin="48,0,0,0"
+                        WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource NavButtonStyle}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding CurrentNavigation}" Value="Creator">
+                                    <Setter Property="Foreground">
+                                        <Setter.Value>
+                                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                                <GradientStop Offset="0" Color="#4586FF"/>
+                                                <GradientStop Offset="1" Color="#FF90A9"/>
+                                            </LinearGradientBrush>
+                                        </Setter.Value>
+                                    </Setter>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+                <Button Content="{DynamicResource Nav_MyThemes}" 
+                        Command="{Binding NavigateToMyThemesCommand}"
+                        Margin="48,0,0,0"
+                        WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource NavButtonStyle}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding CurrentNavigation}" Value="MyThemes">
+                                    <Setter Property="Foreground">
+                                        <Setter.Value>
+                                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                                <GradientStop Offset="0" Color="#4586FF"/>
+                                                <GradientStop Offset="1" Color="#FF90A9"/>
+                                            </LinearGradientBrush>
+                                        </Setter.Value>
+                                    </Setter>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+            </StackPanel>
+
+            <!-- Window Controls -->
+            <StackPanel Grid.Column="2" 
+                        Orientation="Horizontal" 
+                        VerticalAlignment="Center"
+                        Margin="0,0,42,0">
+                                <!-- Settings Button -->
+                <Button Style="{StaticResource WindowControlButtonStyle}"
+                        Command="{Binding OpenSettingsCommand}"
+                        WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Path Data="M12 14.5C13.3807 14.5 14.5 13.3807 14.5 12C14.5 10.6193 13.3807 9.5 12 9.5C10.6193 9.5 9.5 10.6193 9.5 12C9.5 13.3807 10.6193 14.5 12 14.5ZM19.43 12.98C19.47 12.66 19.5 12.33 19.5 12C19.5 11.67 19.47 11.34 19.43 11.02L21.54 9.37C21.73 9.22 21.78 8.95 21.66 8.73L19.66 5.27C19.54 5.05 19.27 4.96 19.05 5.05L16.56 6.05C16.04 5.65 15.48 5.32 14.87 5.07L14.49 2.42C14.46 2.18 14.25 2 14 2H10C9.75 2 9.54 2.18 9.51 2.42L9.13 5.07C8.52 5.32 7.96 5.66 7.44 6.05L4.95 5.05C4.72 4.96 4.46 5.05 4.34 5.27L2.34 8.73C2.21 8.96 2.27 9.22 2.46 9.37L4.57 11.02C4.53 11.34 4.5 11.67 4.5 12C4.5 12.33 4.53 12.66 4.57 12.98L2.46 14.63C2.27 14.78 2.21 15.05 2.34 15.27L4.34 18.73C4.46 18.95 4.73 19.03 4.95 18.95L7.44 17.94C7.96 18.34 8.52 18.67 9.13 18.93L9.51 21.58C9.54 21.82 9.75 22 10 22H14C14.25 22 14.46 21.82 14.49 21.58L14.87 18.93C15.48 18.68 16.04 18.34 16.56 17.95L19.05 18.95C19.28 19.04 19.54 18.95 19.66 18.73L21.66 15.27C21.78 15.05 21.73 14.78 21.54 14.64L19.43 12.98Z"
+                          Stretch="Uniform"
+                          Width="20" Height="20"
+                          Stroke="{StaticResource IconBrush}"
+                          StrokeThickness="1.6"
+                          StrokeLineJoin="Round"
+                          Fill="Transparent"/>
+                </Button>
+                
+                <!-- Minimize Button -->
+                <Button Style="{StaticResource WindowControlButtonStyle}"
+                        Command="{Binding MinimizeCommand}"
+                        WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Path Data="M12 24C18.6274 24 24 18.6274 24 12C24 5.37258 18.6274 0 12 0C5.37258 0 0 5.37258 0 12C0 18.6274 5.37258 24 12 24Z M7.2 12L16.8 12"
+                          Stretch="Uniform"
+                          Width="20" Height="20"
+                          Stroke="{StaticResource IconBrush}"
+                          StrokeThickness="2.5"/>
+                </Button>
+                
+                <!-- Close Button -->
+                <Button Style="{StaticResource WindowControlButtonStyle}"
+                        Command="{Binding CloseCommand}"
+                        WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Path Data="M12 24C18.6274 24 24 18.6274 24 12C24 5.37258 18.6274 0 12 0C5.37258 0 0 5.37258 0 12C0 18.6274 5.37258 24 12 24Z M15.6 8.4L8.4 15.6 M8.4 8.4L15.6 15.6"
+                          Stretch="Uniform"
+                          Width="20" Height="20"
+                          Stroke="{StaticResource IconBrush}"
+                          StrokeThickness="2.5"/>
+                </Button>
+            </StackPanel>
         </Grid>
-    </Border>
+
+        <!-- Separator Line -->
+        <Line Grid.Row="0" 
+              VerticalAlignment="Bottom"
+              X1="0" Y1="0" 
+              X2="1440" Y2="0"
+              Stroke="{StaticResource BorderLineBrush}"
+              StrokeThickness="1"/>
+
+        <!-- Main Content Area -->
+        <ContentControl Grid.Row="1" 
+                        Content="{Binding CurrentView}"
+                        Background="{StaticResource BackgroundMainBrush}"/>
+    </Grid>
 </Window>
+

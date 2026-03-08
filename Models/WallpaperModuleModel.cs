@@ -8,6 +8,13 @@ namespace ProductivityWallpaper.Models
 
     public enum MediaType { Image, Video, Web, Interactive }
 
+    public enum TriggerType
+    {
+        Head,    // 头部热区
+        Body,    // 身体热区
+        Special  // 特殊热区
+    }
+
     public class MediaItem
     {
         public string Id { get; set; } = Guid.NewGuid().ToString();
@@ -52,12 +59,16 @@ namespace ProductivityWallpaper.Models
     {
         public string IdleVideo { get; set; } = string.Empty; // 待机视频
         public List<InteractionTrigger> Triggers { get; set; } = new();
+
+        // 横扫特效配置
+        public string SweepActionVideo { get; set; } = string.Empty; // 横扫时播放的视频
+        public double SweepSpeedThreshold { get; set; } = 3000; // 横扫速度阈值（像素/秒）
     }
 
     public class InteractionTrigger
     {
         public string Id { get; set; } = Guid.NewGuid().ToString();
-        public string ActionVideo { get; set; } = string.Empty; // 触发后播放的视频
+        public string ActionVideo { get; set; } = string.Empty; // 点击触发后播放的视频
 
         // 触发区域/UI描述
         // 这里我们设计得通用一点，既可以是隐形热区，也可以是显示的按钮
@@ -72,5 +83,11 @@ namespace ProductivityWallpaper.Models
         // UI 样式定义 (可选，简单实现)
         public string BackgroundHex { get; set; } = "#80000000"; // 半透明黑
         public string TextHex { get; set; } = "#FFFFFF";
+
+        // 热区类型和悬停交互配置
+        public TriggerType Type { get; set; } = TriggerType.Body;
+        public string HoverText { get; set; } = string.Empty;
+        public int HoverDelayMs { get; set; } = 500;
+        public string Audio { get; set; } = string.Empty;
     }
 }

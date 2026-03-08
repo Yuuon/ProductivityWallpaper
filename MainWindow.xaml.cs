@@ -1,8 +1,7 @@
-﻿using System.Windows;
+using System.Windows;
 using System.Windows.Input;
 using ProductivityWallpaper.Services;
 using ProductivityWallpaper.ViewModels;
-// 使用别名明确区分 WPF 和 WinForms 组件，避免歧义
 using WinForms = System.Windows.Forms;
 using Drawing = System.Drawing;
 
@@ -19,16 +18,13 @@ namespace ProductivityWallpaper
             DataContext = viewModel;
             _locService = locService;
 
-            // 初始化系统托盘图标
+            // Initialize system tray icon
             _notifyIcon = new WinForms.NotifyIcon();
-
-            // 使用系统默认的应用图标
-            // 注意：如果在 .csproj 中未启用 <UseWindowsForms>true</UseWindowsForms>，这里会报错
             _notifyIcon.Icon = Drawing.SystemIcons.Application;
             _notifyIcon.Visible = true;
             _notifyIcon.Text = "Productivity Wallpaper";
 
-            // 处理左键点击：显示窗口
+            // Handle left click: show window
             _notifyIcon.MouseClick += (s, e) =>
             {
                 if (e.Button == WinForms.MouseButtons.Left)
@@ -37,7 +33,7 @@ namespace ProductivityWallpaper
                 }
             };
 
-            // 构建右键菜单
+            // Build context menu
             var contextMenu = new WinForms.ContextMenuStrip();
             contextMenu.Items.Add("Show Window", null, (s, e) => ShowApp());
             contextMenu.Items.Add("Exit", null, (s, e) => AppExit());
@@ -52,14 +48,16 @@ namespace ProductivityWallpaper
 
         private void Minimize_Click(object sender, RoutedEventArgs e)
         {
-            this.Hide(); // 隐藏窗口到托盘，而不是关闭
+            this.Hide(); // Hide window to tray instead of closing
         }
 
         private void Close_Click(object sender, RoutedEventArgs e)
         {
-            // 确认退出逻辑
-            var result = System.Windows.MessageBox.Show(FindResource("Msg_ExitConfirm") as string ?? "Exit?",
-                "Confirm", MessageBoxButton.YesNo);
+            // Confirm exit logic
+            var result = System.Windows.MessageBox.Show(
+                FindResource("Msg_ExitConfirm") as string ?? "Exit?",
+                "Confirm", 
+                MessageBoxButton.YesNo);
 
             if (result == MessageBoxResult.Yes)
             {
@@ -76,7 +74,7 @@ namespace ProductivityWallpaper
 
         private void AppExit()
         {
-            // 务必释放图标资源，否则退出后托盘里还会残留一个幽灵图标
+            // Dispose icon resource to prevent ghost icon in tray
             _notifyIcon.Dispose();
             System.Windows.Application.Current.Shutdown();
         }

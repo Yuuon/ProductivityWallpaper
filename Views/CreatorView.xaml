@@ -1,0 +1,267 @@
+<UserControl x:Class="ProductivityWallpaper.Views.CreatorView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             mc:Ignorable="d">
+
+    <Grid Background="{StaticResource BackgroundMainBrush}">
+        <!-- Welcome Page -->
+        <Grid Visibility="{Binding IsWelcomePage, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="600">
+                <!-- Welcome Text -->
+                <TextBlock Text="{DynamicResource Creator_WelcomeTitle}"
+                           Style="{StaticResource HeaderTextStyle}"
+                           TextAlignment="Center"
+                           Margin="0,0,0,32"/>
+                
+                <!-- Theme Name Input -->
+                <Border Background="{StaticResource BackgroundBlockBrush}"
+                        BorderBrush="{StaticResource BorderLineBrush}"
+                        BorderThickness="1"
+                        CornerRadius="15"
+                        Height="40"
+                        Margin="0,0,0,24">
+                    <TextBox Text="{Binding NewThemeName, UpdateSourceTrigger=PropertyChanged}"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             Foreground="{StaticResource TextPrimaryBrush}"
+                             CaretBrush="{StaticResource TextPrimaryBrush}"
+                             FontSize="14"
+                             Padding="16,0"
+                             VerticalContentAlignment="Center"
+                             Tag="{DynamicResource Creator_ThemeNamePlaceholder}"/>
+                </Border>
+                
+                <!-- Create Button -->
+                <Button Content="{DynamicResource Creator_CreateTheme}"
+                        Style="{StaticResource PrimaryButtonStyle}"
+                        Command="{Binding StartCreatingCommand}"
+                        Width="200"
+                        Height="44"/>
+            </StackPanel>
+        </Grid>
+        
+        <!-- Creating Page -->
+        <Grid Visibility="{Binding IsCreatingPage, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="242"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            
+            <!-- Left Sidebar -->
+            <Grid Grid.Column="0" Background="{StaticResource BackgroundBlockBrush}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                
+                <!-- Back Button -->
+                <Button Grid.Row="0"
+                        Command="{Binding BackToWelcomeCommand}"
+                        Margin="16,16,16,8"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        HorizontalAlignment="Left">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Data="M12 4L4 12L12 20 M6 12H20"
+                              Stroke="{StaticResource IconBrush}"
+                              StrokeThickness="2"
+                              Width="16" Height="16"
+                              Stretch="Uniform"/>
+                        <TextBlock Text="{DynamicResource Creator_Back}"
+                                   Foreground="{StaticResource IconBrush}"
+                                   Margin="8,0,0,0"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+                
+                <!-- Feature List -->
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="16,8,16,16">
+                        <!-- Theme Preview -->
+                        <Button Command="{Binding SelectFeatureCommand}"
+                                CommandParameter="ThemePreview"
+                                Style="{Binding IsThemePreviewSelected, Converter={StaticResource BooleanToFeatureButtonConverter}}">
+                            <Grid>
+                                <TextBlock Text="{DynamicResource Creator_Feature_ThemePreview}"/>
+                            </Grid>
+                        </Button>
+                        
+                        <!-- Desktop Background -->
+                        <Button Command="{Binding SelectFeatureCommand}"
+                                CommandParameter="DesktopBackground"
+                                Style="{Binding IsDesktopBackgroundSelected, Converter={StaticResource BooleanToFeatureButtonConverter}}"
+                                Margin="0,8,0,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{DynamicResource Creator_Feature_DesktopBackground}"/>
+                                <TextBlock Text="{Binding DesktopBackgroundCount, StringFormat='({0})'}"
+                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                           Margin="4,0,0,0"
+                                           Visibility="{Binding DesktopBackgroundCount, Converter={StaticResource CountToVisibilityConverter}}"/>
+                            </StackPanel>
+                        </Button>
+                        
+                        <!-- Mouse Click -->
+                        <Button Command="{Binding SelectFeatureCommand}"
+                                CommandParameter="MouseClick"
+                                Style="{Binding IsMouseClickSelected, Converter={StaticResource BooleanToFeatureButtonConverter}}"
+                                Margin="0,8,0,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{DynamicResource Creator_Feature_MouseClick}"/>
+                                <TextBlock Text="{Binding MouseClickCount, StringFormat='({0})'}"
+                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                           Margin="4,0,0,0"
+                                           Visibility="{Binding MouseClickCount, Converter={StaticResource CountToVisibilityConverter}}"/>
+                            </StackPanel>
+                        </Button>
+                        
+                        <!-- Shutdown -->
+                        <Button Command="{Binding SelectFeatureCommand}"
+                                CommandParameter="Shutdown"
+                                Style="{Binding IsShutdownSelected, Converter={StaticResource BooleanToFeatureButtonConverter}}"
+                                Margin="0,8,0,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{DynamicResource Creator_Feature_Shutdown}"/>
+                                <TextBlock Text="{Binding ShutdownCount, StringFormat='({0})'}"
+                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                           Margin="4,0,0,0"
+                                           Visibility="{Binding ShutdownCount, Converter={StaticResource CountToVisibilityConverter}}"/>
+                            </StackPanel>
+                        </Button>
+                        
+                        <!-- Boot Restart -->
+                        <Button Command="{Binding SelectFeatureCommand}"
+                                CommandParameter="BootRestart"
+                                Style="{Binding IsBootRestartSelected, Converter={StaticResource BooleanToFeatureButtonConverter}}"
+                                Margin="0,8,0,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{DynamicResource Creator_Feature_BootRestart}"/>
+                                <TextBlock Text="{Binding BootRestartCount, StringFormat='({0})'}"
+                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                           Margin="4,0,0,0"
+                                           Visibility="{Binding BootRestartCount, Converter={StaticResource CountToVisibilityConverter}}"/>
+                            </StackPanel>
+                        </Button>
+                        
+                        <!-- Screen Wake -->
+                        <Button Command="{Binding SelectFeatureCommand}"
+                                CommandParameter="ScreenWake"
+                                Style="{Binding IsScreenWakeSelected, Converter={StaticResource BooleanToFeatureButtonConverter}}"
+                                Margin="0,8,0,0">
+                            <TextBlock Text="{DynamicResource Creator_Feature_ScreenWake}"/>
+                        </Button>
+                        
+                        <!-- Open App -->
+                        <Button Command="{Binding SelectFeatureCommand}"
+                                CommandParameter="OpenApp"
+                                Style="{Binding IsOpenAppSelected, Converter={StaticResource BooleanToFeatureButtonConverter}}"
+                                Margin="0,8,0,0">
+                            <TextBlock Text="{DynamicResource Creator_Feature_OpenApp}"/>
+                        </Button>
+                        
+                        <!-- Desktop Clock -->
+                        <Button Command="{Binding SelectFeatureCommand}"
+                                CommandParameter="DesktopClock"
+                                Style="{Binding IsDesktopClockSelected, Converter={StaticResource BooleanToFeatureButtonConverter}}"
+                                Margin="0,8,0,0">
+                            <TextBlock Text="{DynamicResource Creator_Feature_DesktopClock}"/>
+                        </Button>
+                        
+                        <!-- Pomodoro -->
+                        <Button Command="{Binding SelectFeatureCommand}"
+                                CommandParameter="Pomodoro"
+                                Style="{Binding IsPomodoroSelected, Converter={StaticResource BooleanToFeatureButtonConverter}}"
+                                Margin="0,8,0,0">
+                            <TextBlock Text="{DynamicResource Creator_Feature_Pomodoro}"/>
+                        </Button>
+                        
+                        <!-- Anniversary -->
+                        <Button Command="{Binding SelectFeatureCommand}"
+                                CommandParameter="Anniversary"
+                                Style="{Binding IsAnniversarySelected, Converter={StaticResource BooleanToFeatureButtonConverter}}"
+                                Margin="0,8,0,0">
+                            <TextBlock Text="{DynamicResource Creator_Feature_Anniversary}"/>
+                        </Button>
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+            
+            <!-- Right Content Area -->
+            <Grid Grid.Column="1" Margin="32,24,42,24">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                
+                <!-- Theme Name Header -->
+                <StackPanel Grid.Row="0" 
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Center"
+                            Margin="0,0,0,24">
+                    <TextBlock Text="{Binding CurrentThemeName}"
+                               Style="{StaticResource SubHeaderTextStyle}"/>
+                    <Button Command="{Binding EditThemeNameCommand}"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Padding="8,0,0,0"
+                            Cursor="Hand">
+                        <Path Data="M525 148.414H531M528 137.414C528.265 137.149 528.625 137 529 137C529.186 137 529.37 137.037 529.541 137.108C529.713 137.179 529.869 137.283 530 137.414C530.131 137.546 530.235 137.701 530.307 137.873C530.378 138.045 530.414 138.228 530.414 138.414C530.414 138.6 530.378 138.784 530.307 138.955C530.235 139.127 530.131 139.283 530 139.414L521.667 147.748L519 148.414L519.667 145.748L528 137.414Z"
+                              Stroke="{StaticResource IconBrush}"
+                              StrokeThickness="1.6"
+                              Width="16" Height="16"
+                              Stretch="Uniform"/>
+                    </Button>
+                </StackPanel>
+                
+                <!-- Feature Content -->
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <!-- Left: Preview -->
+                    <Border Grid.Column="0"
+                            Background="{StaticResource BackgroundBlockBrush}"
+                            BorderBrush="{StaticResource BorderLineBrush}"
+                            BorderThickness="1"
+                            CornerRadius="10"
+                            Margin="0,0,16,0">
+                        <Grid>
+                            <!-- Empty State -->
+                            <StackPanel VerticalAlignment="Center" 
+                                        HorizontalAlignment="Center"
+                                        Visibility="{Binding HasPreviewContent, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+                                <Path Data="M724.068 278.015C714.459 278.015 706.669 285.805 706.669 295.414C706.669 301 709.303 305.972 713.393 309.154C713.044 309.611 712.505 310.106 711.782 310.592C710.672 311.339 709.336 311.921 708.194 312.207C707.919 312.275 707.673 312.432 707.496 312.655C707.32 312.877 707.221 313.151 707.216 313.435C707.212 313.719 707.301 313.997 707.47 314.225C707.64 314.453 707.88 314.619 708.153 314.696C710.645 315.408 713.589 315.394 716.153 314.942C717.444 314.714 718.675 314.369 719.737 313.925C720.54 313.589 721.295 313.177 721.909 312.68C722.617 312.767 723.338 312.812 724.068 312.812C733.677 312.812 741.467 305.023 741.467 295.414C741.467 285.805 733.677 278.015 724.068 278.015ZM709.247 295.413C709.247 287.228 715.882 280.592 724.068 280.592C732.253 280.592 738.889 287.228 738.889 295.413C738.889 303.599 732.253 310.234 724.068 310.234C723.259 310.234 722.467 310.17 721.695 310.046C721.488 310.012 721.276 310.03 721.077 310.097C720.879 310.164 720.7 310.279 720.555 310.431C720.22 310.785 719.617 311.181 718.743 311.547C717.886 311.905 716.843 312.203 715.706 312.403C714.927 312.54 714.122 312.63 713.318 312.665C714.594 311.789 715.837 310.59 716.279 309.137C716.359 308.874 716.353 308.592 716.261 308.332C716.169 308.073 715.997 307.849 715.769 307.695C711.831 305.028 709.247 300.522 709.247 295.413Z"
+                                      Width="64" Height="64"
+                                      Fill="{StaticResource IconBrush}"
+                                      Stretch="Uniform"
+                                      HorizontalAlignment="Center"
+                                      Margin="0,0,0,16"/>
+                                <TextBlock Text="{DynamicResource Creator_EmptyPreview}"
+                                           Style="{StaticResource BodyTextStyle}"
+                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                           TextAlignment="Center"/>
+                            </StackPanel>
+                            
+                            <!-- Preview Content -->
+                            <ContentControl Content="{Binding PreviewContent}"
+                                            Visibility="{Binding HasPreviewContent, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                        </Grid>
+                    </Border>
+                    
+                    <!-- Right: Configuration -->
+                    <Border Grid.Column="1"
+                            Background="{StaticResource BackgroundBlockBrush}"
+                            BorderBrush="{StaticResource BorderLineBrush}"
+                            BorderThickness="1"
+                            CornerRadius="10"
+                            Margin="16,0,0,0">
+                        <ContentControl Content="{Binding ConfigurationContent}"/>
+                    </Border>
+                </Grid>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>

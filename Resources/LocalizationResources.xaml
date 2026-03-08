@@ -1,0 +1,153 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:system="clr-namespace:System;assembly=System.Runtime">
+    
+    <!-- ==================== Application ==================== -->
+    <system:String x:Key="AppTitle">Productivity Wallpaper</system:String>
+    <system:String x:Key="AppTitle_zh"> productivity壁纸</system:String>
+    
+    <!-- ==================== Navigation ==================== -->
+    <system:String x:Key="Nav_Workshop">Workshop</system:String>
+    <system:String x:Key="Nav_Workshop_zh">创意工坊</system:String>
+    
+    <system:String x:Key="Nav_MyThemes">My Themes</system:String>
+    <system:String x:Key="Nav_MyThemes_zh">我的主题</system:String>
+    
+    <system:String x:Key="Nav_Creator">Creator</system:String>
+    <system:String x:Key="Nav_Creator_zh">创作主题</system:String>
+    
+    <!-- ==================== Workshop View ==================== -->
+    <system:String x:Key="Workshop_SearchPlaceholder">Search themes...</system:String>
+    <system:String x:Key="Workshop_SearchPlaceholder_zh">搜索主题名字...</system:String>
+    
+    <system:String x:Key="Workshop_AllResolutions">All Resolutions</system:String>
+    <system:String x:Key="Workshop_AllResolutions_zh">全部分辨率</system:String>
+    
+    <system:String x:Key="Workshop_MostPopular">Most Popular</system:String>
+    <system:String x:Key="Workshop_MostPopular_zh">热度最高</system:String>
+    
+    <system:String x:Key="Workshop_Latest">Latest</system:String>
+    <system:String x:Key="Workshop_Latest_zh">最新</system:String>
+    
+    <system:String x:Key="Workshop_UseNow">Use Now</system:String>
+    <system:String x:Key="Workshop_UseNow_zh">立即使用</system:String>
+    
+    <system:String x:Key="Workshop_InUse">In Use</system:String>
+    <system:String x:Key="Workshop_InUse_zh">使用中</system:String>
+    
+    <system:String x:Key="Workshop_Edit">Edit</system:String>
+    <system:String x:Key="Workshop_Edit_zh">去修改</system:String>
+    
+    <system:String x:Key="Workshop_SelectThemeHint">Select a theme to view details</system:String>
+    <system:String x:Key="Workshop_SelectThemeHint_zh">选择主题查看详情</system:String>
+    
+    <!-- Tags -->
+    <system:String x:Key="Tag_DesktopBackground">Desktop Background</system:String>
+    <system:String x:Key="Tag_DesktopBackground_zh">桌面背景</system:String>
+    
+    <system:String x:Key="Tag_MouseClick">Mouse Click</system:String>
+    <system:String x:Key="Tag_MouseClick_zh">鼠标点击</system:String>
+    
+    <system:String x:Key="Tag_Shutdown">Shutdown</system:String>
+    <system:String x:Key="Tag_Shutdown_zh">关机</system:String>
+    
+    <system:String x:Key="Tag_BootRestart">Boot/Restart</system:String>
+    <system:String x:Key="Tag_BootRestart_zh">开机重启</system:String>
+    
+    <system:String x:Key="Tag_ScreenWake">Screen Wake</system:String>
+    <system:String x:Key="Tag_ScreenWake_zh">屏幕唤醒</system:String>
+    
+    <system:String x:Key="Tag_OpenApp">Open App</system:String>
+    <system:String x:Key="Tag_OpenApp_zh">打开应用</system:String>
+    
+    <system:String x:Key="Tag_DesktopClock">Desktop Clock</system:String>
+    <system:String x:Key="Tag_DesktopClock_zh">桌面时钟</system:String>
+    
+    <system:String x:Key="Tag_Pomodoro">Pomodoro</system:String>
+    <system:String x:Key="Tag_Pomodoro_zh">番茄专注钟</system:String>
+    
+    <system:String x:Key="Tag_Anniversary">Anniversary</system:String>
+    <system:String x:Key="Tag_Anniversary_zh">纪念日</system:String>
+    
+    <!-- ==================== My Themes View ==================== -->
+    <system:String x:Key="MyThemes_UsageHistory">Usage History</system:String>
+    <system:String x:Key="MyThemes_UsageHistory_zh">使用记录</system:String>
+    
+    <system:String x:Key="MyThemes_MyWorks">My Works</system:String>
+    <system:String x:Key="MyThemes_MyWorks_zh">我的作品</system:String>
+    
+    <system:String x:Key="MyThemes_EmptyHistoryMessage">Nothing here yet
+Go find themes you like~</system:String>
+    <system:String x:Key="MyThemes_EmptyHistoryMessage_zh">这里空空如也
+去找找你喜欢的主题吧~</system:String>
+    
+    <system:String x:Key="MyThemes_EmptyWorksMessage">Nothing here yet
+Go create your own theme~</system:String>
+    <system:String x:Key="MyThemes_EmptyWorksMessage_zh">这里空空如也
+去创作你的专属主题吧~</system:String>
+    
+    <system:String x:Key="MyThemes_GoToWorkshop">Browse Workshop</system:String>
+    <system:String x:Key="MyThemes_GoToWorkshop_zh">去瞅瞅</system:String>
+    
+    <system:String x:Key="MyThemes_GoCreate">Start Creating</system:String>
+    <system:String x:Key="MyThemes_GoCreate_zh">去创作</system:String>
+    
+    <system:String x:Key="MyThemes_UseNow">Use Now</system:String>
+    <system:String x:Key="MyThemes_UseNow_zh">立即使用</system:String>
+    
+    <system:String x:Key="MyThemes_Edit">Edit</system:String>
+    <system:String x:Key="MyThemes_Edit_zh">去修改</system:String>
+    
+    <system:String x:Key="MyThemes_SelectThemeHint">Select a theme to view details</system:String>
+    <system:String x:Key="MyThemes_SelectThemeHint_zh">选择主题查看详情</system:String>
+    
+    <!-- ==================== Creator View ==================== -->
+    <system:String x:Key="Creator_WelcomeTitle">Make your desktop, your way</system:String>
+    <system:String x:Key="Creator_WelcomeTitle_zh">把桌面，变成你喜欢的样子</system:String>
+    
+    <system:String x:Key="Creator_ThemeNamePlaceholder">Enter theme name...</system:String>
+    <system:String x:Key="Creator_ThemeNamePlaceholder_zh">输入主题名字...</system:String>
+    
+    <system:String x:Key="Creator_CreateTheme">Create Theme</system:String>
+    <system:String x:Key="Creator_CreateTheme_zh">创作主题</system:String>
+    
+    <system:String x:Key="Creator_Back">Back</system:String>
+    <system:String x:Key="Creator_Back_zh">返回</system:String>
+    
+    <system:String x:Key="Creator_EmptyPreview">Nothing here yet
+Go create your exclusive theme~</system:String>
+    <system:String x:Key="Creator_EmptyPreview_zh">这里空空如也
+去创作你的专属主题吧~</system:String>
+    
+    <!-- Feature Names -->
+    <system:String x:Key="Creator_Feature_ThemePreview">Theme Preview</system:String>
+    <system:String x:Key="Creator_Feature_ThemePreview_zh">主题预览</system:String>
+    
+    <system:String x:Key="Creator_Feature_DesktopBackground">Desktop Background</system:String>
+    <system:String x:Key="Creator_Feature_DesktopBackground_zh">桌面背景</system:String>
+    
+    <system:String x:Key="Creator_Feature_MouseClick">Mouse Click</system:String>
+    <system:String x:Key="Creator_Feature_MouseClick_zh">鼠标点击</system:String>
+    
+    <system:String x:Key="Creator_Feature_Shutdown">Shutdown</system:String>
+    <system:String x:Key="Creator_Feature_Shutdown_zh">关机</system:String>
+    
+    <system:String x:Key="Creator_Feature_BootRestart">Boot/Restart</system:String>
+    <system:String x:Key="Creator_Feature_BootRestart_zh">开机重启</system:String>
+    
+    <system:String x:Key="Creator_Feature_ScreenWake">Screen Wake</system:String>
+    <system:String x:Key="Creator_Feature_ScreenWake_zh">屏幕唤醒</system:String>
+    
+    <system:String x:Key="Creator_Feature_OpenApp">Open App</system:String>
+    <system:String x:Key="Creator_Feature_OpenApp_zh">打开应用</system:String>
+    
+    <system:String x:Key="Creator_Feature_DesktopClock">Desktop Clock</system:String>
+    <system:String x:Key="Creator_Feature_DesktopClock_zh">桌面时钟</system:String>
+    
+    <system:String x:Key="Creator_Feature_Pomodoro">Pomodoro</system:String>
+    <system:String x:Key="Creator_Feature_Pomodoro_zh">番茄专注钟</system:String>
+    
+    <system:String x:Key="Creator_Feature_Anniversary">Anniversary</system:String>
+    <system:String x:Key="Creator_Feature_Anniversary_zh">纪念日</system:String>
+    
+</ResourceDictionary>

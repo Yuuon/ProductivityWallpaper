@@ -1,6 +1,7 @@
 ﻿using Size = System.Drawing.Size;
 using Application = System.Windows.Application;
 using MediaType = ProductivityWallpaper.Models.MediaType;
+using MediaPlayer = LibVLCSharp.Shared.MediaPlayer;
 
 using System;
 using System.IO;
@@ -15,6 +16,7 @@ using Microsoft.Win32;
 using ProductivityWallpaper.Views;
 using LibVLCSharp.Shared; // 需要引用以获取视频时长
 using System.Windows.Media.Animation; // 引用动画库
+using System.Windows.Media; // 用于音频播放
 
 namespace ProductivityWallpaper.Services
 {
@@ -30,11 +32,18 @@ namespace ProductivityWallpaper.Services
         private MouseHookService? _mouseHook;
 
         private LibVLC? _tempLibVLC;
+        private MediaPlayer? _audioPlayer;
         private MediaItem? _currentInteractiveItem;
+        private InteractiveConfig? _currentConfig;
 
         public WallpaperService()
         {
-            try { _tempLibVLC = new LibVLC(); } catch { }
+            try 
+            { 
+                _tempLibVLC = new LibVLC();
+                _audioPlayer = new MediaPlayer(_tempLibVLC);
+            } 
+            catch { }
         }
 
         // --- 核心扫描逻辑 ---
@@ -139,6 +148,7 @@ namespace ProductivityWallpaper.Services
             }
             catch { return; }
 
+            _currentConfig = config;
             var videoPath = Path.Combine(item.FilePath, config.IdleVideo);
             if (!File.Exists(videoPath)) return;
 
@@ -155,6 +165,7 @@ namespace ProductivityWallpaper.Services
             _currentUiWindow.LoadConfig(config);
             _currentUiWindow.Show();
 
+            // 点击热区 - 播放对应的视频和音频
             _currentUiWindow.OnTriggerClicked += (actionVideoName) =>
             {
                 var actionPath = Path.Combine(item.FilePath, actionVideoName);
@@ -162,6 +173,20 @@ namespace ProductivityWallpaper.Services
                 {
                     PlayActionVideo(actionPath);
                 }
+            };
+
+            // 悬停开始 - 可以在这里添加日志或其他逻辑
+            _currentUiWindow.OnTriggerHoverStart += (trigger) =>
+            {
+                // 悬停提示已在 UI 层处理，这里可以添加额外的逻辑
+                // 例如：播放悬停音效、记录用户行为等
+                System.Diagnostics.Debug.WriteLine($"Hover started on {trigger.Type}: {trigger.HoverText}");
+            };
+
+            // 悬停结束
+            _currentUiWindow.OnTriggerHoverEnd += () =>
+            {
+                System.Diagnostics.Debug.WriteLine("Hover ended");
             };
 
             // 注入
@@ -173,17 +198,73 @@ namespace ProductivityWallpaper.Services
 
             // 启动 Hook
             _mouseHook = new MouseHookService();
+            
+            // 设置横扫速度阈值（如果配置中有）
+            if (config.SweepSpeedThreshold > 0)
+            {
+                _mouseHook.SweepSpeedThreshold = config.SweepSpeedThreshold;
+            }
+
+            // 鼠标点击事件
             _mouseHook.OnMouseClick += (screenPoint) =>
             {
                 if (_currentUiWindow != null)
                 {
                     Application.Current.Dispatcher.Invoke(() =>
                     {
-                        _currentUiWindow.SimulateClickIfHit(screenPoint);
+                        var trigger = _currentUiWindow.GetTriggerAtPoint(screenPoint);
+                        if (trigger != null)
+                        {
+                            // 播放音频（如果有配置）
+                            if (!string.IsNullOrEmpty(trigger.Audio))
+                            {
+                                var audioPath = Path.Combine(item.FilePath, trigger.Audio);
+                                PlayAudio(audioPath);
+                            }
+                            _currentUiWindow.SimulateClickIfHit(screenPoint);
+                        }
                     });
                 }
             };
+
+            // 横扫检测事件
+            _mouseHook.OnMouseSweep += (screenPoint) =>
+            {
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    // 如果正在播放 Action 视频，则忽略横扫
+                    if (_actionVideoWindow != null) return;
+
+                    // 如果配置了横扫视频，则播放
+                    if (!string.IsNullOrEmpty(config.SweepActionVideo))
+                    {
+                        var sweepPath = Path.Combine(item.FilePath, config.SweepActionVideo);
+                        if (File.Exists(sweepPath))
+                        {
+                            System.Diagnostics.Debug.WriteLine("Mouse sweep detected! Playing sweep video.");
+                            PlayActionVideo(sweepPath);
+                        }
+                    }
+                });
+            };
+
             _mouseHook.Start();
+        }
+
+        // --- 播放音频 ---
+        private void PlayAudio(string audioPath)
+        {
+            if (_audioPlayer == null || !File.Exists(audioPath)) return;
+
+            try
+            {
+                using var media = new Media(_tempLibVLC, new Uri(audioPath));
+                _audioPlayer.Play(media);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to play audio: {ex.Message}");
+            }
         }
 
         // --- 播放动作视频 (核心优化：淡入淡出 + 缓冲) ---
@@ -380,6 +461,10 @@ namespace ProductivityWallpaper.Services
             _mouseHook?.Stop();
             _mouseHook = null;
             _currentInteractiveItem = null;
+            _currentConfig = null;
+
+            // 停止音频播放
+            try { _audioPlayer?.Stop(); } catch { }
 
             if (_currentUiWindow != null)
             {
@@ -398,6 +483,10 @@ namespace ProductivityWallpaper.Services
                 try { _idleVideoWindow.StopAndClose(); } catch { }
                 _idleVideoWindow = null;
             }
+
+            // 清理音频播放器
+            try { _audioPlayer?.Dispose(); } catch { }
+            _audioPlayer = null;
         }
 
         // --- 注入与层级控制 ---

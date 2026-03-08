@@ -1,4 +1,4 @@
-﻿<Application x:Class="ProductivityWallpaper.App"
+<Application x:Class="ProductivityWallpaper.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:ProductivityWallpaper"
@@ -6,20 +6,45 @@
              xmlns:views="clr-namespace:ProductivityWallpaper.Views"
              xmlns:converters="clr-namespace:ProductivityWallpaper.Converters">
     <Application.Resources>
-        <!-- 1. 注册转换器资源，解决 "无法找到名为 BooleanToBrushConverter 的资源" 错误 -->
-        <converters:BooleanToBrushConverter x:Key="BooleanToBrushConverter"/>
-
-        <!-- 2. 全局数据模板：ViewModel -> View 映射 -->
-        <DataTemplate DataType="{x:Type vm:WallpaperViewModel}">
-            <views:WallpaperView/>
-        </DataTemplate>
-
-        <DataTemplate DataType="{x:Type vm:AiToolViewModel}">
-            <views:AiToolView/>
-        </DataTemplate>
-
-        <DataTemplate DataType="{x:Type vm:SettingsViewModel}">
-            <views:SettingsView/>
-        </DataTemplate>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!-- Theme and Styles -->
+                <ResourceDictionary Source="Resources/Theme.xaml"/>
+                <!-- Localization loaded dynamically from JSON files -->
+            </ResourceDictionary.MergedDictionaries>
+            
+            <!-- Converters -->
+            <converters:BooleanToBrushConverter x:Key="BooleanToBrushConverter"/>
+            <converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+            <converters:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter"/>
+            <converters:BooleanToTabStyleConverter x:Key="BooleanToTabStyleConverter"/>
+            <converters:BooleanToFeatureButtonConverter x:Key="BooleanToFeatureButtonConverter"/>
+            <converters:CountToVisibilityConverter x:Key="CountToVisibilityConverter"/>
+            
+            <!-- View-ViewModel Mappings -->
+            <DataTemplate DataType="{x:Type vm:WallpaperViewModel}">
+                <views:WallpaperView/>
+            </DataTemplate>
+            
+            <DataTemplate DataType="{x:Type vm:AiToolViewModel}">
+                <views:AiToolView/>
+            </DataTemplate>
+            
+            <DataTemplate DataType="{x:Type vm:SettingsViewModel}">
+                <views:SettingsView/>
+            </DataTemplate>
+            
+            <DataTemplate DataType="{x:Type vm:WorkshopViewModel}">
+                <views:WorkshopView/>
+            </DataTemplate>
+            
+            <DataTemplate DataType="{x:Type vm:MyThemeViewModel}">
+                <views:MyThemeView/>
+            </DataTemplate>
+            
+            <DataTemplate DataType="{x:Type vm:CreatorViewModel}">
+                <views:CreatorView/>
+            </DataTemplate>
+        </ResourceDictionary>
     </Application.Resources>
 </Application>

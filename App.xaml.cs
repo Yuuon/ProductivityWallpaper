@@ -1,9 +1,9 @@
-﻿using System.Windows;
+using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using ProductivityWallpaper.Services;
 using ProductivityWallpaper.ViewModels;
 using ProductivityWallpaper.Views;
-using LibVLCSharp.Shared; // 引用
+using LibVLCSharp.Shared;
 
 namespace ProductivityWallpaper
 {
@@ -22,15 +22,24 @@ namespace ProductivityWallpaper
         {
             var services = new ServiceCollection();
 
+            // Services
             services.AddSingleton<LocalizationService>();
             services.AddSingleton<WallpaperService>();
             services.AddSingleton<ConfigService>();
+            services.AddSingleton<MouseHookService>();
 
+            // ViewModels
             services.AddSingleton<MainViewModel>();
             services.AddSingleton<WallpaperViewModel>();
             services.AddSingleton<AiToolViewModel>();
             services.AddSingleton<SettingsViewModel>();
+            
+            // New ViewModels
+            services.AddSingleton<WorkshopViewModel>();
+            services.AddSingleton<MyThemeViewModel>();
+            services.AddSingleton<CreatorViewModel>();
 
+            // Views
             services.AddSingleton<MainWindow>();
 
             return services.BuildServiceProvider();
@@ -40,8 +49,11 @@ namespace ProductivityWallpaper
         {
             base.OnStartup(e);
 
-            // 初始化 VLC 核心
+            // Initialize VLC core
             Core.Initialize();
+
+            // Initialize ConfigService to ensure config file exists
+            var config = Services.GetRequiredService<ConfigService>();
 
             var loc = Services.GetRequiredService<LocalizationService>();
             loc.Initialize();
