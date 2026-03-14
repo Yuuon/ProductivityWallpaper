@@ -1,10 +1,10 @@
 # Project State
 
 **Project:** ProductivityWallpaper  
-**Phase:** 3-fix-v2 (Creator View Issue Fixes v2)  
-**Status:** ✅ Validated & Approved  
+**Phase:** 01-fix (Creator View Issue Fixes - Final)  
+**Status:** 📝 Context Gathered  
 **Last Updated:** 2026-03-14  
-**Last Session:** Completed 03-fix-v2 execution with all 8 fixes verified
+**Last Session:** Discussed Phase 01-fix context - third fix attempt with clarified requirements
 
 ---
 
@@ -17,8 +17,10 @@
 ✅ **Phase 1 executed** - All plans completed  
 ✅ **Phase 1 validated** - VALIDATION.md created  
 ✅ **Phase 2 Fix v1** - Creator View navigation and layout issues resolved  
-✅ **Phase 3 Fix v2** - All Creator View UI/UX issues resolved (8 fixes, verified)
-⏳ **Ready for Phase 2 System Awareness**
+✅ **Phase 3 Fix v2** - Creator View fixes attempted (8 tasks, verification pending)
+📝 **Phase 01-fix** - Context gathered for final fix attempt (3rd round)
+⏳ **Pending** - Phase 01-fix planning and execution
+⏳ **Ready for Phase 2 System Awareness** (after 01-fix complete)
 
 ---
 
@@ -120,7 +122,8 @@ Warnings: 0 (post-fixes)
 | 0 | Initialization | ✅ Complete | 100% |
 | 1 | Foundation - Creator Theme UI | ✅ Validated | 100% |
 | 2-fix | Creator View Issue Fixes v1 | ✅ Complete | 100% |
-| 3-fix-v2 | Creator View Issue Fixes v2 | ✅ Validated | 100% |
+| 3-fix-v2 | Creator View Issue Fixes v2 | ⚠️ Issues Persist | 80% |
+| 01-fix | Creator View Issue Fixes - Final | 📝 Context Ready | 0% |
 | 2 | System Awareness | 📋 Planned | 0% |
 | 3 | Quality & Testing | 📋 Backlog | 0% |
 
@@ -134,9 +137,12 @@ Warnings: 0 (post-fixes)
 4. ✅ ~~Execute Phase 1~~ (Complete)
 5. ✅ ~~Verify Phase 1~~ (Complete)
 6. ✅ ~~Execute Phase 2 Fix v1~~ (Complete)
-7. ✅ ~~Execute Phase 3 Fix v2~~ (Complete - All Creator View UI issues resolved)
-8. ⏳ **Plan Phase 2 System Awareness** (`/gsd-plan-phase 2`)
-9. ⏳ Execute Phase 2 (System Awareness)
+7. ✅ ~~Execute Phase 3 Fix v2~~ (Complete - partial success)
+8. ✅ ~~Discuss Phase 01-fix~~ (Complete - context gathered)
+9. ⏳ **Plan Phase 01-fix** (`/gsd-plan-phase 01-fix`)
+10. ⏳ Execute Phase 01-fix (Creator View final fixes)
+11. ⏳ **Plan Phase 2 System Awareness** (`/gsd-plan-phase 2`)
+12. ⏳ Execute Phase 2 (System Awareness)
 
 ---
 
@@ -179,6 +185,47 @@ Warnings: 0 (post-fixes)
 4. ✅ Fixed RelayCommand signatures (DesktopClockViewModel)
 5. ✅ Fixed ComboBox ambiguity (AdaptiveDatePicker.xaml.cs)
 6. ✅ Fixed ThumbTransform setter (PomodoroView.xaml)
+
+### Phase 01-fix Discussion Results (2026-03-14)
+
+**Context Document:** `.planning/phases/01-fix/01-CONTEXT.md`
+
+**Key Clarifications:**
+
+**1. Scheme State Distinction:**
+- **IsActive (Checkmark)**: "Enabled solution" - only one per feature, controls actual wallpaper behavior
+- **IsSelected (Highlight)**: Currently being viewed/edited in right panel
+- Both can coexist on same scheme
+- Checkmark can be removed temporarily if confusing
+- Highlight color: Theme accent color, slightly lighter
+
+**2. Navigation Interaction (Confirmed):**
+- **Non-expandable click**: Collapse all + highlight button + show page
+- **Expandable header click**: Expand + highlight header + show default scheme (auto-create if none)
+- **Scheme item click**: Keep expanded + highlight scheme + show scheme page
+- **Parent highlighting**: Expandable header stays highlighted when child scheme selected
+
+**3. Arrow Position Issue:**
+- Currently shifts down when expanded (looks bottom-aligned)
+- Should stay vertically centered in both states
+- 40px button height, arrow appears to drop below text baseline when checked
+
+**4. Feature Pages (Clock/Pomodoro/Anniversary):**
+- **Current**: Nothing displayed except theme name (wrong - should only show in Preview)
+- **Status**: Worked in v1, broken after first fix
+- **Debug order**: ViewModel initialization → Binding resolution → Content loading
+
+**5. Verification:**
+- Automated UI tests if feasible
+- Manual verification required regardless
+- Must verify fixes before claiming completion
+
+**Priority for Planning:**
+1. Feature page display (critical - currently broken)
+2. Arrow position (visual issue)
+3. Navigation highlight consistency
+4. Scheme auto-creation
+5. Checkmark/active state
 
 ### Code Quality
 - All files follow CONVENTIONS.md patterns
