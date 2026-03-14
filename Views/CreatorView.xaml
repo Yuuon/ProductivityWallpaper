@@ -99,16 +99,17 @@
 
         <!-- Feature Expander Toggle Button Style -->
         <Style x:Key="FeatureExpanderButtonStyle" TargetType="ToggleButton">
-            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Background" Value="{StaticResource BackgroundBlockBrush}"/\u003e
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="Padding" Value="16,0"/>
+            <Setter Property="Height" Value="40"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ToggleButton">
                         <Border Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="8"
+                                CornerRadius="10"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Stretch"
                                               VerticalAlignment="Center"/>
@@ -121,7 +122,7 @@
                     <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
                 </Trigger>
                 <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource Self}}" Value="True">
-                    <Setter Property="Background" Value="{StaticResource BackgroundSelectedBrush}"/>
+                    <Setter Property="Background" Value="{StaticResource PrimaryGradientBrush}"/>
                 </DataTrigger>
             </Style.Triggers>
         </Style>
