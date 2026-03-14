@@ -19,6 +19,9 @@ namespace ProductivityWallpaper.ViewModels
         private readonly Func<DesktopClockViewModel> _desktopClockVmFactory;
         private readonly Func<PomodoroViewModel> _pomodoroVmFactory;
         private readonly Func<AnniversaryViewModel> _anniversaryVmFactory;
+        private readonly Func<ShutdownViewModel> _shutdownVmFactory;
+        private readonly Func<BootRestartViewModel> _bootRestartVmFactory;
+        private readonly Func<ScreenWakeViewModel> _screenWakeVmFactory;
         // --- Feature Types Supporting Multi-Scheme ---
         private static readonly FeatureType[] MultiSchemeFeatures = new[]
         {
@@ -162,7 +165,7 @@ namespace ProductivityWallpaper.ViewModels
         /// <summary>
         /// Initializes a new instance of the <see cref="CreatorViewModel"/> class.
         /// </summary>
-        public CreatorViewModel() : this(null, null, null, null, null)
+        public CreatorViewModel() : this(null, null, null, null, null, null, null, null)
         {
         }
 
@@ -174,18 +177,27 @@ namespace ProductivityWallpaper.ViewModels
         /// <param name="desktopClockVmFactory">Factory for creating DesktopClockViewModel instances.</param>
         /// <param name="pomodoroVmFactory">Factory for creating PomodoroViewModel instances.</param>
         /// <param name="anniversaryVmFactory">Factory for creating AnniversaryViewModel instances.</param>
+        /// <param name="shutdownVmFactory">Factory for creating ShutdownViewModel instances.</param>
+        /// <param name="bootRestartVmFactory">Factory for creating BootRestartViewModel instances.</param>
+        /// <param name="screenWakeVmFactory">Factory for creating ScreenWakeViewModel instances.</param>
         public CreatorViewModel(
             Func<DesktopBackgroundViewModel> desktopBackgroundVmFactory,
             Func<MouseClickViewModel> mouseClickVmFactory,
             Func<DesktopClockViewModel> desktopClockVmFactory,
             Func<PomodoroViewModel> pomodoroVmFactory,
-            Func<AnniversaryViewModel> anniversaryVmFactory)
+            Func<AnniversaryViewModel> anniversaryVmFactory,
+            Func<ShutdownViewModel> shutdownVmFactory,
+            Func<BootRestartViewModel> bootRestartVmFactory,
+            Func<ScreenWakeViewModel> screenWakeVmFactory)
         {
             _desktopBackgroundVmFactory = desktopBackgroundVmFactory ?? (() => new DesktopBackgroundViewModel());
             _mouseClickVmFactory = mouseClickVmFactory ?? (() => new MouseClickViewModel());
             _desktopClockVmFactory = desktopClockVmFactory ?? (() => new DesktopClockViewModel());
             _pomodoroVmFactory = pomodoroVmFactory ?? (() => new PomodoroViewModel());
             _anniversaryVmFactory = anniversaryVmFactory ?? (() => new AnniversaryViewModel());
+            _shutdownVmFactory = shutdownVmFactory ?? (() => new ShutdownViewModel());
+            _bootRestartVmFactory = bootRestartVmFactory ?? (() => new BootRestartViewModel());
+            _screenWakeVmFactory = screenWakeVmFactory ?? (() => new ScreenWakeViewModel());
 
             // Initialize scheme collections for all multi-scheme features
             _schemesByFeature = new Dictionary<FeatureType, ObservableCollection<SchemeModel>>();
@@ -505,6 +517,39 @@ namespace ProductivityWallpaper.ViewModels
                     // Create and configure AnniversaryViewModel
                     var anniversaryVm = _anniversaryVmFactory();
                     ConfigurationContent = anniversaryVm;
+                    HasPreviewContent = false;
+                    break;
+
+                case "Shutdown":
+                    // Create and configure ShutdownViewModel
+                    var shutdownVm = _shutdownVmFactory();
+                    if (SelectedShutdownScheme != null)
+                    {
+                        shutdownVm.SchemeName = SelectedShutdownScheme.Name;
+                    }
+                    ConfigurationContent = shutdownVm;
+                    HasPreviewContent = false;
+                    break;
+
+                case "BootRestart":
+                    // Create and configure BootRestartViewModel
+                    var bootRestartVm = _bootRestartVmFactory();
+                    if (SelectedBootRestartScheme != null)
+                    {
+                        bootRestartVm.SchemeName = SelectedBootRestartScheme.Name;
+                    }
+                    ConfigurationContent = bootRestartVm;
+                    HasPreviewContent = false;
+                    break;
+
+                case "ScreenWake":
+                    // Create and configure ScreenWakeViewModel
+                    var screenWakeVm = _screenWakeVmFactory();
+                    if (SelectedScreenWakeScheme != null)
+                    {
+                        screenWakeVm.SchemeName = SelectedScreenWakeScheme.Name;
+                    }
+                    ConfigurationContent = screenWakeVm;
                     HasPreviewContent = false;
                     break;
 

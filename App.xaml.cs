@@ -42,9 +42,17 @@ namespace ProductivityWallpaper
             services.AddTransient<DesktopClockViewModel>();
             services.AddTransient<PomodoroViewModel>();
 
+            // System Event ViewModels
+            services.AddTransient<ShutdownViewModel>();
+            services.AddTransient<BootRestartViewModel>();
+            services.AddTransient<ScreenWakeViewModel>();
+
             // Views
             services.AddTransient<DesktopClockView>();
             services.AddTransient<PomodoroView>();
+            services.AddTransient<ShutdownView>();
+            services.AddTransient<BootRestartView>();
+            services.AddTransient<ScreenWakeView>();
 
             // CreatorViewModel with factory injection
             services.AddSingleton<CreatorViewModel>(serviceProvider =>
@@ -53,7 +61,11 @@ namespace ProductivityWallpaper
                     () => serviceProvider.GetRequiredService<DesktopBackgroundViewModel>(),
                     () => serviceProvider.GetRequiredService<MouseClickViewModel>(),
                     () => serviceProvider.GetRequiredService<DesktopClockViewModel>(),
-                    () => serviceProvider.GetRequiredService<PomodoroViewModel>());
+                    () => serviceProvider.GetRequiredService<PomodoroViewModel>(),
+                    () => serviceProvider.GetRequiredService<AnniversaryViewModel>(),
+                    () => serviceProvider.GetRequiredService<ShutdownViewModel>(),
+                    () => serviceProvider.GetRequiredService<BootRestartViewModel>(),
+                    () => serviceProvider.GetRequiredService<ScreenWakeViewModel>());
             });
 
             // Views

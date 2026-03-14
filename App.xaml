@@ -73,6 +73,18 @@
             <DataTemplate DataType="{x:Type vm:AnniversaryViewModel}">
                 <views:AnniversaryView/>
             </DataTemplate>
+            
+            <DataTemplate DataType="{x:Type vm:ShutdownViewModel}">
+                <views:ShutdownView/>
+            </DataTemplate>
+            
+            <DataTemplate DataType="{x:Type vm:BootRestartViewModel}">
+                <views:BootRestartView/>
+            </DataTemplate>
+            
+            <DataTemplate DataType="{x:Type vm:ScreenWakeViewModel}">
+                <views:ScreenWakeView/>
+            </DataTemplate>
         </ResourceDictionary>
     </Application.Resources>
 </Application>
