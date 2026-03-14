@@ -147,19 +147,19 @@ Wave 3: Secondary Feature Pages
 
 **Goal:** Fix persistent Creator View UI/UX issues from Phase-01-Issue-Fix.md (third fix attempt)
 
-**Status:** 📝 Planned
+**Status:** ✅ Complete
 
 **Requirements:** FIX-01, FIX-02, FIX-03, FIX-04, FIX-05
 
 ### Phase 01-fix Plans
 
-| Plan | Objective | Files | Wave | Requirements |
-|------|-----------|-------|------|--------------|
-| 01-fix-01 | Arrow vertical alignment fix | CreatorView.xaml | 1 | FIX-02 |
-| 01-fix-02 | Scheme auto-creation on expand | CreatorViewModel.cs, CreatorView.xaml | 1 | FIX-04 |
-| 01-fix-03 | Navigation highlight consistency | CreatorViewModel.cs, CreatorView.xaml | 1 | FIX-03 |
-| 01-fix-04 | Checkmark vs highlight distinction | CreatorView.xaml, CreatorViewModel.cs | 2 | FIX-05 |
-| 01-fix-05 | Feature page display fix (critical) | CreatorViewModel.cs, CreatorView.xaml, App.xaml | 2 | FIX-01 |
+| Plan | Objective | Files | Wave | Requirements | Status |
+|------|-----------|-------|------|--------------|--------|
+| 01-fix-01 | Arrow vertical alignment fix | CreatorView.xaml | 1 | FIX-02 | ✅ |
+| 01-fix-02 | Scheme auto-creation on expand | CreatorViewModel.cs, CreatorView.xaml | 1 | FIX-04 | ✅ |
+| 01-fix-03 | Navigation highlight consistency | CreatorViewModel.cs, CreatorView.xaml | 1 | FIX-03 | ✅ |
+| 01-fix-04 | Checkmark vs highlight distinction | CreatorView.xaml, CreatorViewModel.cs | 2 | FIX-05 | ✅ |
+| 01-fix-05 | Feature page display fix (critical) | CreatorViewModel.cs, CreatorView.xaml, App.xaml | 2 | FIX-01 | ✅ |
 
 ### Wave Structure
 
