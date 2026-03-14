@@ -2,11 +2,134 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
-             mc:Ignorable="d">
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:vm="clr-namespace:ProductivityWallpaper.ViewModels"
+             xmlns:models="clr-namespace:ProductivityWallpaper.Models"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:CreatorViewModel}">
+
+    <UserControl.Resources>
+        <!-- Scheme Item Template for Submenu -->
+        <DataTemplate x:Key="SchemeItemTemplate" DataType="{x:Type models:SchemeModel}">
+            <Button Command="{Binding DataContext.SelectSchemeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                    CommandParameter="{Binding}"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Padding="12,8"
+                    HorizontalContentAlignment="Stretch">
+                <Button.Style>
+                    <Style TargetType="Button">
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="Button">
+                                    <Border Background="{TemplateBinding Background}"
+                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="{TemplateBinding BorderThickness}"
+                                            Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                          VerticalAlignment="Center"/>
+                                    </Border>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+                            </Trigger>
+                            <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                <Setter Property="Background" Value="{StaticResource BackgroundSelectedBrush}"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <TextBlock Text="{Binding Name}"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               FontSize="13"
+                               VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"/>
+                    
+                    <!-- Active Indicator Checkmark -->
+                    <Path Grid.Column="1"
+                           Data="M4.5 8.5L7 11L11.5 6.5"
+                           Stroke="{StaticResource AccentBrush}"
+                           StrokeThickness="2"
+                           Width="16"
+                           Height="16"
+                           Stretch="Uniform"
+                           VerticalAlignment="Center"
+                           Visibility="{Binding IsActive, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                </Grid>
+            </Button>
+        </DataTemplate>
+
+        <!-- New Scheme Button Style -->
+        <Style x:Key="NewSchemeButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderLineBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="Margin" Value="0,4,0,0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+                    <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Feature Expander Toggle Button Style -->
+        <Style x:Key="FeatureExpanderButtonStyle" TargetType="ToggleButton">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Stretch"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+                </Trigger>
+                <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource Self}}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource BackgroundSelectedBrush}"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
 
     <Grid Background="{StaticResource BackgroundMainBrush}"
           MouseDown="CreatorView_MouseDown">
+        
         <!-- Welcome Page -->
         <Grid Visibility="{Binding IsWelcomePage, Converter={StaticResource BooleanToVisibilityConverter}}">
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="600">
@@ -34,15 +157,15 @@
                                    Visibility="{Binding NewThemeName, Converter={StaticResource StringEmptyToVisibilityConverter}}"/>
                         <!-- Actual Input -->
                         <TextBox Text="{Binding NewThemeName, UpdateSourceTrigger=PropertyChanged}"
-                                 Background="Transparent"
-                                 BorderThickness="0"
-                                 Foreground="{StaticResource TextPrimaryBrush}"
-                                 CaretBrush="{StaticResource TextPrimaryBrush}"
-                                 FontSize="14"
-                                 Padding="16,0"
-                                 VerticalContentAlignment="Center"
-                                 HorizontalContentAlignment="Center"
-                                 TextAlignment="Center"/>
+                                  Background="Transparent"
+                                  BorderThickness="0"
+                                  Foreground="{StaticResource TextPrimaryBrush}"
+                                  CaretBrush="{StaticResource TextPrimaryBrush}"
+                                  FontSize="14"
+                                  Padding="16,0"
+                                  VerticalContentAlignment="Center"
+                                  HorizontalContentAlignment="Center"
+                                  TextAlignment="Center"/>
                     </Grid>
                 </Border>
                 
@@ -69,7 +192,7 @@
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
                 
-                <!-- Back Button -->
+                <!-- Back Button (Fixed at top, outside scroll) -->
                 <Button Grid.Row="0"
                         Command="{Binding BackToWelcomeCommand}"
                         Margin="16,16,16,8"
@@ -89,118 +212,410 @@
                     </StackPanel>
                 </Button>
                 
-                <!-- Feature List -->
+                <!-- Scrollable Navigation Content -->
                 <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="16,8,16,16">
-                        <!-- Theme Preview -->
+                        
+                        <!-- Theme Preview (Simple Button) -->
                         <Button Command="{Binding SelectFeatureCommand}"
                                 CommandParameter="ThemePreview"
                                 Style="{Binding IsThemePreviewSelected, Converter={StaticResource BooleanToFeatureButtonConverter}}">
                             <Grid>
-                                <TextBlock Text="{DynamicResource Creator_Feature_ThemePreview}"/>
+                                <TextBlock Text="{DynamicResource Creator_Feature_ThemePreview}"
+                                          VerticalAlignment="Center"/>
                             </Grid>
                         </Button>
                         
-                        <!-- Desktop Background -->
-                        <Button Command="{Binding SelectFeatureCommand}"
-                                CommandParameter="DesktopBackground"
-                                Style="{Binding IsDesktopBackgroundSelected, Converter={StaticResource BooleanToFeatureButtonConverter}}"
-                                Margin="0,8,0,0">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="{DynamicResource Creator_Feature_DesktopBackground}"/>
-                                <TextBlock Text="{Binding DesktopBackgroundCount, StringFormat='({0})'}"
-                                           Foreground="{StaticResource TextSecondaryBrush}"
-                                           Margin="4,0,0,0"
-                                           Visibility="{Binding DesktopBackgroundCount, Converter={StaticResource CountToVisibilityConverter}}"/>
+                        <!-- Desktop Background (Expandable) -->
+                        <Border Margin="0,8,0,0">
+                            <StackPanel>
+                                <!-- Feature Header Button -->
+                                <ToggleButton Style="{StaticResource FeatureExpanderButtonStyle}"
+                                             IsChecked="{Binding IsDesktopBackgroundExpanded, Mode=TwoWay}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                            <TextBlock Text="{DynamicResource Creator_Feature_DesktopBackground}"
+                                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                                       FontSize="14"
+                                                       VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding DesktopBackgroundSchemes.Count, StringFormat='({0})'}"
+                                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                                       FontSize="12"
+                                                       Margin="4,0,0,0"
+                                                       VerticalAlignment="Center"
+                                                       Visibility="{Binding DesktopBackgroundSchemes.Count, Converter={StaticResource CountToVisibilityConverter}}"/>
+                                        </StackPanel>
+                                        
+                                        <!-- Expand/Collapse Arrow -->
+                                        <Path Grid.Column="2"
+                                              Data="M6 9L12 15L18 9"
+                                              Stroke="{StaticResource TextSecondaryBrush}"
+                                              StrokeThickness="2"
+                                              Width="16"
+                                              Height="16"
+                                              Stretch="Uniform"
+                                              VerticalAlignment="Center">
+                                            <Path.Style>
+                                                <Style TargetType="Path">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsDesktopBackgroundExpanded}" Value="True">
+                                                            <Setter Property="RenderTransform">
+                                                                <Setter.Value>
+                                                                    <RotateTransform Angle="180" CenterX="8" CenterY="8"/>
+                                                                </Setter.Value>
+                                                            </Setter>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Path.Style>
+                                        </Path>
+                                    </Grid>
+                                </ToggleButton>
+                                
+                                <!-- Expanded Submenu -->
+                                <Border Visibility="{Binding IsDesktopBackgroundExpanded, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                        Background="{StaticResource BackgroundBlockBrush}"
+                                        BorderThickness="0">
+                                    <StackPanel Margin="8,4,0,0">
+                                        <ItemsControl ItemsSource="{Binding DesktopBackgroundSchemes}"
+                                                      ItemTemplate="{StaticResource SchemeItemTemplate}"/>
+                                        
+                                        <Button Content="{DynamicResource Creator_NewScheme}"
+                                                Command="{Binding CreateNewSchemeCommand}"
+                                                CommandParameter="{x:Static models:FeatureType.DesktopBackground}"
+                                                Style="{StaticResource NewSchemeButtonStyle}"
+                                                Foreground="{StaticResource AccentBrush}"/>
+                                    </StackPanel>
+                                </Border>
                             </StackPanel>
-                        </Button>
+                        </Border>
                         
-                        <!-- Mouse Click -->
-                        <Button Command="{Binding SelectFeatureCommand}"
-                                CommandParameter="MouseClick"
-                                Style="{Binding IsMouseClickSelected, Converter={StaticResource BooleanToFeatureButtonConverter}}"
-                                Margin="0,8,0,0">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="{DynamicResource Creator_Feature_MouseClick}"/>
-                                <TextBlock Text="{Binding MouseClickCount, StringFormat='({0})'}"
-                                           Foreground="{StaticResource TextSecondaryBrush}"
-                                           Margin="4,0,0,0"
-                                           Visibility="{Binding MouseClickCount, Converter={StaticResource CountToVisibilityConverter}}"/>
+                        <!-- Mouse Click (Expandable) -->
+                        <Border Margin="0,8,0,0">
+                            <StackPanel>
+                                <ToggleButton Style="{StaticResource FeatureExpanderButtonStyle}"
+                                             IsChecked="{Binding IsMouseClickExpanded, Mode=TwoWay}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                            <TextBlock Text="{DynamicResource Creator_Feature_MouseClick}"
+                                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                                       FontSize="14"
+                                                       VerticalAlignment="Center"/>
+                                            
+                                            <TextBlock Text="{Binding MouseClickSchemes.Count, StringFormat='({0})'}"
+                                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                                       FontSize="12"
+                                                       Margin="4,0,0,0"
+                                                       VerticalAlignment="Center"
+                                                       Visibility="{Binding MouseClickSchemes.Count, Converter={StaticResource CountToVisibilityConverter}}"/>
+                                        </StackPanel>
+                                        
+                                        <Path Grid.Column="2"
+                                              Data="M6 9L12 15L18 9"
+                                              Stroke="{StaticResource TextSecondaryBrush}"
+                                              StrokeThickness="2"
+                                              Width="16"
+                                              Height="16"
+                                              Stretch="Uniform"
+                                              VerticalAlignment="Center">
+                                            <Path.Style>
+                                                <Style TargetType="Path">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsMouseClickExpanded}" Value="True">
+                                                            <Setter Property="RenderTransform">
+                                                                <Setter.Value>
+                                                                    <RotateTransform Angle="180" CenterX="8" CenterY="8"/>
+                                                                </Setter.Value>
+                                                            </Setter>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Path.Style>
+                                        </Path>
+                                    </Grid>
+                                </ToggleButton>
+                                
+                                <Border Visibility="{Binding IsMouseClickExpanded, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                        Background="{StaticResource BackgroundBlockBrush}"
+                                        BorderThickness="0">
+                                    <StackPanel Margin="8,4,0,0">
+                                        <ItemsControl ItemsSource="{Binding MouseClickSchemes}"
+                                                      ItemTemplate="{StaticResource SchemeItemTemplate}"/>
+                                        
+                                        <Button Content="{DynamicResource Creator_NewScheme}"
+                                                Command="{Binding CreateNewSchemeCommand}"
+                                                CommandParameter="{x:Static models:FeatureType.MouseClick}"
+                                                Style="{StaticResource NewSchemeButtonStyle}"
+                                                Foreground="{StaticResource AccentBrush}"/>
+                                    </StackPanel>
+                                </Border>
                             </StackPanel>
-                        </Button>
+                        </Border>
                         
-                        <!-- Shutdown -->
-                        <Button Command="{Binding SelectFeatureCommand}"
-                                CommandParameter="Shutdown"
-                                Style="{Binding IsShutdownSelected, Converter={StaticResource BooleanToFeatureButtonConverter}}"
-                                Margin="0,8,0,0">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="{DynamicResource Creator_Feature_Shutdown}"/>
-                                <TextBlock Text="{Binding ShutdownCount, StringFormat='({0})'}"
-                                           Foreground="{StaticResource TextSecondaryBrush}"
-                                           Margin="4,0,0,0"
-                                           Visibility="{Binding ShutdownCount, Converter={StaticResource CountToVisibilityConverter}}"/>
+                        <!-- Shutdown (Expandable) -->
+                        <Border Margin="0,8,0,0">
+                            <StackPanel>
+                                <ToggleButton Style="{StaticResource FeatureExpanderButtonStyle}"
+                                             IsChecked="{Binding IsShutdownExpanded, Mode=TwoWay}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                            <TextBlock Text="{DynamicResource Creator_Feature_Shutdown}"
+                                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                                       FontSize="14"
+                                                       VerticalAlignment="Center"/>
+                                            
+                                            <TextBlock Text="{Binding ShutdownSchemes.Count, StringFormat='({0})'}"
+                                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                                       FontSize="12"
+                                                       Margin="4,0,0,0"
+                                                       VerticalAlignment="Center"
+                                                       Visibility="{Binding ShutdownSchemes.Count, Converter={StaticResource CountToVisibilityConverter}}"/>
+                                        </StackPanel>
+                                        
+                                        <Path Grid.Column="2"
+                                              Data="M6 9L12 15L18 9"
+                                              Stroke="{StaticResource TextSecondaryBrush}"
+                                              StrokeThickness="2"
+                                              Width="16"
+                                              Height="16"
+                                              Stretch="Uniform"
+                                              VerticalAlignment="Center">
+                                            <Path.Style>
+                                                <Style TargetType="Path">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsShutdownExpanded}" Value="True">
+                                                            <Setter Property="RenderTransform">
+                                                                <Setter.Value>
+                                                                    <RotateTransform Angle="180" CenterX="8" CenterY="8"/>
+                                                                </Setter.Value>
+                                                            </Setter>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Path.Style>
+                                        </Path>
+                                    </Grid>
+                                </ToggleButton>
+                                
+                                <Border Visibility="{Binding IsShutdownExpanded, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                        Background="{StaticResource BackgroundBlockBrush}"
+                                        BorderThickness="0">
+                                    <StackPanel Margin="8,4,0,0">
+                                        <ItemsControl ItemsSource="{Binding ShutdownSchemes}"
+                                                      ItemTemplate="{StaticResource SchemeItemTemplate}"/>
+                                        
+                                        <Button Content="{DynamicResource Creator_NewScheme}"
+                                                Command="{Binding CreateNewSchemeCommand}"
+                                                CommandParameter="{x:Static models:FeatureType.Shutdown}"
+                                                Style="{StaticResource NewSchemeButtonStyle}"
+                                                Foreground="{StaticResource AccentBrush}"/>
+                                    </StackPanel>
+                                </Border>
                             </StackPanel>
-                        </Button>
+                        </Border>
                         
-                        <!-- Boot Restart -->
-                        <Button Command="{Binding SelectFeatureCommand}"
-                                CommandParameter="BootRestart"
-                                Style="{Binding IsBootRestartSelected, Converter={StaticResource BooleanToFeatureButtonConverter}}"
-                                Margin="0,8,0,0">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="{DynamicResource Creator_Feature_BootRestart}"/>
-                                <TextBlock Text="{Binding BootRestartCount, StringFormat='({0})'}"
-                                           Foreground="{StaticResource TextSecondaryBrush}"
-                                           Margin="4,0,0,0"
-                                           Visibility="{Binding BootRestartCount, Converter={StaticResource CountToVisibilityConverter}}"/>
+                        <!-- Boot/Restart (Expandable) -->
+                        <Border Margin="0,8,0,0">
+                            <StackPanel>
+                                <ToggleButton Style="{StaticResource FeatureExpanderButtonStyle}"
+                                             IsChecked="{Binding IsBootRestartExpanded, Mode=TwoWay}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                            <TextBlock Text="{DynamicResource Creator_Feature_BootRestart}"
+                                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                                       FontSize="14"
+                                                       VerticalAlignment="Center"/>
+                                            
+                                            <TextBlock Text="{Binding BootRestartSchemes.Count, StringFormat='({0})'}"
+                                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                                       FontSize="12"
+                                                       Margin="4,0,0,0"
+                                                       VerticalAlignment="Center"
+                                                       Visibility="{Binding BootRestartSchemes.Count, Converter={StaticResource CountToVisibilityConverter}}"/>
+                                        </StackPanel>
+                                        
+                                        <Path Grid.Column="2"
+                                              Data="M6 9L12 15L18 9"
+                                              Stroke="{StaticResource TextSecondaryBrush}"
+                                              StrokeThickness="2"
+                                              Width="16"
+                                              Height="16"
+                                              Stretch="Uniform"
+                                              VerticalAlignment="Center">
+                                            <Path.Style>
+                                                <Style TargetType="Path">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsBootRestartExpanded}" Value="True">
+                                                            <Setter Property="RenderTransform">
+                                                                <Setter.Value>
+                                                                    <RotateTransform Angle="180" CenterX="8" CenterY="8"/>
+                                                                </Setter.Value>
+                                                            </Setter>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Path.Style>
+                                        </Path>
+                                    </Grid>
+                                </ToggleButton>
+                                
+                                <Border Visibility="{Binding IsBootRestartExpanded, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                        Background="{StaticResource BackgroundBlockBrush}"
+                                        BorderThickness="0">
+                                    <StackPanel Margin="8,4,0,0">
+                                        <ItemsControl ItemsSource="{Binding BootRestartSchemes}"
+                                                      ItemTemplate="{StaticResource SchemeItemTemplate}"/>
+                                        
+                                        <Button Content="{DynamicResource Creator_NewScheme}"
+                                                Command="{Binding CreateNewSchemeCommand}"
+                                                CommandParameter="{x:Static models:FeatureType.BootRestart}"
+                                                Style="{StaticResource NewSchemeButtonStyle}"
+                                                Foreground="{StaticResource AccentBrush}"/>
+                                    </StackPanel>
+                                </Border>
                             </StackPanel>
-                        </Button>
+                        </Border>
                         
-                        <!-- Screen Wake -->
-                        <Button Command="{Binding SelectFeatureCommand}"
-                                CommandParameter="ScreenWake"
-                                Style="{Binding IsScreenWakeSelected, Converter={StaticResource BooleanToFeatureButtonConverter}}"
-                                Margin="0,8,0,0">
-                            <TextBlock Text="{DynamicResource Creator_Feature_ScreenWake}"/>
-                        </Button>
+                        <!-- Screen Wake (Expandable) -->
+                        <Border Margin="0,8,0,0">
+                            <StackPanel>
+                                <ToggleButton Style="{StaticResource FeatureExpanderButtonStyle}"
+                                             IsChecked="{Binding IsScreenWakeExpanded, Mode=TwoWay}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                            <TextBlock Text="{DynamicResource Creator_Feature_ScreenWake}"
+                                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                                       FontSize="14"
+                                                       VerticalAlignment="Center"/>
+                                            
+                                            <TextBlock Text="{Binding ScreenWakeSchemes.Count, StringFormat='({0})'}"
+                                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                                       FontSize="12"
+                                                       Margin="4,0,0,0"
+                                                       VerticalAlignment="Center"
+                                                       Visibility="{Binding ScreenWakeSchemes.Count, Converter={StaticResource CountToVisibilityConverter}}"/>
+                                        </StackPanel>
+                                        
+                                        <Path Grid.Column="2"
+                                              Data="M6 9L12 15L18 9"
+                                              Stroke="{StaticResource TextSecondaryBrush}"
+                                              StrokeThickness="2"
+                                              Width="16"
+                                              Height="16"
+                                              Stretch="Uniform"
+                                              VerticalAlignment="Center">
+                                            <Path.Style>
+                                                <Style TargetType="Path">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsScreenWakeExpanded}" Value="True">
+                                                            <Setter Property="RenderTransform">
+                                                                <Setter.Value>
+                                                                    <RotateTransform Angle="180" CenterX="8" CenterY="8"/>
+                                                                </Setter.Value>
+                                                            </Setter>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Path.Style>
+                                        </Path>
+                                    </Grid>
+                                </ToggleButton>
+                                
+                                <Border Visibility="{Binding IsScreenWakeExpanded, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                        Background="{StaticResource BackgroundBlockBrush}"
+                                        BorderThickness="0">
+                                    <StackPanel Margin="8,4,0,0">
+                                        <ItemsControl ItemsSource="{Binding ScreenWakeSchemes}"
+                                                      ItemTemplate="{StaticResource SchemeItemTemplate}"/>
+                                        
+                                        <Button Content="{DynamicResource Creator_NewScheme}"
+                                                Command="{Binding CreateNewSchemeCommand}"
+                                                CommandParameter="{x:Static models:FeatureType.ScreenWake}"
+                                                Style="{StaticResource NewSchemeButtonStyle}"
+                                                Foreground="{StaticResource AccentBrush}"/>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Border>
                         
-                        <!-- Open App -->
+                        <!-- Open App (Simple Button) -->
                         <Button Command="{Binding SelectFeatureCommand}"
                                 CommandParameter="OpenApp"
                                 Style="{Binding IsOpenAppSelected, Converter={StaticResource BooleanToFeatureButtonConverter}}"
                                 Margin="0,8,0,0">
-                            <TextBlock Text="{DynamicResource Creator_Feature_OpenApp}"/>
+                            <Grid>
+                                <TextBlock Text="{DynamicResource Creator_Feature_OpenApp}"
+                                          VerticalAlignment="Center"/>
+                            </Grid>
                         </Button>
                         
-                        <!-- Desktop Clock -->
+                        <!-- Desktop Clock (Simple Button) -->
                         <Button Command="{Binding SelectFeatureCommand}"
                                 CommandParameter="DesktopClock"
                                 Style="{Binding IsDesktopClockSelected, Converter={StaticResource BooleanToFeatureButtonConverter}}"
                                 Margin="0,8,0,0">
-                            <TextBlock Text="{DynamicResource Creator_Feature_DesktopClock}"/>
+                            <Grid>
+                                <TextBlock Text="{DynamicResource Creator_Feature_DesktopClock}"
+                                          VerticalAlignment="Center"/>
+                            </Grid>
                         </Button>
                         
-                        <!-- Pomodoro -->
+                        <!-- Pomodoro (Simple Button) -->
                         <Button Command="{Binding SelectFeatureCommand}"
                                 CommandParameter="Pomodoro"
                                 Style="{Binding IsPomodoroSelected, Converter={StaticResource BooleanToFeatureButtonConverter}}"
                                 Margin="0,8,0,0">
-                            <TextBlock Text="{DynamicResource Creator_Feature_Pomodoro}"/>
+                            <Grid>
+                                <TextBlock Text="{DynamicResource Creator_Feature_Pomodoro}"
+                                          VerticalAlignment="Center"/>
+                            </Grid>
                         </Button>
                         
-                        <!-- Anniversary -->
+                        <!-- Anniversary (Simple Button) -->
                         <Button Command="{Binding SelectFeatureCommand}"
                                 CommandParameter="Anniversary"
                                 Style="{Binding IsAnniversarySelected, Converter={StaticResource BooleanToFeatureButtonConverter}}"
                                 Margin="0,8,0,0">
-                            <TextBlock Text="{DynamicResource Creator_Feature_Anniversary}"/>
+                            <Grid>
+                                <TextBlock Text="{DynamicResource Creator_Feature_Anniversary}"
+                                          VerticalAlignment="Center"/>
+                            </Grid>
                         </Button>
                     </StackPanel>
                 </ScrollViewer>
             </Grid>
             
-            <!-- Right Content Area -->
+            <!-- Right Content Area (Unchanged) -->
             <Grid Grid.Column="1" Margin="32,24,42,24">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -220,6 +635,7 @@
                                    Style="{StaticResource SubHeaderTextStyle}"
                                    VerticalAlignment="Center"
                                    Margin="0,0,8,0"/>
+                        
                         <Button Command="{Binding ToggleEditThemeNameCommand}"
                                 Background="Transparent"
                                 BorderThickness="0"
@@ -251,6 +667,7 @@
                                   Stretch="Uniform"/>
                         </Button>
                     </StackPanel>
+                    
                     <!-- Edit Mode -->
                     <TextBox x:Name="ThemeNameTextBox"
                              Text="{Binding CurrentThemeName, UpdateSourceTrigger=PropertyChanged}"
