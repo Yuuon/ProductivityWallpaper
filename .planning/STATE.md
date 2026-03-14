@@ -3,7 +3,8 @@
 **Project:** ProductivityWallpaper  
 **Phase:** 1 (Foundation - Creator Theme UI)  
 **Status:** ✅ Validated & Approved  
-**Last Updated:** 2026-03-14
+**Last Updated:** 2026-03-14  
+**Last Session:** Completed 03-fix-v2-03-01 plan
 
 ---
 
@@ -15,7 +16,8 @@
 ✅ **Phase 1 planned** - 6 executable plans created  
 ✅ **Phase 1 executed** - All plans completed  
 ✅ **Phase 1 validated** - VALIDATION.md created  
-✅ **Phase 2 Fix** - Creator View navigation and layout issues resolved  
+✅ **Phase 2 Fix v1** - Creator View navigation and layout issues resolved  
+✅ **Phase 03-fix-v2-03-01** - Creator View UI fixes completed (8 tasks)
 ⏳ **Ready for Phase 2 System Awareness**
 
 ---
@@ -158,7 +160,17 @@ Warnings: 0 (post-fixes)
 
 ## Technical Notes
 
-### Post-Execution Fixes Applied
+### Post-Execution Fixes Applied (Phase 03-fix-v2-03-01)
+1. ✅ Fixed new scheme button text ("+ 新建方案")
+2. ✅ Implemented unified single-highlight navigation logic
+3. ✅ Implemented single-expand logic for submenus
+4. ✅ Added scheme item selection highlight (IsSelected property)
+5. ✅ Changed theme preview split ratio to 70/30
+6. ✅ Fixed scrollbar style (brighter thumb, reserved space)
+7. ✅ Fixed arrow vertical alignment
+8. ✅ Added missing DI registrations for feature views
+
+### Previous Fixes
 1. ✅ Fixed duplicate Style attributes in AdaptiveDatePicker.xaml
 2. ✅ Fixed malformed XML in DesktopClockView.xaml and PomodoroView.xaml
 3. ✅ Renamed duplicate FinishEditName methods (AnniversaryViewModel)

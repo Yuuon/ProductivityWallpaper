@@ -113,6 +113,36 @@ Wave 3: Secondary Feature Pages
 
 ---
 
+## Phase 2-fix: Creator View UI Fixes (03-fix-v2)
+
+**Goal:** Fix remaining UI/UX issues from Phase 01
+
+**Status:** ✅ Completed
+
+### 03-fix-v2-03-01: Creator View Fixes
+
+| Task | Fix | Status |
+|------|-----|--------|
+| 1 | New scheme button text ("+ 新建方案") | ✅ |
+| 2 | Navigation single highlight logic | ✅ |
+| 3 | Single expand logic for submenus | ✅ |
+| 4 | Scheme item selection highlight | ✅ |
+| 5 | Theme preview split ratio (70/30) | ✅ |
+| 6 | Scrollbar style (brighter thumb, reserved space) | ✅ |
+| 7 | Arrow vertical alignment | ✅ |
+| 8 | Feature pages display (DI/DataTemplate fixes) | ✅ |
+
+**Files Modified:**
+- Views/CreatorView.xaml
+- ViewModels/CreatorViewModel.cs
+- Models/SchemeModel.cs
+- Resources/Theme.xaml
+- App.xaml.cs
+
+**Summary:** All 9 critical UI issues from Phase-01-Issue-Fix.md resolved.
+
+---
+
 ## Phase 2: System Awareness
 
 **Goal:** Implement system event monitoring and video triggering
