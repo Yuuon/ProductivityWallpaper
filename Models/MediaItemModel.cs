@@ -140,7 +140,7 @@ namespace ProductivityWallpaper.Models
         partial void OnDisplayModeChanged(DisplayMode value)
         {
             // Tile mode is only valid for images
-            if (value == DisplayMode.Tile && Type != MediaType.Image)
+            if (value == DisplayMode.Tile && Type != MediaFileType.Image)
             {
                 // Revert to Fill mode for non-image types
                 DisplayMode = DisplayMode.Fill;
@@ -155,7 +155,7 @@ namespace ProductivityWallpaper.Models
         partial void OnTypeChanged(MediaFileType value)
         {
             // If changing to video/audio and current display mode is Tile, change to Fill
-            if (value != MediaType.Image && DisplayMode == DisplayMode.Tile)
+            if (value != MediaFileType.Image && DisplayMode == DisplayMode.Tile)
             {
                 DisplayMode = DisplayMode.Fill;
             }
