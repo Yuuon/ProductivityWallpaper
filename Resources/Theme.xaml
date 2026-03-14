@@ -278,7 +278,7 @@
                                 <Thumb>
                                     <Thumb.Template>
                                         <ControlTemplate TargetType="Thumb">
-                                            <Border Background="{StaticResource BorderLineBrush}"
+                                            <Border Background="{StaticResource TextSecondaryBrush}"
                                                     CornerRadius="4"
                                                     Width="4"
                                                     HorizontalAlignment="Center"/>
