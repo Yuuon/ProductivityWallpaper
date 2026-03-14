@@ -704,8 +704,8 @@
                 <!-- Feature Content -->
                 <Grid Grid.Row="1">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="{Binding IsThemePreviewSelected, Converter={StaticResource BooleanToStarConverter}, ConverterParameter='6'}"/>
-                        <ColumnDefinition Width="{Binding IsThemePreviewSelected, Converter={StaticResource BooleanToStarConverter}, ConverterParameter='4'}"/>
+                        <ColumnDefinition Width="{Binding IsThemePreviewSelected, Converter={StaticResource BooleanToStarConverter}, ConverterParameter='7'}"/>
+                        <ColumnDefinition Width="{Binding IsThemePreviewSelected, Converter={StaticResource BooleanToStarConverter}, ConverterParameter='3'}"/>
                     </Grid.ColumnDefinitions>
                     
                     <!-- Left: Preview (Only visible for Theme Preview) -->
