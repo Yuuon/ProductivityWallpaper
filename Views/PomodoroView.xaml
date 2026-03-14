@@ -1,0 +1,433 @@
+<UserControl x:Class="ProductivityWallpaper.Views.PomodoroView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:vm="clr-namespace:ProductivityWallpaper.ViewModels"
+             xmlns:models="clr-namespace:ProductivityWallpaper.Models"
+             xmlns:converters="clr-namespace:ProductivityWallpaper.Converters"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:PomodoroViewModel}">
+
+    <UserControl.Resources>
+        <!-- Boolean to Visibility Converter -->
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+
+        <!-- Inverse Boolean to Visibility Converter -->
+        <converters:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter"/>
+
+        <!-- Clock Format to Boolean Converter -->
+        <converters:ClockFormatToBoolConverter x:Key="ClockFormatToBoolConverter"/>
+
+        <!-- Style Card Border Style -->
+        <Style x:Key="PomodoroStyleCardBorderStyle" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource BackgroundBlockBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderLineBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="16"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Margin" Value="8"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="BorderBrush" Value="{StaticResource Accent2Brush}"/>
+                    <Setter Property="Background" Value="{StaticResource BackgroundBlockSolidBrush}"/>
+                </Trigger>
+                <DataTrigger Binding="{Binding IsActive}" Value="True">
+                    <Setter Property="BorderBrush" Value="{StaticResource Accent2Brush}"/>
+                    <Setter Property="BorderThickness" Value="2"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Format Toggle Button Style -->
+        <Style x:Key="PomodoroFormatToggleButtonStyle" TargetType="ToggleButton">
+            <Setter Property="Background" Value="{StaticResource BackgroundBlockBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderLineBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsChecked" Value="True">
+                    <Setter Property="Background" Value="{StaticResource Accent2Brush}"/>
+                    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                    <Setter Property="BorderBrush" Value="{StaticResource Accent2Brush}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Settings Panel Style -->
+        <Style x:Key="SettingsPanelStyle" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource BackgroundBlockBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderLineBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="24"/>
+        </Style>
+
+        <!-- DND Toggle Switch Style -->
+        <Style x:Key="DndToggleSwitchStyle" TargetType="ToggleButton">
+            <Setter Property="Width" Value="54"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="Background" Value="{StaticResource BorderLineBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Grid>
+                            <Border x:Name="BackgroundBorder"
+                                    Background="{TemplateBinding Background}"
+                                    CornerRadius="14"
+                                    Width="54" Height="28"/>
+                            <Ellipse x:Name="Thumb"
+                                     Fill="White"
+                                     Width="24" Height="24"
+                                     HorizontalAlignment="Left"
+                                     VerticalAlignment="Center"
+                                     Margin="2,0,0,0">
+                                <Ellipse.RenderTransform>
+                                    <TranslateTransform x:Name="ThumbTransform" X="0"/>
+                                </Ellipse.RenderTransform>
+                            </Ellipse>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="BackgroundBorder" Property="Background" Value="{StaticResource Accent2Brush}"/>
+                                <Setter TargetName="ThumbTransform" Property="X" Value="26"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Number Input TextBox Style -->
+        <Style x:Key="NumberInputStyle" TargetType="TextBox">
+            <Setter Property="Background" Value="{StaticResource BackgroundBlockBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderLineBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Width" Value="80"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8"
+                                Padding="{TemplateBinding Padding}">
+                            <ScrollViewer x:Name="PART_ContentHost"
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Pomodoro Style Item DataTemplate -->
+        <DataTemplate x:Key="PomodoroStyleItemTemplate" DataType="{x:Type models:PomodoroStyleModel}">
+            <Border Style="{StaticResource PomodoroStyleCardBorderStyle}"
+                    MouseLeftButtonDown="OnStyleCardClick">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="120"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Checkmark (visible when active) -->
+                    <Grid Grid.Row="0"
+                          HorizontalAlignment="Right"
+                          VerticalAlignment="Top"
+                          Margin="0,-8,-8,0">
+                        <Ellipse Width="24" Height="24"
+                                  Fill="{StaticResource Accent2Brush}"
+                                  Visibility="{Binding IsActive, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                        <Path Data="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"
+                              Fill="White"
+                              Width="16" Height="16"
+                              Stretch="Uniform"
+                              Visibility="{Binding IsActive, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                    </Grid>
+
+                    <!-- Preview Image -->
+                    <Border Grid.Row="1"
+                            Background="{StaticResource BackgroundMainBrush}"
+                            CornerRadius="8"
+                            Margin="0,8"
+                            ClipToBounds="True">
+                        <Image Source="{Binding PreviewImagePath}"
+                               Stretch="Uniform"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center">
+                            <Image.Style>
+                                <Style TargetType="Image">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding PreviewImagePath}" Value="">
+                                            <Setter Property="Source" Value="/Resources/Images/pomodoro_placeholder.png"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Image.Style>
+                        </Image>
+                    </Border>
+
+                    <!-- Style Name -->
+                    <TextBlock Grid.Row="2"
+                              Text="{Binding Name}"
+                              Foreground="{StaticResource TextPrimaryBrush}"
+                              FontSize="14"
+                              FontWeight="SemiBold"
+                              HorizontalAlignment="Center"
+                              Margin="0,4"/>
+
+                    <!-- Format Toggle Buttons (12h/24h) -->
+                    <StackPanel Grid.Row="3"
+                                Orientation="Horizontal"
+                                HorizontalAlignment="Center"
+                                Margin="0,8">
+                        <ToggleButton Content="12h"
+                                     IsChecked="{Binding Format, Converter={StaticResource ClockFormatToBoolConverter}, ConverterParameter=Hour12}"
+                                     Style="{StaticResource PomodoroFormatToggleButtonStyle}"
+                                     Margin="0,0,4,0"
+                                     Click="OnFormatToggleClick"
+                                     Tag="{Binding}"/>
+                        <ToggleButton Content="24h"
+                                     IsChecked="{Binding Format, Converter={StaticResource ClockFormatToBoolConverter}, ConverterParameter=Hour24}"
+                                     Style="{StaticResource PomodoroFormatToggleButtonStyle}"
+                                     Margin="4,0,0,0"
+                                     Click="OnFormatToggleClick"
+                                     Tag="{Binding}"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Grid Background="{StaticResource BackgroundMainBrush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>      <!-- Title Bar -->
+            <RowDefinition Height="*"/>          <!-- Content (ScrollViewer) -->
+        </Grid.RowDefinitions>
+
+        <!-- Section 1: Editable Title Bar -->
+        <Grid Grid.Row="0" Margin="24,16,24,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Scheme Name (Display Mode) -->
+            <StackPanel Grid.Column="0"
+                        Orientation="Horizontal"
+                        VerticalAlignment="Center"
+                        Visibility="{Binding IsEditingName, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+                <TextBlock Text="{Binding SchemeName}"
+                          Style="{StaticResource SubHeaderTextStyle}"
+                          VerticalAlignment="Center"/>
+
+                <!-- Edit Button -->
+                <Button Command="{Binding ToggleEditNameCommand}"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Padding="8"
+                        Margin="8,0,0,0"
+                        Width="32"
+                        Height="32"
+                        VerticalAlignment="Center">
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border Background="{TemplateBinding Background}"
+                                                Width="{TemplateBinding Width}"
+                                                Height="{TemplateBinding Height}">
+                                            <ContentPresenter HorizontalAlignment="Center"
+                                                              VerticalAlignment="Center"/>
+                                        </Border>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                            <Style.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/                  >
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+
+                    <!-- Pencil Icon -->
+                    <Path Data="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+                          Fill="{StaticResource IconBrush}"
+                          Width="16"
+                          Height="16"
+                          Stretch="Uniform"/>
+                </Button>
+            </StackPanel>
+
+            <!-- Scheme Name (Edit Mode) -->
+            <TextBox Grid.Column="0"
+                    Text="{Binding SchemeName, UpdateSourceTrigger=PropertyChanged}"
+                    Style="{StaticResource SubHeaderTextStyle}"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    CaretBrush="{StaticResource TextPrimaryBrush}"
+                    MinWidth="200"
+                    MaxWidth="400"
+                    Height="32"
+                    VerticalAlignment="Center"
+                    VerticalContentAlignment="Center"
+                    Visibility="{Binding IsEditingName, Converter={StaticResource BooleanToVisibilityConverter}}"
+                    LostFocus="SchemeNameTextBox_LostFocus"
+                    KeyDown="SchemeNameTextBox_KeyDown">
+                <TextBox.Resources>
+                    <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                        <Setter Property="FontSize" Value="18"/>
+                        <Setter Property="FontWeight" Value="SemiBold"/>
+                    </Style>
+                </TextBox.Resources>
+            </TextBox>
+
+            <!-- Activate Button -->
+            <Button Grid.Column="1"
+                    Content="Activate This Scheme"
+                    Style="{StaticResource PrimaryButtonStyle}"
+                    Command="{Binding ActivateSchemeCommand}"
+                    IsEnabled="{Binding IsActive, Converter={StaticResource InverseBooleanToVisibilityConverter}}"
+                    Padding="16,8"
+                    Height="36"/>
+        </Grid>
+
+        <!-- Section 2: Content -->
+        <Border Grid.Row="1"
+               Margin="24,8,24,24">
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                        HorizontalScrollBarVisibility="Disabled">
+                <StackPanel>
+                    <!-- Timer Styles Grid -->
+                    <ItemsControl ItemsSource="{Binding PomodoroStyles}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <UniformGrid Columns="3" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type models:PomodoroStyleModel}">
+                                <ContentControl Content="{Binding}"
+                                              ContentTemplate="{StaticResource PomodoroStyleItemTemplate}"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- Settings Panel (visible when style is active) -->
+                    <Border Style="{StaticResource SettingsPanelStyle}"
+                           Visibility="{Binding ActiveStyle, Converter={StaticResource BooleanToVisibilityConverter}}"
+                           Margin="8,16,8,0">
+                        <StackPanel>
+                            <!-- Settings Header -->
+                            <TextBlock Text="Timer Settings"
+                                      Style="{StaticResource SubHeaderTextStyle}"
+                                      Margin="0,0,0,16"/>
+
+                            <!-- DND Toggle -->
+                            <Grid Margin="0,0,0,16">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="Enable Do Not Disturb"
+                                              Foreground="{StaticResource TextPrimaryBrush}"
+                                              FontSize="14"
+                                              FontWeight="SemiBold"/>
+                                    <TextBlock Text="Blocks notifications during focus time"
+                                              Foreground="{StaticResource TextSecondaryBrush}"
+                                              FontSize="12"
+                                              Margin="0,4,0,0"/>
+                                </StackPanel>
+
+                                <ToggleButton Grid.Column="1"
+                                             IsChecked="{Binding ActiveStyle.IsDndEnabled, Mode=TwoWay}"
+                                             Style="{StaticResource DndToggleSwitchStyle}"
+                                             ToolTip="Toggle Do Not Disturb mode"/>
+                            </Grid>
+
+                            <!-- Duration Settings -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Work Duration -->
+                                <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                    <TextBlock Text="Work Duration"
+                                              Foreground="{StaticResource TextPrimaryBrush}"
+                                              FontSize="14"
+                                              FontWeight="SemiBold"
+                                              Margin="0,0,0,8"/>
+                                    
+                                    <StackPanel Orientation="Horizontal"
+                                                VerticalAlignment="Center">
+                                        <TextBox Text="{Binding ActiveStyle.WorkDuration, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                 Style="{StaticResource NumberInputStyle}"
+                                                 ToolTip="Work session duration in minutes"/>
+                                        
+                                        <TextBlock Text="minutes"
+                                                  Foreground="{StaticResource TextSecondaryBrush}"
+                                                  FontSize="13"
+                                                  VerticalAlignment="Center"
+                                                  Margin="12,0,0,0"/>
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <!-- Break Duration -->
+                                <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                    <TextBlock Text="Break Duration"
+                                              Foreground="{StaticResource TextPrimaryBrush}"
+                                              FontSize="14"
+                                              FontWeight="SemiBold"
+                                              Margin="0,0,0,8"/>
+                                    
+                                    <StackPanel Orientation="Horizontal"
+                                                VerticalAlignment="Center">
+                                        <TextBox Text="{Binding ActiveStyle.BreakDuration, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                 Style="{StaticResource NumberInputStyle}"
+                                                 ToolTip="Break duration in minutes"/>
+                                        
+                                        <TextBlock Text="minutes"
+                                                  Foreground="{StaticResource TextSecondaryBrush}"
+                                                  FontSize="13"
+                                                  VerticalAlignment="Center"
+                                                  Margin="12,0,0,0"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+    </Grid>
+</UserControl>

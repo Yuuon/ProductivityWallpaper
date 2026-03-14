@@ -27,7 +27,8 @@
             <converters:MediaTypeIsImageConverter x:Key="MediaTypeIsImageConverter"/>
             <converters:MediaTypeIsAudioConverter x:Key="MediaTypeIsAudioConverter"/>
             <converters:BooleanToActiveTextConverter x:Key="BooleanToActiveTextConverter"/>
-            
+            <converters:ClockFormatToBoolConverter x:Key="ClockFormatToBoolConverter"/>
+
             <!-- View-ViewModel Mappings -->
             <DataTemplate DataType="{x:Type vm:WallpaperViewModel}">
                 <views:WallpaperView/>
@@ -59,6 +60,18 @@
             
             <DataTemplate DataType="{x:Type vm:MouseClickViewModel}">
                 <views:MouseClickView/>
+            </DataTemplate>
+            
+            <DataTemplate DataType="{x:Type vm:DesktopClockViewModel}">
+                <views:DesktopClockView/>
+            </DataTemplate>
+            
+            <DataTemplate DataType="{x:Type vm:PomodoroViewModel}">
+                <views:PomodoroView/>
+            </DataTemplate>
+            
+            <DataTemplate DataType="{x:Type vm:AnniversaryViewModel}">
+                <views:AnniversaryView/>
             </DataTemplate>
         </ResourceDictionary>
     </Application.Resources>

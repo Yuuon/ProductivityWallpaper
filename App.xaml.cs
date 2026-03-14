@@ -39,13 +39,21 @@ namespace ProductivityWallpaper
             services.AddSingleton<MyThemeViewModel>();
             services.AddTransient<DesktopBackgroundViewModel>();
             services.AddTransient<MouseClickViewModel>();
+            services.AddTransient<DesktopClockViewModel>();
+            services.AddTransient<PomodoroViewModel>();
+
+            // Views
+            services.AddTransient<DesktopClockView>();
+            services.AddTransient<PomodoroView>();
 
             // CreatorViewModel with factory injection
             services.AddSingleton<CreatorViewModel>(serviceProvider =>
             {
                 return new CreatorViewModel(
                     () => serviceProvider.GetRequiredService<DesktopBackgroundViewModel>(),
-                    () => serviceProvider.GetRequiredService<MouseClickViewModel>());
+                    () => serviceProvider.GetRequiredService<MouseClickViewModel>(),
+                    () => serviceProvider.GetRequiredService<DesktopClockViewModel>(),
+                    () => serviceProvider.GetRequiredService<PomodoroViewModel>());
             });
 
             // Views

@@ -16,6 +16,9 @@ namespace ProductivityWallpaper.ViewModels
         // --- DI Services ---
         private readonly Func<DesktopBackgroundViewModel> _desktopBackgroundVmFactory;
         private readonly Func<MouseClickViewModel> _mouseClickVmFactory;
+        private readonly Func<DesktopClockViewModel> _desktopClockVmFactory;
+        private readonly Func<PomodoroViewModel> _pomodoroVmFactory;
+        private readonly Func<AnniversaryViewModel> _anniversaryVmFactory;
         // --- Feature Types Supporting Multi-Scheme ---
         private static readonly FeatureType[] MultiSchemeFeatures = new[]
         {
@@ -159,7 +162,7 @@ namespace ProductivityWallpaper.ViewModels
         /// <summary>
         /// Initializes a new instance of the <see cref="CreatorViewModel"/> class.
         /// </summary>
-        public CreatorViewModel() : this(null, null)
+        public CreatorViewModel() : this(null, null, null, null, null)
         {
         }
 
@@ -168,12 +171,21 @@ namespace ProductivityWallpaper.ViewModels
         /// </summary>
         /// <param name="desktopBackgroundVmFactory">Factory for creating DesktopBackgroundViewModel instances.</param>
         /// <param name="mouseClickVmFactory">Factory for creating MouseClickViewModel instances.</param>
+        /// <param name="desktopClockVmFactory">Factory for creating DesktopClockViewModel instances.</param>
+        /// <param name="pomodoroVmFactory">Factory for creating PomodoroViewModel instances.</param>
+        /// <param name="anniversaryVmFactory">Factory for creating AnniversaryViewModel instances.</param>
         public CreatorViewModel(
             Func<DesktopBackgroundViewModel> desktopBackgroundVmFactory,
-            Func<MouseClickViewModel> mouseClickVmFactory)
+            Func<MouseClickViewModel> mouseClickVmFactory,
+            Func<DesktopClockViewModel> desktopClockVmFactory,
+            Func<PomodoroViewModel> pomodoroVmFactory,
+            Func<AnniversaryViewModel> anniversaryVmFactory)
         {
             _desktopBackgroundVmFactory = desktopBackgroundVmFactory ?? (() => new DesktopBackgroundViewModel());
             _mouseClickVmFactory = mouseClickVmFactory ?? (() => new MouseClickViewModel());
+            _desktopClockVmFactory = desktopClockVmFactory ?? (() => new DesktopClockViewModel());
+            _pomodoroVmFactory = pomodoroVmFactory ?? (() => new PomodoroViewModel());
+            _anniversaryVmFactory = anniversaryVmFactory ?? (() => new AnniversaryViewModel());
 
             // Initialize scheme collections for all multi-scheme features
             _schemesByFeature = new Dictionary<FeatureType, ObservableCollection<SchemeModel>>();
@@ -472,6 +484,27 @@ namespace ProductivityWallpaper.ViewModels
                         desktopBgVm.SchemeName = SelectedDesktopBackgroundScheme.Name;
                     }
                     ConfigurationContent = desktopBgVm;
+                    HasPreviewContent = false;
+                    break;
+
+                case "DesktopClock":
+                    // Create and configure DesktopClockViewModel
+                    var clockVm = _desktopClockVmFactory();
+                    ConfigurationContent = clockVm;
+                    HasPreviewContent = false;
+                    break;
+
+                case "Pomodoro":
+                    // Create and configure PomodoroViewModel
+                    var pomodoroVm = _pomodoroVmFactory();
+                    ConfigurationContent = pomodoroVm;
+                    HasPreviewContent = false;
+                    break;
+
+                case "Anniversary":
+                    // Create and configure AnniversaryViewModel
+                    var anniversaryVm = _anniversaryVmFactory();
+                    ConfigurationContent = anniversaryVm;
                     HasPreviewContent = false;
                     break;
 
