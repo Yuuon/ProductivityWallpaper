@@ -46,10 +46,18 @@ namespace ProductivityWallpaper.ViewModels
         {
             if (value)
             {
+                // Single-expand: collapse others
                 IsMouseClickExpanded = false;
                 IsShutdownExpanded = false;
                 IsBootRestartExpanded = false;
                 IsScreenWakeExpanded = false;
+                
+                // Auto-create scheme if none exist
+                EnsureDefaultScheme(FeatureType.DesktopBackground);
+                
+                // Select the feature and show content
+                SelectedFeature = "DesktopBackground";
+                LoadFeatureContent("DesktopBackground");
             }
         }
 
@@ -60,10 +68,18 @@ namespace ProductivityWallpaper.ViewModels
         {
             if (value)
             {
+                // Single-expand: collapse others
                 IsDesktopBackgroundExpanded = false;
                 IsShutdownExpanded = false;
                 IsBootRestartExpanded = false;
                 IsScreenWakeExpanded = false;
+                
+                // Auto-create scheme if none exist
+                EnsureDefaultScheme(FeatureType.MouseClick);
+                
+                // Select the feature and show content
+                SelectedFeature = "MouseClick";
+                LoadFeatureContent("MouseClick");
             }
         }
 
@@ -74,10 +90,18 @@ namespace ProductivityWallpaper.ViewModels
         {
             if (value)
             {
+                // Single-expand: collapse others
                 IsDesktopBackgroundExpanded = false;
                 IsMouseClickExpanded = false;
                 IsBootRestartExpanded = false;
                 IsScreenWakeExpanded = false;
+                
+                // Auto-create scheme if none exist
+                EnsureDefaultScheme(FeatureType.Shutdown);
+                
+                // Select the feature and show content
+                SelectedFeature = "Shutdown";
+                LoadFeatureContent("Shutdown");
             }
         }
 
@@ -88,10 +112,18 @@ namespace ProductivityWallpaper.ViewModels
         {
             if (value)
             {
+                // Single-expand: collapse others
                 IsDesktopBackgroundExpanded = false;
                 IsMouseClickExpanded = false;
                 IsShutdownExpanded = false;
                 IsScreenWakeExpanded = false;
+                
+                // Auto-create scheme if none exist
+                EnsureDefaultScheme(FeatureType.BootRestart);
+                
+                // Select the feature and show content
+                SelectedFeature = "BootRestart";
+                LoadFeatureContent("BootRestart");
             }
         }
 
@@ -102,27 +134,40 @@ namespace ProductivityWallpaper.ViewModels
         {
             if (value)
             {
+                // Single-expand: collapse others
                 IsDesktopBackgroundExpanded = false;
                 IsMouseClickExpanded = false;
                 IsShutdownExpanded = false;
                 IsBootRestartExpanded = false;
+                
+                // Auto-create scheme if none exist
+                EnsureDefaultScheme(FeatureType.ScreenWake);
+                
+                // Select the feature and show content
+                SelectedFeature = "ScreenWake";
+                LoadFeatureContent("ScreenWake");
             }
         }
 
         // --- Selected Schemes for Each Feature ---
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(IsDesktopBackgroundHeaderHighlighted))]
         private SchemeModel? _selectedDesktopBackgroundScheme;
 
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(IsMouseClickHeaderHighlighted))]
         private SchemeModel? _selectedMouseClickScheme;
 
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(IsShutdownHeaderHighlighted))]
         private SchemeModel? _selectedShutdownScheme;
 
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(IsBootRestartHeaderHighlighted))]
         private SchemeModel? _selectedBootRestartScheme;
 
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(IsScreenWakeHeaderHighlighted))]
         private SchemeModel? _selectedScreenWakeScheme;
 
         // --- Page States ---
@@ -207,6 +252,47 @@ namespace ProductivityWallpaper.ViewModels
         /// Gets whether Anniversary is selected.
         /// </summary>
         public bool IsAnniversarySelected => SelectedFeature == "Anniversary";
+
+        // --- Header Highlight Properties (for expandable features) ---
+        /// <summary>
+        /// Gets whether Desktop Background header should be highlighted.
+        /// True when directly selected or when any of its schemes is selected.
+        /// </summary>
+        public bool IsDesktopBackgroundHeaderHighlighted => 
+            SelectedFeature == "DesktopBackground" || 
+            (SelectedDesktopBackgroundScheme?.IsSelected == true);
+
+        /// <summary>
+        /// Gets whether Mouse Click header should be highlighted.
+        /// True when directly selected or when any of its schemes is selected.
+        /// </summary>
+        public bool IsMouseClickHeaderHighlighted => 
+            SelectedFeature == "MouseClick" || 
+            (SelectedMouseClickScheme?.IsSelected == true);
+
+        /// <summary>
+        /// Gets whether Shutdown header should be highlighted.
+        /// True when directly selected or when any of its schemes is selected.
+        /// </summary>
+        public bool IsShutdownHeaderHighlighted => 
+            SelectedFeature == "Shutdown" || 
+            (SelectedShutdownScheme?.IsSelected == true);
+
+        /// <summary>
+        /// Gets whether Boot/Restart header should be highlighted.
+        /// True when directly selected or when any of its schemes is selected.
+        /// </summary>
+        public bool IsBootRestartHeaderHighlighted => 
+            SelectedFeature == "BootRestart" || 
+            (SelectedBootRestartScheme?.IsSelected == true);
+
+        /// <summary>
+        /// Gets whether Screen Wake header should be highlighted.
+        /// True when directly selected or when any of its schemes is selected.
+        /// </summary>
+        public bool IsScreenWakeHeaderHighlighted => 
+            SelectedFeature == "ScreenWake" || 
+            (SelectedScreenWakeScheme?.IsSelected == true);
 
         // --- Content Properties ---
         [ObservableProperty]
@@ -491,23 +577,31 @@ namespace ProductivityWallpaper.ViewModels
             scheme.IsActive = true;
             scheme.IsSelected = true;
 
-            // Update the selected scheme property
+            // Set the parent feature as selected (for header highlighting)
+            SelectedFeature = featureType.ToString();
+
+            // Update the selected scheme property and load content
             switch (featureType)
             {
                 case FeatureType.DesktopBackground:
                     SelectedDesktopBackgroundScheme = scheme;
+                    LoadFeatureContent("DesktopBackground");
                     break;
                 case FeatureType.MouseClick:
                     SelectedMouseClickScheme = scheme;
+                    LoadFeatureContent("MouseClick");
                     break;
                 case FeatureType.Shutdown:
                     SelectedShutdownScheme = scheme;
+                    LoadFeatureContent("Shutdown");
                     break;
                 case FeatureType.BootRestart:
                     SelectedBootRestartScheme = scheme;
+                    LoadFeatureContent("BootRestart");
                     break;
                 case FeatureType.ScreenWake:
                     SelectedScreenWakeScheme = scheme;
+                    LoadFeatureContent("ScreenWake");
                     break;
             }
         }
