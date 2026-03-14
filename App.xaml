@@ -28,6 +28,8 @@
             <converters:MediaTypeIsAudioConverter x:Key="MediaTypeIsAudioConverter"/>
             <converters:BooleanToActiveTextConverter x:Key="BooleanToActiveTextConverter"/>
             <converters:ClockFormatToBoolConverter x:Key="ClockFormatToBoolConverter"/>
+            <converters:BooleanToStarConverter x:Key="BooleanToStarConverter"/>
+            <converters:BooleanToLeftMarginConverter x:Key="BooleanToLeftMarginConverter"/>
 
             <!-- View-ViewModel Mappings -->
             <DataTemplate DataType="{x:Type vm:WallpaperViewModel}">

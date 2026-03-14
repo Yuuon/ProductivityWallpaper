@@ -701,17 +701,18 @@
                 <!-- Feature Content -->
                 <Grid Grid.Row="1">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="{Binding IsThemePreviewSelected, Converter={StaticResource BooleanToStarConverter}, ConverterParameter='6'}"/>
+                        <ColumnDefinition Width="{Binding IsThemePreviewSelected, Converter={StaticResource BooleanToStarConverter}, ConverterParameter='4'}"/>
                     </Grid.ColumnDefinitions>
                     
-                    <!-- Left: Preview -->
+                    <!-- Left: Preview (Only visible for Theme Preview) -->
                     <Border Grid.Column="0"
                             Background="{StaticResource BackgroundBlockBrush}"
                             BorderBrush="{StaticResource BorderLineBrush}"
                             BorderThickness="1"
                             CornerRadius="10"
-                            Margin="0,0,16,0">
+                            Margin="0,0,16,0"
+                            Visibility="{Binding IsThemePreviewSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <Grid>
                             <!-- Empty State -->
                             <StackPanel VerticalAlignment="Center" 
@@ -733,6 +734,18 @@
                             <ContentControl Content="{Binding PreviewContent}"
                                             Visibility="{Binding HasPreviewContent, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                         </Grid>
+                    </Border>
+                    
+                    <!-- Right: Configuration -->
+                    <Border Grid.Column="1"
+                            Background="{StaticResource BackgroundBlockBrush}"
+                            BorderBrush="{StaticResource BorderLineBrush}"
+                            BorderThickness="1"
+                            CornerRadius="10"
+                            Margin="{Binding IsThemePreviewSelected, Converter={StaticResource BooleanToLeftMarginConverter}, ConverterParameter='16,0,0,0'}">
+                        <ContentControl Content="{Binding ConfigurationContent}"/\u003e
+                    </Border>
+                </Grid>
                     </Border>
                     
                     <!-- Right: Configuration -->

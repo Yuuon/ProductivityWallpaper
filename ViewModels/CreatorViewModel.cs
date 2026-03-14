@@ -533,8 +533,19 @@ namespace ProductivityWallpaper.ViewModels
         /// <param name="featureName">The name of the feature.</param>
         private void LoadFeatureContent(string featureName)
         {
+            // Reset content first
+            PreviewContent = null;
+            ConfigurationContent = null;
+            HasPreviewContent = false;
+
             switch (featureName)
             {
+                case "ThemePreview":
+                    // Theme Preview shows the split layout with preview area
+                    HasPreviewContent = false; // No actual preview content yet
+                    ConfigurationContent = null;
+                    break;
+
                 case "DesktopBackground":
                     // Create and configure DesktopBackgroundViewModel
                     var desktopBgVm = _desktopBackgroundVmFactory();
@@ -543,6 +554,17 @@ namespace ProductivityWallpaper.ViewModels
                         desktopBgVm.SchemeName = SelectedDesktopBackgroundScheme.Name;
                     }
                     ConfigurationContent = desktopBgVm;
+                    HasPreviewContent = false;
+                    break;
+
+                case "MouseClick":
+                    // Create and configure MouseClickViewModel
+                    var mouseClickVm = _mouseClickVmFactory();
+                    if (SelectedMouseClickScheme != null)
+                    {
+                        mouseClickVm.SchemeName = SelectedMouseClickScheme.Name;
+                    }
+                    ConfigurationContent = mouseClickVm;
                     HasPreviewContent = false;
                     break;
 
@@ -600,8 +622,9 @@ namespace ProductivityWallpaper.ViewModels
                     HasPreviewContent = false;
                     break;
 
-                case "ThemePreview":
-                    ConfigurationContent = null;
+                case "OpenApp":
+                    // Open App feature - full width configuration
+                    ConfigurationContent = null; // TODO: Create OpenAppViewModel
                     HasPreviewContent = false;
                     break;
 
