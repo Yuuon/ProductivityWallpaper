@@ -150,4 +150,17 @@ Go create your exclusive theme~</system:String>
     <system:String x:Key="Creator_Feature_Anniversary">Anniversary</system:String>
     <system:String x:Key="Creator_Feature_Anniversary_zh">纪念日</system:String>
     
+    <!-- Multi-Scheme Management -->
+    <system:String x:Key="Creator_NewScheme">New Scheme</system:String>
+    <system:String x:Key="Creator_NewScheme_zh">新建方案</system:String>
+    
+    <system:String x:Key="Creator_ActiveScheme">Active</system:String>
+    <system:String x:Key="Creator_ActiveScheme_zh">当前激活</system:String>
+    
+    <system:String x:Key="Creator_DefaultSchemeName">{0} {1}</system:String>
+    <system:String x:Key="Creator_DefaultSchemeName_zh">{0} {1}</system:String>
+    
+    <system:String x:Key="Creator_NoSchemes">No schemes yet</system:String>
+    <system:String x:Key="Creator_NoSchemes_zh">暂无方案</system:String>
+    
 </ResourceDictionary>
