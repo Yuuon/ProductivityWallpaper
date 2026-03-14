@@ -6,6 +6,7 @@
              xmlns:vm="clr-namespace:ProductivityWallpaper.ViewModels"
              xmlns:models="clr-namespace:ProductivityWallpaper.Models"
              xmlns:controls="clr-namespace:ProductivityWallpaper.Views.Controls"
+             xmlns:converters="clr-namespace:ProductivityWallpaper.Converters"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:AnniversaryViewModel}">
     
