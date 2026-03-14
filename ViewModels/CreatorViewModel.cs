@@ -42,17 +42,72 @@ namespace ProductivityWallpaper.ViewModels
         [ObservableProperty]
         private bool _isDesktopBackgroundExpanded;
 
+        partial void OnIsDesktopBackgroundExpandedChanged(bool value)
+        {
+            if (value)
+            {
+                IsMouseClickExpanded = false;
+                IsShutdownExpanded = false;
+                IsBootRestartExpanded = false;
+                IsScreenWakeExpanded = false;
+            }
+        }
+
         [ObservableProperty]
         private bool _isMouseClickExpanded;
+
+        partial void OnIsMouseClickExpandedChanged(bool value)
+        {
+            if (value)
+            {
+                IsDesktopBackgroundExpanded = false;
+                IsShutdownExpanded = false;
+                IsBootRestartExpanded = false;
+                IsScreenWakeExpanded = false;
+            }
+        }
 
         [ObservableProperty]
         private bool _isShutdownExpanded;
 
+        partial void OnIsShutdownExpandedChanged(bool value)
+        {
+            if (value)
+            {
+                IsDesktopBackgroundExpanded = false;
+                IsMouseClickExpanded = false;
+                IsBootRestartExpanded = false;
+                IsScreenWakeExpanded = false;
+            }
+        }
+
         [ObservableProperty]
         private bool _isBootRestartExpanded;
 
+        partial void OnIsBootRestartExpandedChanged(bool value)
+        {
+            if (value)
+            {
+                IsDesktopBackgroundExpanded = false;
+                IsMouseClickExpanded = false;
+                IsShutdownExpanded = false;
+                IsScreenWakeExpanded = false;
+            }
+        }
+
         [ObservableProperty]
         private bool _isScreenWakeExpanded;
+
+        partial void OnIsScreenWakeExpandedChanged(bool value)
+        {
+            if (value)
+            {
+                IsDesktopBackgroundExpanded = false;
+                IsMouseClickExpanded = false;
+                IsShutdownExpanded = false;
+                IsBootRestartExpanded = false;
+            }
+        }
 
         // --- Selected Schemes for Each Feature ---
         [ObservableProperty]
