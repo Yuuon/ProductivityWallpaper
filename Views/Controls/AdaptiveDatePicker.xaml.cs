@@ -121,7 +121,7 @@ namespace ProductivityWallpaper.Views.Controls
         /// <summary>
         /// Updates a day combo box with the specified number of days.
         /// </summary>
-        private static void UpdateDayComboBox(ComboBox comboBox, int daysInMonth)
+        private static void UpdateDayComboBox(System.Windows.Controls.ComboBox comboBox, int daysInMonth)
         {
             comboBox.Items.Clear();
             for (int i = 1; i <= daysInMonth; i++)

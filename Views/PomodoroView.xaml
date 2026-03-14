@@ -98,16 +98,12 @@
                                      Width="24" Height="24"
                                      HorizontalAlignment="Left"
                                      VerticalAlignment="Center"
-                                     Margin="2,0,0,0">
-                                <Ellipse.RenderTransform>
-                                    <TranslateTransform x:Name="ThumbTransform" X="0"/>
-                                </Ellipse.RenderTransform>
-                            </Ellipse>
+                                     Margin="2,0,0,0"/>
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsChecked" Value="True">
                                 <Setter TargetName="BackgroundBorder" Property="Background" Value="{StaticResource Accent2Brush}"/>
-                                <Setter TargetName="ThumbTransform" Property="X" Value="26"/>
+                                <Setter TargetName="Thumb" Property="Margin" Value="28,0,0,0"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -177,12 +173,14 @@
                         <Image Source="{Binding PreviewImagePath}"
                                Stretch="Uniform"
                                HorizontalAlignment="Center"
-                               VerticalAlignment="Center">
+                               VerticalAlignment="Center"
+                               Margin="8">
                             <Image.Style>
                                 <Style TargetType="Image">
+                                    <Setter Property="Visibility" Value="Visible"/>
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding PreviewImagePath}" Value="">
-                                            <Setter Property="Source" Value="/Resources/Images/pomodoro_placeholder.png"/>
+                                            <Setter Property="Visibility" Value="Collapsed"/>
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
@@ -269,7 +267,7 @@
                             </Setter>
                             <Style.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/                  >
+                                    <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
                                 </Trigger>
                             </Style.Triggers>
                         </Style>
@@ -287,10 +285,12 @@
             <!-- Scheme Name (Edit Mode) -->
             <TextBox Grid.Column="0"
                     Text="{Binding SchemeName, UpdateSourceTrigger=PropertyChanged}"
-                    Style="{StaticResource SubHeaderTextStyle}"
                     Background="Transparent"
                     BorderThickness="0"
+                    Foreground="{StaticResource TextPrimaryBrush}"
                     CaretBrush="{StaticResource TextPrimaryBrush}"
+                    FontSize="18"
+                    FontWeight="SemiBold"
                     MinWidth="200"
                     MaxWidth="400"
                     Height="32"

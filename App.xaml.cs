@@ -47,9 +47,13 @@ namespace ProductivityWallpaper
             services.AddTransient<BootRestartViewModel>();
             services.AddTransient<ScreenWakeViewModel>();
 
+            // Anniversary ViewModel
+            services.AddTransient<AnniversaryViewModel>();
+
             // Views
             services.AddTransient<DesktopClockView>();
             services.AddTransient<PomodoroView>();
+            services.AddTransient<AnniversaryView>();
             services.AddTransient<ShutdownView>();
             services.AddTransient<BootRestartView>();
             services.AddTransient<ScreenWakeView>();

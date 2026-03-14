@@ -170,10 +170,12 @@
             <!-- Scheme Name (Edit Mode) -->
             <TextBox Grid.Column="0"
                      Text="{Binding SchemeName, UpdateSourceTrigger=PropertyChanged}"
-                     Style="{StaticResource SubHeaderTextStyle}"
                      Background="Transparent"
                      BorderThickness="0"
+                     Foreground="{StaticResource TextPrimaryBrush}"
                      CaretBrush="{StaticResource TextPrimaryBrush}"
+                     FontSize="18"
+                     FontWeight="SemiBold"
                      MinWidth="200"
                      MaxWidth="400"
                      Height="32"
@@ -250,7 +252,18 @@
                                                     <Image Source="{Binding PreviewImagePath}"
                                                           Stretch="UniformToFill"
                                                           Margin="4"
-                                                          Opacity="0.5"/>
+                                                          Opacity="0.5">
+                                                        <Image.Style>
+                                                            <Style TargetType="Image">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding PreviewImagePath}" Value="">
+                                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Image.Style>
+                                                    </Image>
                                                     
                                                     <!-- Style Name -->
                                                     <TextBlock Text="{Binding Name}"

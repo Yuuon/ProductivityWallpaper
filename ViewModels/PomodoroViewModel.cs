@@ -59,7 +59,7 @@ namespace ProductivityWallpaper.ViewModels
             {
                 Id = "pomodoro-classic",
                 Name = "Classic Timer",
-                PreviewImagePath = "Resources/Img/Pomodoro/classic.png",
+                PreviewImagePath = "",
                 Format = ClockFormat.Hour24,
                 Opacity = 1.0,
                 WorkDuration = 25,
@@ -71,7 +71,7 @@ namespace ProductivityWallpaper.ViewModels
             {
                 Id = "pomodoro-minimal",
                 Name = "Minimal Focus",
-                PreviewImagePath = "Resources/Img/Pomodoro/minimal.png",
+                PreviewImagePath = "",
                 Format = ClockFormat.Hour24,
                 Opacity = 0.9,
                 WorkDuration = 25,
@@ -83,7 +83,7 @@ namespace ProductivityWallpaper.ViewModels
             {
                 Id = "pomodoro-gradient",
                 Name = "Gradient Flow",
-                PreviewImagePath = "Resources/Img/Pomodoro/gradient.png",
+                PreviewImagePath = "",
                 Format = ClockFormat.Hour12,
                 Opacity = 1.0,
                 WorkDuration = 45,
@@ -95,7 +95,7 @@ namespace ProductivityWallpaper.ViewModels
             {
                 Id = "pomodoro-retro",
                 Name = "Retro Flip",
-                PreviewImagePath = "Resources/Img/Pomodoro/retro.png",
+                PreviewImagePath = "",
                 Format = ClockFormat.Hour12,
                 Opacity = 1.0,
                 WorkDuration = 30,

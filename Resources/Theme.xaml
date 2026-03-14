@@ -9,12 +9,15 @@
     <!-- Accent Colors -->
     <SolidColorBrush x:Key="Accent1Brush" Color="#6F7CFF"/>
     <SolidColorBrush x:Key="Accent2Brush" Color="#F98FAB"/>
+    <SolidColorBrush x:Key="AccentBrush" Color="#6F7CFF"/>
     <SolidColorBrush x:Key="IconBrush" Color="#A4A3B6"/>
     
     <!-- Background Colors -->
     <SolidColorBrush x:Key="BackgroundMainBrush" Color="#0B1828"/>
     <SolidColorBrush x:Key="BackgroundBlockBrush" Color="#605F77" Opacity="0.25"/>
     <SolidColorBrush x:Key="BackgroundBlockSolidBrush" Color="#605F77"/>
+    <SolidColorBrush x:Key="BackgroundHoverBrush" Color="#3E3C5C"/>
+    <SolidColorBrush x:Key="BackgroundSelectedBrush" Color="#4A4870"/>
     <SolidColorBrush x:Key="BorderLineBrush" Color="#2E2C4A"/>
     
     <!-- Text Colors -->

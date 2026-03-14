@@ -100,8 +100,8 @@
                     <Grid Grid.Row="0"
                           HorizontalAlignment="Right"
                           VerticalAlignment="Top"
-                          Margin="0,-8,-8,0"
-003e                        <Ellipse Width="24" Height="24"
+                          Margin="0,-8,-8,0">
+                        <Ellipse Width="24" Height="24"
                                   Fill="{StaticResource Accent1Brush}"
                                   Visibility="{Binding IsActive, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                         <Path Data="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"
@@ -120,12 +120,14 @@
                         <Image Source="{Binding PreviewImagePath}"
                                Stretch="Uniform"
                                HorizontalAlignment="Center"
-                               VerticalAlignment="Center">
+                               VerticalAlignment="Center"
+                               Margin="8">
                             <Image.Style>
                                 <Style TargetType="Image">
+                                    <Setter Property="Visibility" Value="Visible"/>
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding PreviewImagePath}" Value="">
-                                            <Setter Property="Source" Value="/Resources/Images/clock_placeholder.png"/>
+                                            <Setter Property="Visibility" Value="Collapsed"/>
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
@@ -223,7 +225,7 @@
                             </Setter>
                             <Style.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/                    >
+                                    <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
                                 </Trigger>
                             </Style.Triggers>
                         </Style>
@@ -241,10 +243,12 @@
             <!-- Scheme Name (Edit Mode) -->
             <TextBox Grid.Column="0"
                     Text="{Binding SchemeName, UpdateSourceTrigger=PropertyChanged}"
-                    Style="{StaticResource SubHeaderTextStyle}"
                     Background="Transparent"
                     BorderThickness="0"
+                    Foreground="{StaticResource TextPrimaryBrush}"
                     CaretBrush="{StaticResource TextPrimaryBrush}"
+                    FontSize="18"
+                    FontWeight="SemiBold"
                     MinWidth="200"
                     MaxWidth="400"
                     Height="32"
@@ -252,14 +256,7 @@
                     VerticalContentAlignment="Center"
                     Visibility="{Binding IsEditingName, Converter={StaticResource BooleanToVisibilityConverter}}"
                     LostFocus="SchemeNameTextBox_LostFocus"
-                    KeyDown="SchemeNameTextBox_KeyDown">
-                <TextBox.Resources>
-                    <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
-                        <Setter Property="FontSize" Value="18"/>
-                        <Setter Property="FontWeight" Value="SemiBold"/>
-                    </Style>
-                </TextBox.Resources>
-            </TextBox>
+                    KeyDown="SchemeNameTextBox_KeyDown"/>
 
             <!-- Activate Button -->
             <Button Grid.Column="1"

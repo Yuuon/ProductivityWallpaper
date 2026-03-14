@@ -34,9 +34,7 @@
         <!-- NoRepeat: Full Date Picker -->
         
         <DatePicker x:Name="FullDatePicker"
-                    Style="{StaticResource AdaptiveDatePickerStyle}"
                     SelectedDateChanged="FullDatePicker_SelectedDateChanged">
-            
             <DatePicker.Style>
                 <Style TargetType="DatePicker" BasedOn="{StaticResource AdaptiveDatePickerStyle}">
                     <Setter Property="Visibility" Value="Collapsed"/>
@@ -86,9 +84,7 @@
         <!-- Monthly: Day ComboBox -->
         
         <ComboBox x:Name="MonthlyDayCombo"
-                  Style="{StaticResource AdaptiveComboStyle}"
                   SelectionChanged="MonthlyDayCombo_SelectionChanged">
-            
             <ComboBox.Style>
                 <Style TargetType="ComboBox" BasedOn="{StaticResource AdaptiveComboStyle}">
                     <Setter Property="Visibility" Value="Collapsed"/>
@@ -106,9 +102,7 @@
         <!-- Weekly: DayOfWeek ComboBox -->
         
         <ComboBox x:Name="WeeklyDayCombo"
-                  Style="{StaticResource AdaptiveComboStyle}"
                   SelectionChanged="WeeklyDayCombo_SelectionChanged">
-            
             <ComboBox.Style>
                 <Style TargetType="ComboBox" BasedOn="{StaticResource AdaptiveComboStyle}">
                     <Setter Property="Visibility" Value="Collapsed"/>

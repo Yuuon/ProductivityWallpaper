@@ -50,11 +50,12 @@ namespace ProductivityWallpaper.ViewModels
         /// </summary>
         private void InitializeDefaultStyles()
         {
+            // Clock styles without preview images (placeholders until images are added)
             ClockStyles.Add(new ClockStyleModel
             {
                 Id = "digital-modern",
                 Name = "Digital Modern",
-                PreviewImagePath = "Resources/Img/Clocks/digital-modern.png",
+                PreviewImagePath = "",
                 Format = ClockFormat.Hour24,
                 Opacity = 1.0
             });
@@ -63,7 +64,7 @@ namespace ProductivityWallpaper.ViewModels
             {
                 Id = "analog-classic",
                 Name = "Analog Classic",
-                PreviewImagePath = "Resources/Img/Clocks/analog-classic.png",
+                PreviewImagePath = "",
                 Format = ClockFormat.Hour12,
                 Opacity = 1.0
             });
@@ -72,7 +73,7 @@ namespace ProductivityWallpaper.ViewModels
             {
                 Id = "minimalist",
                 Name = "Minimalist",
-                PreviewImagePath = "Resources/Img/Clocks/minimalist.png",
+                PreviewImagePath = "",
                 Format = ClockFormat.Hour24,
                 Opacity = 0.9
             });
@@ -81,7 +82,7 @@ namespace ProductivityWallpaper.ViewModels
             {
                 Id = "neon",
                 Name = "Neon",
-                PreviewImagePath = "Resources/Img/Clocks/neon.png",
+                PreviewImagePath = "",
                 Format = ClockFormat.Hour12,
                 Opacity = 1.0
             });
@@ -123,31 +124,29 @@ namespace ProductivityWallpaper.ViewModels
         }
 
         /// <summary>
-        /// Sets the time format for a clock style.
+        /// Sets the time format (12h or 24h) for the active clock style.
         /// </summary>
-        /// <param name="clock">The clock style to update.</param>
         /// <param name="format">The format to set (12h or 24h).</param>
         [RelayCommand]
-        private void SetClockFormat(ClockStyleModel? clock, ClockFormat format)
+        private void SetClockFormat(ClockFormat format)
         {
-            if (clock == null)
+            if (ActiveClock == null)
                 return;
 
-            clock.Format = format;
+            ActiveClock.Format = format;
         }
 
         /// <summary>
-        /// Sets the opacity for a clock style.
+        /// Sets the opacity for the active clock style.
         /// </summary>
-        /// <param name="clock">The clock style to update.</param>
         /// <param name="opacity">The opacity value (0.0 to 1.0).</param>
         [RelayCommand]
-        private void SetClockOpacity(ClockStyleModel? clock, double opacity)
+        private void SetClockOpacity(double opacity)
         {
-            if (clock == null)
+            if (ActiveClock == null)
                 return;
 
-            clock.Opacity = opacity;
+            ActiveClock.Opacity = opacity;
         }
 
         /// <summary>

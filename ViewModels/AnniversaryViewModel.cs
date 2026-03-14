@@ -77,14 +77,14 @@ namespace ProductivityWallpaper.ViewModels
             {
                 Id = "anniversary-card",
                 Name = "Card Style",
-                PreviewImagePath = "Resources/Img/Anniversary/card.png"
+                PreviewImagePath = ""
             });
 
             DisplayStyles.Add(new AnniversaryStyleModel
             {
                 Id = "anniversary-minimal",
                 Name = "Minimal",
-                PreviewImagePath = "Resources/Img/Anniversary/minimal.png"
+                PreviewImagePath = ""
             });
 
             // Set first style as active by default
@@ -243,7 +243,7 @@ namespace ProductivityWallpaper.ViewModels
         /// Finishes editing the scheme name.
         /// </summary>
         [RelayCommand]
-        private void FinishEditName()
+        private void FinishEditSchemeName()
         {
             IsEditingName = false;
 
