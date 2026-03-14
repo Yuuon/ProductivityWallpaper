@@ -716,21 +716,27 @@ namespace ProductivityWallpaper.ViewModels
 
                 case "DesktopClock":
                     // Create and configure DesktopClockViewModel
+                    ConfigurationContent = null; // Force refresh
                     var clockVm = _desktopClockVmFactory();
+                    System.Diagnostics.Debug.WriteLine($"DesktopClockViewModel created: {clockVm != null}");
                     ConfigurationContent = clockVm;
                     HasPreviewContent = false;
                     break;
 
                 case "Pomodoro":
                     // Create and configure PomodoroViewModel
+                    ConfigurationContent = null; // Force refresh
                     var pomodoroVm = _pomodoroVmFactory();
+                    System.Diagnostics.Debug.WriteLine($"PomodoroViewModel created: {pomodoroVm != null}");
                     ConfigurationContent = pomodoroVm;
                     HasPreviewContent = false;
                     break;
 
                 case "Anniversary":
                     // Create and configure AnniversaryViewModel
+                    ConfigurationContent = null; // Force refresh
                     var anniversaryVm = _anniversaryVmFactory();
+                    System.Diagnostics.Debug.WriteLine($"AnniversaryViewModel created: {anniversaryVm != null}");
                     ConfigurationContent = anniversaryVm;
                     HasPreviewContent = false;
                     break;
