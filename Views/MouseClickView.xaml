@@ -11,12 +11,37 @@
              Background="{StaticResource BackgroundMainBrush}">
 
     <UserControl.Resources>
+        <!-- Region Enter/Exit Animations -->
+        <Storyboard x:Key="RegionEnterAnimation">
+            <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                             From="0" To="1" Duration="0:0:0.2">
+                <DoubleAnimation.EasingFunction>
+                    <QuadraticEase EasingMode="EaseOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+        </Storyboard>
+        
+        <Storyboard x:Key="RegionExitAnimation">
+            <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                             From="1" To="0" Duration="0:0:0.2">
+                <DoubleAnimation.EasingFunction>
+                    <QuadraticEase EasingMode="EaseIn"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+        </Storyboard>
+        
         <!-- Region Item Template -->
         <DataTemplate x:Key="RegionItemTemplate" DataType="{x:Type models:ClickRegionModel}">
             <Grid Width="{Binding Width, Converter={StaticResource PercentageToPixelConverter}, ConverterParameter={Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Canvas}}}"
                   Height="{Binding Height, Converter={StaticResource PercentageToPixelConverter}, ConverterParameter={Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Canvas}}}"
                   Canvas.Left="{Binding X, Converter={StaticResource PercentageToPixelConverter}, ConverterParameter={Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Canvas}}}"
-                  Canvas.Top="{Binding Y, Converter={StaticResource PercentageToPixelConverter}, ConverterParameter={Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Canvas}}}">
+                  Canvas.Top="{Binding Y, Converter={StaticResource PercentageToPixelConverter}, ConverterParameter={Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Canvas}}}"
+                  Opacity="0">
+                <Grid.Triggers>
+                    <EventTrigger RoutedEvent="Loaded">
+                        <BeginStoryboard Storyboard="{StaticResource RegionEnterAnimation}"/>
+                    </EventTrigger>
+                </Grid.Triggers>
                 <Rectangle x:Name="RegionRect"
                            Fill="#40FFFFFF"
                            Stroke="#80FFFFFF"
@@ -166,6 +191,11 @@
         <converters:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter"/>
         <converters:StringEmptyToVisibilityConverter x:Key="StringEmptyToVisibilityConverter"/>
         <converters:InverseStringEmptyToVisibilityConverter x:Key="InverseStringEmptyToVisibilityConverter"/>
+        <converters:BooleanToCursorConverter x:Key="BooleanToCursorConverter"/>
+        <converters:DisplayModeToStretchConverter x:Key="DisplayModeToStretchConverter"/>
+        <converters:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
+        <converters:InverseNullToVisibilityConverter x:Key="InverseNullToVisibilityConverter"/>
+        <converters:PercentageToPixelConverter x:Key="PercentageToPixelConverter"/>
     </UserControl.Resources>
 
     <Grid>
