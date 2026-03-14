@@ -5,6 +5,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:vm="clr-namespace:ProductivityWallpaper.ViewModels"
              xmlns:models="clr-namespace:ProductivityWallpaper.Models"
+             xmlns:converters="clr-namespace:ProductivityWallpaper.Converters"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:DesktopBackgroundViewModel}">
     
@@ -13,10 +14,10 @@
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
         
         <!-- File Size Formatter -->
-        <vm:FileSizeConverter x:Key="FileSizeConverter"/>
+        <converters:FileSizeConverter x:Key="FileSizeConverter"/>
         
         <!-- Media Type to Visibility Converter -->
-        <vm:MediaTypeIsVideoConverter x:Key="MediaTypeIsVideoConverter"/>
+        <converters:MediaTypeIsVideoConverter x:Key="MediaTypeIsVideoConverter"/>
         
         <!-- ComboBox Style for DisplayMode -->
         <Style x:Key="DisplayModeComboStyle" TargetType="ComboBox">
@@ -203,8 +204,7 @@
                     </Button>
                     
                     <!-- DisplayMode ComboBox (only for images/videos) -->
-                    <ComboBox Style="{StaticResource DisplayModeComboStyle}"
-                             Width="80"
+                    <ComboBox Width="80"
                              Margin="8,0"
                              SelectedItem="{Binding DisplayMode}"
                              IsEnabled="{Binding Type, Converter={StaticResource MediaTypeIsVideoConverter}, ConverterParameter=Invert}">
@@ -633,26 +633,25 @@
                                    Orientation="Horizontal"
                                    HorizontalAlignment="Right">
                             
-                            <!-- Continue Import Button -->
-                            <Button Command="{Binding ImportMediaCommand}"
-                                    Background="{StaticResource BackgroundBlockBrush}"
-                                    BorderBrush="{StaticResource BorderLineBrush}"
-                                    BorderThickness="1"
-                                    Width="36"
-                                    Height="36"
-                                    CornerRadius="18"
-                                    Margin="0,0,8,0">
-                                <Button.Style>
-                                    <Style TargetType="Button">
-                                        <Setter Property="Template">
-                                            <Setter.Value>
-                                                <ControlTemplate TargetType="Button">
-                                                    <Border Background="{TemplateBinding Background}"
-                                                            BorderBrush="{TemplateBinding BorderBrush}"
-                                                            BorderThickness="{TemplateBinding BorderThickness}"
-                                                            CornerRadius="{TemplateBinding CornerRadius}"
-                                                            Width="{TemplateBinding Width}"
-                                                            Height="{TemplateBinding Height}">
+                             <!-- Continue Import Button -->
+                             <Button Command="{Binding ImportMediaCommand}"
+                                     Background="{StaticResource BackgroundBlockBrush}"
+                                     BorderBrush="{StaticResource BorderLineBrush}"
+                                     BorderThickness="1"
+                                     Width="36"
+                                     Height="36"
+                                     Margin="0,0,8,0">
+                                 <Button.Style>
+                                     <Style TargetType="Button">
+                                         <Setter Property="Template">
+                                             <Setter.Value>
+                                                 <ControlTemplate TargetType="Button">
+                                                     <Border Background="{TemplateBinding Background}"
+                                                             BorderBrush="{TemplateBinding BorderBrush}"
+                                                             BorderThickness="{TemplateBinding BorderThickness}"
+                                                             CornerRadius="18"
+                                                             Width="{TemplateBinding Width}"
+                                                             Height="{TemplateBinding Height}">
                                                         <ContentPresenter HorizontalAlignment="Center" 
                                                                           VerticalAlignment="Center"/>
                                                     </Border>
@@ -676,25 +675,24 @@
                             </Button>
                             
                             <!-- Preview Button -->
-                            <Button Command="{Binding PreviewMediaCommand}"
-                                    Background="{StaticResource BackgroundBlockBrush}"
-                                    BorderBrush="{StaticResource BorderLineBrush}"
-                                    BorderThickness="1"
-                                    Width="36"
-                                    Height="36"
-                                    CornerRadius="18"
-                                    Margin="0,0,8,0">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-                                        <Setter Property="Template">
-                                            <Setter.Value>
-                                                <ControlTemplate TargetType="Button">
-                                                    <Border Background="{TemplateBinding Background}"
-                                                            BorderBrush="{TemplateBinding BorderBrush}"
-                                                            BorderThickness="{TemplateBinding BorderThickness}"
-                                                            CornerRadius="{TemplateBinding CornerRadius}"
-                                                            Width="{TemplateBinding Width}"
-                                                            Height="{TemplateBinding Height}">
+                             <Button Command="{Binding PreviewMediaCommand}"
+                                     Background="{StaticResource BackgroundBlockBrush}"
+                                     BorderBrush="{StaticResource BorderLineBrush}"
+                                     BorderThickness="1"
+                                     Width="36"
+                                     Height="36"
+                                     Margin="0,0,8,0">
+                                 <Button.Style>
+                                     <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                         <Setter Property="Template">
+                                             <Setter.Value>
+                                                 <ControlTemplate TargetType="Button">
+                                                     <Border Background="{TemplateBinding Background}"
+                                                             BorderBrush="{TemplateBinding BorderBrush}"
+                                                             BorderThickness="{TemplateBinding BorderThickness}"
+                                                             CornerRadius="18"
+                                                             Width="{TemplateBinding Width}"
+                                                             Height="{TemplateBinding Height}">
                                                         <ContentPresenter HorizontalAlignment="Center" 
                                                                           VerticalAlignment="Center"/>
                                                     </Border>
@@ -717,24 +715,23 @@
                             </Button>
                             
                             <!-- Delete Button -->
-                            <Button Command="{Binding RemoveMediaCommand}"
-                                    Background="{StaticResource BackgroundBlockBrush}"
-                                    BorderBrush="{StaticResource BorderLineBrush}"
-                                    BorderThickness="1"
-                                    Width="36"
-                                    Height="36"
-                                    CornerRadius="18">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-                                        <Setter Property="Template">
-                                            <Setter.Value>
-                                                <ControlTemplate TargetType="Button">
-                                                    <Border Background="{TemplateBinding Background}"
-                                                            BorderBrush="{TemplateBinding BorderBrush}"
-                                                            BorderThickness="{TemplateBinding BorderThickness}"
-                                                            CornerRadius="{TemplateBinding CornerRadius}"
-                                                            Width="{TemplateBinding Width}"
-                                                            Height="{TemplateBinding Height}">
+                             <Button Command="{Binding RemoveMediaCommand}"
+                                     Background="{StaticResource BackgroundBlockBrush}"
+                                     BorderBrush="{StaticResource BorderLineBrush}"
+                                     BorderThickness="1"
+                                     Width="36"
+                                     Height="36">
+                                 <Button.Style>
+                                     <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                         <Setter Property="Template">
+                                             <Setter.Value>
+                                                 <ControlTemplate TargetType="Button">
+                                                     <Border Background="{TemplateBinding Background}"
+                                                             BorderBrush="{TemplateBinding BorderBrush}"
+                                                             BorderThickness="{TemplateBinding BorderThickness}"
+                                                             CornerRadius="18"
+                                                             Width="{TemplateBinding Width}"
+                                                             Height="{TemplateBinding Height}">
                                                         <ContentPresenter HorizontalAlignment="Center" 
                                                                           VerticalAlignment="Center"/>
                                                     </Border>

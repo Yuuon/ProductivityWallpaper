@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="clr-namespace:ProductivityWallpaper.ViewModels"
         xmlns:models="clr-namespace:ProductivityWallpaper.Models"
+        xmlns:converters="clr-namespace:ProductivityWallpaper.Converters"
         mc:Ignorable="d"
         Title="Preview"
         Height="600"
@@ -20,9 +21,9 @@
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
         
         <!-- Media Type Converters -->
-        <vm:MediaTypeIsImageConverter x:Key="MediaTypeIsImageConverter"/>
-        <vm:MediaTypeIsVideoConverter x:Key="MediaTypeIsVideoConverter"/>
-        <vm:MediaTypeIsAudioConverter x:Key="MediaTypeIsAudioConverter"/>
+        <converters:MediaTypeIsImageConverter x:Key="MediaTypeIsImageConverter"/>
+        <converters:MediaTypeIsVideoConverter x:Key="MediaTypeIsVideoConverter"/>
+        <converters:MediaTypeIsAudioConverter x:Key="MediaTypeIsAudioConverter"/>
         
         <!-- Window Button Style -->
         <Style x:Key="WindowButtonStyle" TargetType="Button">
@@ -65,14 +66,13 @@
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Width" Value="40"/>
             <Setter Property="Height" Value="40"/>
-            <Setter Property="CornerRadius" Value="20"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="{TemplateBinding CornerRadius}"
+                                CornerRadius="20"
                                 Width="{TemplateBinding Width}"
                                 Height="{TemplateBinding Height}">
                             <ContentPresenter HorizontalAlignment="Center" 
