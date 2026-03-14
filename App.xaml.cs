@@ -38,11 +38,14 @@ namespace ProductivityWallpaper
             services.AddSingleton<WorkshopViewModel>();
             services.AddSingleton<MyThemeViewModel>();
             services.AddTransient<DesktopBackgroundViewModel>();
+            services.AddTransient<MouseClickViewModel>();
 
             // CreatorViewModel with factory injection
             services.AddSingleton<CreatorViewModel>(serviceProvider =>
             {
-                return new CreatorViewModel(() => serviceProvider.GetRequiredService<DesktopBackgroundViewModel>());
+                return new CreatorViewModel(
+                    () => serviceProvider.GetRequiredService<DesktopBackgroundViewModel>(),
+                    () => serviceProvider.GetRequiredService<MouseClickViewModel>());
             });
 
             // Views

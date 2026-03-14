@@ -56,6 +56,10 @@
             <DataTemplate DataType="{x:Type vm:DesktopBackgroundViewModel}">
                 <views:DesktopBackgroundView/>
             </DataTemplate>
+            
+            <DataTemplate DataType="{x:Type vm:MouseClickViewModel}">
+                <views:MouseClickView/>
+            </DataTemplate>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

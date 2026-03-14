@@ -15,6 +15,7 @@ namespace ProductivityWallpaper.ViewModels
     {
         // --- DI Services ---
         private readonly Func<DesktopBackgroundViewModel> _desktopBackgroundVmFactory;
+        private readonly Func<MouseClickViewModel> _mouseClickVmFactory;
         // --- Feature Types Supporting Multi-Scheme ---
         private static readonly FeatureType[] MultiSchemeFeatures = new[]
         {
@@ -158,7 +159,7 @@ namespace ProductivityWallpaper.ViewModels
         /// <summary>
         /// Initializes a new instance of the <see cref="CreatorViewModel"/> class.
         /// </summary>
-        public CreatorViewModel() : this(null)
+        public CreatorViewModel() : this(null, null)
         {
         }
 
@@ -166,9 +167,13 @@ namespace ProductivityWallpaper.ViewModels
         /// Initializes a new instance of the <see cref="CreatorViewModel"/> class with DI.
         /// </summary>
         /// <param name="desktopBackgroundVmFactory">Factory for creating DesktopBackgroundViewModel instances.</param>
-        public CreatorViewModel(Func<DesktopBackgroundViewModel> desktopBackgroundVmFactory)
+        /// <param name="mouseClickVmFactory">Factory for creating MouseClickViewModel instances.</param>
+        public CreatorViewModel(
+            Func<DesktopBackgroundViewModel> desktopBackgroundVmFactory,
+            Func<MouseClickViewModel> mouseClickVmFactory)
         {
             _desktopBackgroundVmFactory = desktopBackgroundVmFactory ?? (() => new DesktopBackgroundViewModel());
+            _mouseClickVmFactory = mouseClickVmFactory ?? (() => new MouseClickViewModel());
 
             // Initialize scheme collections for all multi-scheme features
             _schemesByFeature = new Dictionary<FeatureType, ObservableCollection<SchemeModel>>();
