@@ -1,0 +1,127 @@
+<UserControl x:Class="ProductivityWallpaper.Views.Controls.AdaptiveDatePicker"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:models="clr-namespace:ProductivityWallpaper.Models"
+             xmlns:local="clr-namespace:ProductivityWallpaper.Views.Controls"
+             mc:Ignorable="d">
+    
+    <UserControl.Resources>
+        <!-- ComboBox Style for Day/Month/DayOfWeek Selection -->
+        <Style x:Key="AdaptiveComboStyle" TargetType="ComboBox">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderLineBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="MinWidth" Value="80"/>
+        </Style>
+        
+        <!-- DatePicker Style -->
+        <Style x:Key="AdaptiveDatePickerStyle" TargetType="DatePicker">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderLineBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="MinWidth" Value="120"/>
+        </Style>
+    </UserControl.Resources>
+    
+    <Grid>
+        
+        <!-- NoRepeat: Full Date Picker -->
+        
+        <DatePicker x:Name="FullDatePicker"
+                    Style="{StaticResource AdaptiveDatePickerStyle}"
+                    SelectedDateChanged="FullDatePicker_SelectedDateChanged">
+            
+            <DatePicker.Style>
+                <Style TargetType="DatePicker" BasedOn="{StaticResource AdaptiveDatePickerStyle}">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Mode, RelativeSource={RelativeSource AncestorType=local:AdaptiveDatePicker}}" Value="NoRepeat">
+                            <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </DatePicker.Style>
+        
+        </DatePicker>
+        
+        
+        <!-- Yearly: Month and Day ComboBoxes -->
+        
+        <StackPanel x:Name="YearlyPanel"
+                    Orientation="Horizontal">
+            
+            <StackPanel.Style>
+                <Style TargetType="StackPanel">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Mode, RelativeSource={RelativeSource AncestorType=local:AdaptiveDatePicker}}" Value="Yearly">
+                            <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </StackPanel.Style>
+            
+            
+            <ComboBox x:Name="YearlyMonthCombo"
+                      Style="{StaticResource AdaptiveComboStyle}"
+                      SelectionChanged="YearlyMonthCombo_SelectionChanged"
+                      Margin="0,0,8,0">
+            </ComboBox>
+            
+            
+            <ComboBox x:Name="YearlyDayCombo"
+                      Style="{StaticResource AdaptiveComboStyle}"
+                      SelectionChanged="YearlyDayCombo_SelectionChanged">
+            </ComboBox>
+        
+        </StackPanel>
+        
+        
+        <!-- Monthly: Day ComboBox -->
+        
+        <ComboBox x:Name="MonthlyDayCombo"
+                  Style="{StaticResource AdaptiveComboStyle}"
+                  SelectionChanged="MonthlyDayCombo_SelectionChanged">
+            
+            <ComboBox.Style>
+                <Style TargetType="ComboBox" BasedOn="{StaticResource AdaptiveComboStyle}">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Mode, RelativeSource={RelativeSource AncestorType=local:AdaptiveDatePicker}}" Value="Monthly">
+                            <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </ComboBox.Style>
+        
+        </ComboBox>
+        
+        
+        <!-- Weekly: DayOfWeek ComboBox -->
+        
+        <ComboBox x:Name="WeeklyDayCombo"
+                  Style="{StaticResource AdaptiveComboStyle}"
+                  SelectionChanged="WeeklyDayCombo_SelectionChanged">
+            
+            <ComboBox.Style>
+                <Style TargetType="ComboBox" BasedOn="{StaticResource AdaptiveComboStyle}">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Mode, RelativeSource={RelativeSource AncestorType=local:AdaptiveDatePicker}}" Value="Weekly">
+                            <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </ComboBox.Style>
+        
+        </ComboBox>
+    
+    </Grid>
+
+</UserControl>
