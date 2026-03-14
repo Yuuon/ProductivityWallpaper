@@ -99,7 +99,7 @@
 
         <!-- Feature Expander Toggle Button Style -->
         <Style x:Key="FeatureExpanderButtonStyle" TargetType="ToggleButton">
-            <Setter Property="Background" Value="{StaticResource BackgroundBlockBrush}"/\u003e
+            <Setter Property="Background" Value="{StaticResource BackgroundBlockBrush}"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Padding" Value="16,0"/>
             <Setter Property="Height" Value="40"/>
@@ -232,7 +232,7 @@
                             <StackPanel>
                                 <!-- Feature Header Button -->
                                 <ToggleButton Style="{StaticResource FeatureExpanderButtonStyle}"
-                                             IsChecked="{Binding IsDesktopBackgroundExpanded, Mode=TwoWay}">
+                                              IsChecked="{Binding IsDesktopBackgroundExpanded, Mode=TwoWay}">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
@@ -285,15 +285,15 @@
                                         BorderThickness="0">
                                     <StackPanel Margin="8,4,0,0">
                                         <ItemsControl ItemsSource="{Binding DesktopBackgroundSchemes}"
-                                                      ItemTemplate="{StaticResource SchemeItemTemplate}"/\u003e
+                                                      ItemTemplate="{StaticResource SchemeItemTemplate}"/>
                                         
-                                        <Button Content="+ {DynamicResource Creator_NewScheme}"
+                                        <Button Content="+ 新建方案"
                                                 Command="{Binding CreateNewSchemeCommand}"
                                                 CommandParameter="{x:Static models:FeatureType.DesktopBackground}"
                                                 Style="{StaticResource NewSchemeButtonStyle}"
                                                 Foreground="{StaticResource AccentBrush}"
                                                 Height="32"
-                                                Padding="12,6"/\u003e
+                                                Padding="12,6"/>
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
@@ -303,7 +303,7 @@
                         <Border Margin="0,8,0,0">
                             <StackPanel>
                                 <ToggleButton Style="{StaticResource FeatureExpanderButtonStyle}"
-                                             IsChecked="{Binding IsMouseClickExpanded, Mode=TwoWay}">
+                                              IsChecked="{Binding IsMouseClickExpanded, Mode=TwoWay}">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
@@ -355,15 +355,15 @@
                                         BorderThickness="0">
                                     <StackPanel Margin="8,4,0,0">
                                         <ItemsControl ItemsSource="{Binding MouseClickSchemes}"
-                                                      ItemTemplate="{StaticResource SchemeItemTemplate}"/\u003e
+                                                      ItemTemplate="{StaticResource SchemeItemTemplate}"/>
                                         
-                                        <Button Content="+ {DynamicResource Creator_NewScheme}"
+                                        <Button Content="+ 新建方案"
                                                 Command="{Binding CreateNewSchemeCommand}"
                                                 CommandParameter="{x:Static models:FeatureType.MouseClick}"
                                                 Style="{StaticResource NewSchemeButtonStyle}"
                                                 Foreground="{StaticResource AccentBrush}"
                                                 Height="32"
-                                                Padding="12,6"/\u003e
+                                                Padding="12,6"/>
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
@@ -373,7 +373,7 @@
                         <Border Margin="0,8,0,0">
                             <StackPanel>
                                 <ToggleButton Style="{StaticResource FeatureExpanderButtonStyle}"
-                                             IsChecked="{Binding IsShutdownExpanded, Mode=TwoWay}">
+                                              IsChecked="{Binding IsShutdownExpanded, Mode=TwoWay}">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
@@ -425,15 +425,15 @@
                                         BorderThickness="0">
                                     <StackPanel Margin="8,4,0,0">
                                         <ItemsControl ItemsSource="{Binding ShutdownSchemes}"
-                                                      ItemTemplate="{StaticResource SchemeItemTemplate}"/\u003e
+                                                      ItemTemplate="{StaticResource SchemeItemTemplate}"/>
                                         
-                                        <Button Content="+ {DynamicResource Creator_NewScheme}"
+                                        <Button Content="+ 新建方案"
                                                 Command="{Binding CreateNewSchemeCommand}"
                                                 CommandParameter="{x:Static models:FeatureType.Shutdown}"
                                                 Style="{StaticResource NewSchemeButtonStyle}"
                                                 Foreground="{StaticResource AccentBrush}"
                                                 Height="32"
-                                                Padding="12,6"/\u003e
+                                                Padding="12,6"/>
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
@@ -443,7 +443,7 @@
                         <Border Margin="0,8,0,0">
                             <StackPanel>
                                 <ToggleButton Style="{StaticResource FeatureExpanderButtonStyle}"
-                                             IsChecked="{Binding IsBootRestartExpanded, Mode=TwoWay}">
+                                              IsChecked="{Binding IsBootRestartExpanded, Mode=TwoWay}">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
@@ -495,15 +495,15 @@
                                         BorderThickness="0">
                                     <StackPanel Margin="8,4,0,0">
                                         <ItemsControl ItemsSource="{Binding BootRestartSchemes}"
-                                                      ItemTemplate="{StaticResource SchemeItemTemplate}"/\u003e
+                                                      ItemTemplate="{StaticResource SchemeItemTemplate}"/>
                                         
-                                        <Button Content="+ {DynamicResource Creator_NewScheme}"
+                                        <Button Content="+ 新建方案"
                                                 Command="{Binding CreateNewSchemeCommand}"
                                                 CommandParameter="{x:Static models:FeatureType.BootRestart}"
                                                 Style="{StaticResource NewSchemeButtonStyle}"
                                                 Foreground="{StaticResource AccentBrush}"
                                                 Height="32"
-                                                Padding="12,6"/\u003e
+                                                Padding="12,6"/>
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
@@ -513,7 +513,7 @@
                         <Border Margin="0,8,0,0">
                             <StackPanel>
                                 <ToggleButton Style="{StaticResource FeatureExpanderButtonStyle}"
-                                             IsChecked="{Binding IsScreenWakeExpanded, Mode=TwoWay}">
+                                              IsChecked="{Binding IsScreenWakeExpanded, Mode=TwoWay}">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
@@ -565,15 +565,15 @@
                                         BorderThickness="0">
                                     <StackPanel Margin="8,4,0,0">
                                         <ItemsControl ItemsSource="{Binding ScreenWakeSchemes}"
-                                                      ItemTemplate="{StaticResource SchemeItemTemplate}"/\u003e
+                                                      ItemTemplate="{StaticResource SchemeItemTemplate}"/>
                                         
-                                        <Button Content="+ {DynamicResource Creator_NewScheme}"
+                                        <Button Content="+ 新建方案"
                                                 Command="{Binding CreateNewSchemeCommand}"
                                                 CommandParameter="{x:Static models:FeatureType.ScreenWake}"
                                                 Style="{StaticResource NewSchemeButtonStyle}"
                                                 Foreground="{StaticResource AccentBrush}"
                                                 Height="32"
-                                                Padding="12,6"/\u003e
+                                                Padding="12,6"/>
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
@@ -626,7 +626,7 @@
                 </ScrollViewer>
             </Grid>
             
-            <!-- Right Content Area (Unchanged) -->
+            <!-- Right Content Area -->
             <Grid Grid.Column="1" Margin="32,24,42,24">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -743,18 +743,6 @@
                             BorderThickness="1"
                             CornerRadius="10"
                             Margin="{Binding IsThemePreviewSelected, Converter={StaticResource BooleanToLeftMarginConverter}, ConverterParameter='16,0,0,0'}">
-                        <ContentControl Content="{Binding ConfigurationContent}"/\u003e
-                    </Border>
-                </Grid>
-                    </Border>
-                    
-                    <!-- Right: Configuration -->
-                    <Border Grid.Column="1"
-                            Background="{StaticResource BackgroundBlockBrush}"
-                            BorderBrush="{StaticResource BorderLineBrush}"
-                            BorderThickness="1"
-                            CornerRadius="10"
-                            Margin="16,0,0,0">
                         <ContentControl Content="{Binding ConfigurationContent}"/>
                     </Border>
                 </Grid>
