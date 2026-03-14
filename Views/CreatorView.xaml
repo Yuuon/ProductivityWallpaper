@@ -281,17 +281,19 @@
                                 
                                 <!-- Expanded Submenu -->
                                 <Border Visibility="{Binding IsDesktopBackgroundExpanded, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                        Background="{StaticResource BackgroundBlockBrush}"
+                                        Background="Transparent"
                                         BorderThickness="0">
                                     <StackPanel Margin="8,4,0,0">
                                         <ItemsControl ItemsSource="{Binding DesktopBackgroundSchemes}"
-                                                      ItemTemplate="{StaticResource SchemeItemTemplate}"/>
+                                                      ItemTemplate="{StaticResource SchemeItemTemplate}"/\u003e
                                         
-                                        <Button Content="{DynamicResource Creator_NewScheme}"
+                                        <Button Content="+ {DynamicResource Creator_NewScheme}"
                                                 Command="{Binding CreateNewSchemeCommand}"
                                                 CommandParameter="{x:Static models:FeatureType.DesktopBackground}"
                                                 Style="{StaticResource NewSchemeButtonStyle}"
-                                                Foreground="{StaticResource AccentBrush}"/>
+                                                Foreground="{StaticResource AccentBrush}"
+                                                Height="32"
+                                                Padding="12,6"/\u003e
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
@@ -349,17 +351,19 @@
                                 </ToggleButton>
                                 
                                 <Border Visibility="{Binding IsMouseClickExpanded, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                        Background="{StaticResource BackgroundBlockBrush}"
+                                        Background="Transparent"
                                         BorderThickness="0">
                                     <StackPanel Margin="8,4,0,0">
                                         <ItemsControl ItemsSource="{Binding MouseClickSchemes}"
-                                                      ItemTemplate="{StaticResource SchemeItemTemplate}"/>
+                                                      ItemTemplate="{StaticResource SchemeItemTemplate}"/\u003e
                                         
-                                        <Button Content="{DynamicResource Creator_NewScheme}"
+                                        <Button Content="+ {DynamicResource Creator_NewScheme}"
                                                 Command="{Binding CreateNewSchemeCommand}"
                                                 CommandParameter="{x:Static models:FeatureType.MouseClick}"
                                                 Style="{StaticResource NewSchemeButtonStyle}"
-                                                Foreground="{StaticResource AccentBrush}"/>
+                                                Foreground="{StaticResource AccentBrush}"
+                                                Height="32"
+                                                Padding="12,6"/\u003e
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
@@ -417,17 +421,19 @@
                                 </ToggleButton>
                                 
                                 <Border Visibility="{Binding IsShutdownExpanded, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                        Background="{StaticResource BackgroundBlockBrush}"
+                                        Background="Transparent"
                                         BorderThickness="0">
                                     <StackPanel Margin="8,4,0,0">
                                         <ItemsControl ItemsSource="{Binding ShutdownSchemes}"
-                                                      ItemTemplate="{StaticResource SchemeItemTemplate}"/>
+                                                      ItemTemplate="{StaticResource SchemeItemTemplate}"/\u003e
                                         
-                                        <Button Content="{DynamicResource Creator_NewScheme}"
+                                        <Button Content="+ {DynamicResource Creator_NewScheme}"
                                                 Command="{Binding CreateNewSchemeCommand}"
                                                 CommandParameter="{x:Static models:FeatureType.Shutdown}"
                                                 Style="{StaticResource NewSchemeButtonStyle}"
-                                                Foreground="{StaticResource AccentBrush}"/>
+                                                Foreground="{StaticResource AccentBrush}"
+                                                Height="32"
+                                                Padding="12,6"/\u003e
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
@@ -485,17 +491,19 @@
                                 </ToggleButton>
                                 
                                 <Border Visibility="{Binding IsBootRestartExpanded, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                        Background="{StaticResource BackgroundBlockBrush}"
+                                        Background="Transparent"
                                         BorderThickness="0">
                                     <StackPanel Margin="8,4,0,0">
                                         <ItemsControl ItemsSource="{Binding BootRestartSchemes}"
-                                                      ItemTemplate="{StaticResource SchemeItemTemplate}"/>
+                                                      ItemTemplate="{StaticResource SchemeItemTemplate}"/\u003e
                                         
-                                        <Button Content="{DynamicResource Creator_NewScheme}"
+                                        <Button Content="+ {DynamicResource Creator_NewScheme}"
                                                 Command="{Binding CreateNewSchemeCommand}"
                                                 CommandParameter="{x:Static models:FeatureType.BootRestart}"
                                                 Style="{StaticResource NewSchemeButtonStyle}"
-                                                Foreground="{StaticResource AccentBrush}"/>
+                                                Foreground="{StaticResource AccentBrush}"
+                                                Height="32"
+                                                Padding="12,6"/\u003e
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
@@ -553,17 +561,19 @@
                                 </ToggleButton>
                                 
                                 <Border Visibility="{Binding IsScreenWakeExpanded, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                        Background="{StaticResource BackgroundBlockBrush}"
+                                        Background="Transparent"
                                         BorderThickness="0">
                                     <StackPanel Margin="8,4,0,0">
                                         <ItemsControl ItemsSource="{Binding ScreenWakeSchemes}"
-                                                      ItemTemplate="{StaticResource SchemeItemTemplate}"/>
+                                                      ItemTemplate="{StaticResource SchemeItemTemplate}"/\u003e
                                         
-                                        <Button Content="{DynamicResource Creator_NewScheme}"
+                                        <Button Content="+ {DynamicResource Creator_NewScheme}"
                                                 Command="{Binding CreateNewSchemeCommand}"
                                                 CommandParameter="{x:Static models:FeatureType.ScreenWake}"
                                                 Style="{StaticResource NewSchemeButtonStyle}"
-                                                Foreground="{StaticResource AccentBrush}"/>
+                                                Foreground="{StaticResource AccentBrush}"
+                                                Height="32"
+                                                Padding="12,6"/\u003e
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
