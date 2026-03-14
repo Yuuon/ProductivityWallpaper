@@ -87,35 +87,71 @@ namespace ProductivityWallpaper.ViewModels
         private bool _isEditingThemeName;
 
         // --- Feature Selection States ---
+        /// <summary>
+        /// The currently selected feature name.
+        /// </summary>
         [ObservableProperty]
-        private bool _isThemePreviewSelected = true;
+        [NotifyPropertyChangedFor(nameof(IsThemePreviewSelected))]
+        [NotifyPropertyChangedFor(nameof(IsDesktopBackgroundSelected))]
+        [NotifyPropertyChangedFor(nameof(IsMouseClickSelected))]
+        [NotifyPropertyChangedFor(nameof(IsShutdownSelected))]
+        [NotifyPropertyChangedFor(nameof(IsBootRestartSelected))]
+        [NotifyPropertyChangedFor(nameof(IsScreenWakeSelected))]
+        [NotifyPropertyChangedFor(nameof(IsOpenAppSelected))]
+        [NotifyPropertyChangedFor(nameof(IsDesktopClockSelected))]
+        [NotifyPropertyChangedFor(nameof(IsPomodoroSelected))]
+        [NotifyPropertyChangedFor(nameof(IsAnniversarySelected))]
+        private string _selectedFeature = "ThemePreview";
 
-        [ObservableProperty]
-        private bool _isDesktopBackgroundSelected;
+        /// <summary>
+        /// Gets whether Theme Preview is selected.
+        /// </summary>
+        public bool IsThemePreviewSelected => SelectedFeature == "ThemePreview";
 
-        [ObservableProperty]
-        private bool _isMouseClickSelected;
+        /// <summary>
+        /// Gets whether Desktop Background is selected.
+        /// </summary>
+        public bool IsDesktopBackgroundSelected => SelectedFeature == "DesktopBackground";
 
-        [ObservableProperty]
-        private bool _isShutdownSelected;
+        /// <summary>
+        /// Gets whether Mouse Click is selected.
+        /// </summary>
+        public bool IsMouseClickSelected => SelectedFeature == "MouseClick";
 
-        [ObservableProperty]
-        private bool _isBootRestartSelected;
+        /// <summary>
+        /// Gets whether Shutdown is selected.
+        /// </summary>
+        public bool IsShutdownSelected => SelectedFeature == "Shutdown";
 
-        [ObservableProperty]
-        private bool _isScreenWakeSelected;
+        /// <summary>
+        /// Gets whether Boot/Restart is selected.
+        /// </summary>
+        public bool IsBootRestartSelected => SelectedFeature == "BootRestart";
 
-        [ObservableProperty]
-        private bool _isOpenAppSelected;
+        /// <summary>
+        /// Gets whether Screen Wake is selected.
+        /// </summary>
+        public bool IsScreenWakeSelected => SelectedFeature == "ScreenWake";
 
-        [ObservableProperty]
-        private bool _isDesktopClockSelected;
+        /// <summary>
+        /// Gets whether Open App is selected.
+        /// </summary>
+        public bool IsOpenAppSelected => SelectedFeature == "OpenApp";
 
-        [ObservableProperty]
-        private bool _isPomodoroSelected;
+        /// <summary>
+        /// Gets whether Desktop Clock is selected.
+        /// </summary>
+        public bool IsDesktopClockSelected => SelectedFeature == "DesktopClock";
 
-        [ObservableProperty]
-        private bool _isAnniversarySelected;
+        /// <summary>
+        /// Gets whether Pomodoro is selected.
+        /// </summary>
+        public bool IsPomodoroSelected => SelectedFeature == "Pomodoro";
+
+        /// <summary>
+        /// Gets whether Anniversary is selected.
+        /// </summary>
+        public bool IsAnniversarySelected => SelectedFeature == "Anniversary";
 
         // --- Content Properties ---
         [ObservableProperty]
@@ -244,59 +280,17 @@ namespace ProductivityWallpaper.ViewModels
         [RelayCommand]
         private void SelectFeature(string featureName)
         {
-            // Reset all selections
-            IsThemePreviewSelected = false;
-            IsDesktopBackgroundSelected = false;
-            IsMouseClickSelected = false;
-            IsShutdownSelected = false;
-            IsBootRestartSelected = false;
-            IsScreenWakeSelected = false;
-            IsOpenAppSelected = false;
-            IsDesktopClockSelected = false;
-            IsPomodoroSelected = false;
-            IsAnniversarySelected = false;
+            // Set selected feature - all IsXXXSelected properties are computed from this
+            SelectedFeature = featureName;
 
-            // Set selected feature
+            // Collapse submenus for simple features and Theme Preview
             switch (featureName)
             {
                 case "ThemePreview":
-                    IsThemePreviewSelected = true;
-                    // Collapse all expanded menus when selecting Theme Preview
-                    CollapseAllNavExcept();
-                    break;
-                case "DesktopBackground":
-                    IsDesktopBackgroundSelected = true;
-                    break;
-                case "MouseClick":
-                    IsMouseClickSelected = true;
-                    break;
-                case "Shutdown":
-                    IsShutdownSelected = true;
-                    break;
-                case "BootRestart":
-                    IsBootRestartSelected = true;
-                    break;
-                case "ScreenWake":
-                    IsScreenWakeSelected = true;
-                    break;
                 case "OpenApp":
-                    IsOpenAppSelected = true;
-                    // Collapse all expanded menus when selecting simple feature
-                    CollapseAllNavExcept();
-                    break;
                 case "DesktopClock":
-                    IsDesktopClockSelected = true;
-                    // Collapse all expanded menus when selecting simple feature
-                    CollapseAllNavExcept();
-                    break;
                 case "Pomodoro":
-                    IsPomodoroSelected = true;
-                    // Collapse all expanded menus when selecting simple feature
-                    CollapseAllNavExcept();
-                    break;
                 case "Anniversary":
-                    IsAnniversarySelected = true;
-                    // Collapse all expanded menus when selecting simple feature
                     CollapseAllNavExcept();
                     break;
             }
