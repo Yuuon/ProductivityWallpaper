@@ -25,7 +25,8 @@
                                     <Border Background="{TemplateBinding Background}"
                                             BorderBrush="{TemplateBinding BorderBrush}"
                                             BorderThickness="{TemplateBinding BorderThickness}"
-                                            Padding="{TemplateBinding Padding}">
+                                            Padding="{TemplateBinding Padding}"
+                                            CornerRadius="6">
                                         <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                                           VerticalAlignment="Center"/>
                                     </Border>
@@ -33,15 +34,17 @@
                             </Setter.Value>
                         </Setter>
                         <Style.Triggers>
+                            <!-- Mouse hover -->
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
                             </Trigger>
+                            
+                            <!-- IsSelected = viewing/editing (accent highlight) -->
                             <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                                <Setter Property="Background" Value="{StaticResource BackgroundSelectedBrush}"/>
+                                <Setter Property="Background" Value="{StaticResource SchemeSelectedBrush}"/>
                             </DataTrigger>
-                            <DataTrigger Binding="{Binding IsActive}" Value="True">
-                                <Setter Property="Background" Value="{StaticResource BackgroundSelectedBrush}"/>
-                            </DataTrigger>
+                            
+                            <!-- IsActive = enabled for wallpaper (NO background change, just checkmark) -->
                         </Style.Triggers>
                     </Style>
                 </Button.Style>
@@ -57,7 +60,7 @@
                                VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis"/>
                     
-                    <!-- Active Indicator Checkmark -->
+                    <!-- Active Indicator Checkmark - shows when IsActive=true -->
                     <Path Grid.Column="1"
                            Data="M4.5 8.5L7 11L11.5 6.5"
                            Stroke="{StaticResource AccentBrush}"
@@ -66,6 +69,7 @@
                            Height="16"
                            Stretch="Uniform"
                            VerticalAlignment="Center"
+                           Margin="8,0,0,0"
                            Visibility="{Binding IsActive, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                 </Grid>
             </Button>
@@ -237,8 +241,16 @@
                         <Border Margin="0,8,0,0">
                             <StackPanel>
                                 <!-- Feature Header Button -->
-                                <ToggleButton Style="{StaticResource FeatureExpanderButtonStyle}"
-                                              IsChecked="{Binding IsDesktopBackgroundExpanded, Mode=TwoWay}">
+                                <ToggleButton IsChecked="{Binding IsDesktopBackgroundExpanded, Mode=TwoWay}">
+                                    <ToggleButton.Style>
+                                        <Style TargetType="ToggleButton" BasedOn="{StaticResource FeatureExpanderButtonStyle}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsDesktopBackgroundHeaderHighlighted}" Value="True">
+                                                    <Setter Property="Background" Value="{StaticResource PrimaryGradientBrush}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </ToggleButton.Style>
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
@@ -308,8 +320,16 @@
                         <!-- Mouse Click (Expandable) -->
                         <Border Margin="0,8,0,0">
                             <StackPanel>
-                                <ToggleButton Style="{StaticResource FeatureExpanderButtonStyle}"
-                                              IsChecked="{Binding IsMouseClickExpanded, Mode=TwoWay}">
+                                <ToggleButton IsChecked="{Binding IsMouseClickExpanded, Mode=TwoWay}">
+                                    <ToggleButton.Style>
+                                        <Style TargetType="ToggleButton" BasedOn="{StaticResource FeatureExpanderButtonStyle}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsMouseClickHeaderHighlighted}" Value="True">
+                                                    <Setter Property="Background" Value="{StaticResource PrimaryGradientBrush}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </ToggleButton.Style>
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
@@ -322,7 +342,7 @@
                                                        Foreground="{StaticResource TextPrimaryBrush}"
                                                        FontSize="14"
                                                        VerticalAlignment="Center"/>
-                                            
+                                             
                                             <TextBlock Text="{Binding MouseClickSchemes.Count, StringFormat='({0})'}"
                                                        Foreground="{StaticResource TextSecondaryBrush}"
                                                        FontSize="12"
@@ -378,8 +398,16 @@
                         <!-- Shutdown (Expandable) -->
                         <Border Margin="0,8,0,0">
                             <StackPanel>
-                                <ToggleButton Style="{StaticResource FeatureExpanderButtonStyle}"
-                                              IsChecked="{Binding IsShutdownExpanded, Mode=TwoWay}">
+                                <ToggleButton IsChecked="{Binding IsShutdownExpanded, Mode=TwoWay}">
+                                    <ToggleButton.Style>
+                                        <Style TargetType="ToggleButton" BasedOn="{StaticResource FeatureExpanderButtonStyle}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsShutdownHeaderHighlighted}" Value="True">
+                                                    <Setter Property="Background" Value="{StaticResource PrimaryGradientBrush}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </ToggleButton.Style>
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
@@ -392,7 +420,7 @@
                                                        Foreground="{StaticResource TextPrimaryBrush}"
                                                        FontSize="14"
                                                        VerticalAlignment="Center"/>
-                                            
+                                             
                                             <TextBlock Text="{Binding ShutdownSchemes.Count, StringFormat='({0})'}"
                                                        Foreground="{StaticResource TextSecondaryBrush}"
                                                        FontSize="12"
@@ -448,8 +476,16 @@
                         <!-- Boot/Restart (Expandable) -->
                         <Border Margin="0,8,0,0">
                             <StackPanel>
-                                <ToggleButton Style="{StaticResource FeatureExpanderButtonStyle}"
-                                              IsChecked="{Binding IsBootRestartExpanded, Mode=TwoWay}">
+                                <ToggleButton IsChecked="{Binding IsBootRestartExpanded, Mode=TwoWay}">
+                                    <ToggleButton.Style>
+                                        <Style TargetType="ToggleButton" BasedOn="{StaticResource FeatureExpanderButtonStyle}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsBootRestartHeaderHighlighted}" Value="True">
+                                                    <Setter Property="Background" Value="{StaticResource PrimaryGradientBrush}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </ToggleButton.Style>
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
@@ -462,7 +498,7 @@
                                                        Foreground="{StaticResource TextPrimaryBrush}"
                                                        FontSize="14"
                                                        VerticalAlignment="Center"/>
-                                            
+                                             
                                             <TextBlock Text="{Binding BootRestartSchemes.Count, StringFormat='({0})'}"
                                                        Foreground="{StaticResource TextSecondaryBrush}"
                                                        FontSize="12"
@@ -518,8 +554,16 @@
                         <!-- Screen Wake (Expandable) -->
                         <Border Margin="0,8,0,0">
                             <StackPanel>
-                                <ToggleButton Style="{StaticResource FeatureExpanderButtonStyle}"
-                                              IsChecked="{Binding IsScreenWakeExpanded, Mode=TwoWay}">
+                                <ToggleButton IsChecked="{Binding IsScreenWakeExpanded, Mode=TwoWay}">
+                                    <ToggleButton.Style>
+                                        <Style TargetType="ToggleButton" BasedOn="{StaticResource FeatureExpanderButtonStyle}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsScreenWakeHeaderHighlighted}" Value="True">
+                                                    <Setter Property="Background" Value="{StaticResource PrimaryGradientBrush}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </ToggleButton.Style>
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
@@ -532,7 +576,7 @@
                                                        Foreground="{StaticResource TextPrimaryBrush}"
                                                        FontSize="14"
                                                        VerticalAlignment="Center"/>
-                                            
+                                             
                                             <TextBlock Text="{Binding ScreenWakeSchemes.Count, StringFormat='({0})'}"
                                                        Foreground="{StaticResource TextSecondaryBrush}"
                                                        FontSize="12"

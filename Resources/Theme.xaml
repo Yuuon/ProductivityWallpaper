@@ -18,6 +18,7 @@
     <SolidColorBrush x:Key="BackgroundBlockSolidBrush" Color="#605F77"/>
     <SolidColorBrush x:Key="BackgroundHoverBrush" Color="#3E3C5C"/>
     <SolidColorBrush x:Key="BackgroundSelectedBrush" Color="#4A4870"/>
+    <SolidColorBrush x:Key="SchemeSelectedBrush" Color="#6F7CFF" Opacity="0.2"/>
     <SolidColorBrush x:Key="BorderLineBrush" Color="#2E2C4A"/>
     
     <!-- Text Colors -->
