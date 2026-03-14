@@ -238,6 +238,7 @@ namespace ProductivityWallpaper.ViewModels
 
         /// <summary>
         /// Selects a feature and updates the UI state.
+        /// Collapses all expanded menus when selecting a simple feature.
         /// </summary>
         /// <param name="featureName">The name of the feature to select.</param>
         [RelayCommand]
@@ -260,6 +261,8 @@ namespace ProductivityWallpaper.ViewModels
             {
                 case "ThemePreview":
                     IsThemePreviewSelected = true;
+                    // Collapse all expanded menus when selecting Theme Preview
+                    CollapseAllNavExcept();
                     break;
                 case "DesktopBackground":
                     IsDesktopBackgroundSelected = true;
@@ -278,15 +281,23 @@ namespace ProductivityWallpaper.ViewModels
                     break;
                 case "OpenApp":
                     IsOpenAppSelected = true;
+                    // Collapse all expanded menus when selecting simple feature
+                    CollapseAllNavExcept();
                     break;
                 case "DesktopClock":
                     IsDesktopClockSelected = true;
+                    // Collapse all expanded menus when selecting simple feature
+                    CollapseAllNavExcept();
                     break;
                 case "Pomodoro":
                     IsPomodoroSelected = true;
+                    // Collapse all expanded menus when selecting simple feature
+                    CollapseAllNavExcept();
                     break;
                 case "Anniversary":
                     IsAnniversarySelected = true;
+                    // Collapse all expanded menus when selecting simple feature
+                    CollapseAllNavExcept();
                     break;
             }
 
@@ -313,13 +324,49 @@ namespace ProductivityWallpaper.ViewModels
         }
 
         /// <summary>
+        /// Collapses all navigation menus except the specified one.
+        /// </summary>
+        /// <param name="exceptFeature">The feature to keep expanded (if any).</param>
+        private void CollapseAllNavExcept(FeatureType? exceptFeature = null)
+        {
+            if (exceptFeature != FeatureType.DesktopBackground)
+                IsDesktopBackgroundExpanded = false;
+            if (exceptFeature != FeatureType.MouseClick)
+                IsMouseClickExpanded = false;
+            if (exceptFeature != FeatureType.Shutdown)
+                IsShutdownExpanded = false;
+            if (exceptFeature != FeatureType.BootRestart)
+                IsBootRestartExpanded = false;
+            if (exceptFeature != FeatureType.ScreenWake)
+                IsScreenWakeExpanded = false;
+        }
+
+        /// <summary>
         /// Toggles the expansion state of a feature's submenu.
         /// Auto-creates a default scheme if the feature has none.
+        /// Collapses all other expanded menus when expanding.
         /// </summary>
         /// <param name="featureType">The feature type to toggle.</param>
         [RelayCommand]
         private void ToggleFeatureExpansion(FeatureType featureType)
         {
+            // Check current state before toggling
+            bool isCurrentlyExpanded = featureType switch
+            {
+                FeatureType.DesktopBackground => IsDesktopBackgroundExpanded,
+                FeatureType.MouseClick => IsMouseClickExpanded,
+                FeatureType.Shutdown => IsShutdownExpanded,
+                FeatureType.BootRestart => IsBootRestartExpanded,
+                FeatureType.ScreenWake => IsScreenWakeExpanded,
+                _ => false
+            };
+
+            // If expanding (currently collapsed), collapse all others first
+            if (!isCurrentlyExpanded)
+            {
+                CollapseAllNavExcept(featureType);
+            }
+
             // Toggle the appropriate expansion property
             switch (featureType)
             {
