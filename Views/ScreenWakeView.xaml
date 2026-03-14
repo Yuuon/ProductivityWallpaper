@@ -478,7 +478,6 @@
             <!-- Scheme Name (Edit Mode) -->
             <TextBox Grid.Column="0"
                     Text="{Binding SchemeName, UpdateSourceTrigger=PropertyChanged}"
-                    Style="{StaticResource SubHeaderTextStyle}"
                     Background="Transparent"
                     BorderThickness="0"
                     CaretBrush="{StaticResource TextPrimaryBrush}"
