@@ -36,6 +36,9 @@
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
                             </Trigger>
+                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                <Setter Property="Background" Value="{StaticResource BackgroundSelectedBrush}"/>
+                            </DataTrigger>
                             <DataTrigger Binding="{Binding IsActive}" Value="True">
                                 <Setter Property="Background" Value="{StaticResource BackgroundSelectedBrush}"/>
                             </DataTrigger>

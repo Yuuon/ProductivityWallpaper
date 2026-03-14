@@ -119,6 +119,22 @@ namespace ProductivityWallpaper.Models
         }
 
         /// <summary>
+        /// Gets or sets a value indicating whether this scheme is currently selected in the UI.
+        /// The selected scheme is the one being edited, different from the active scheme.
+        /// </summary>
+        private bool _isSelected;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether this scheme is currently selected in the UI.
+        /// The selected scheme is the one being edited, different from the active scheme.
+        /// </summary>
+        public bool IsSelected
+        {
+            get => _isSelected;
+            set => SetProperty(ref _isSelected, value);
+        }
+
+        /// <summary>
         /// Gets or sets the date and time when this scheme was created.
         /// </summary>
         private DateTime _createdAt = DateTime.Now;

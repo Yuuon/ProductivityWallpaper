@@ -483,11 +483,13 @@ namespace ProductivityWallpaper.ViewModels
                 foreach (var existingScheme in _schemesByFeature[featureType])
                 {
                     existingScheme.IsActive = false;
+                    existingScheme.IsSelected = false;
                 }
             }
 
-            // Activate the selected scheme
+            // Activate and select the selected scheme
             scheme.IsActive = true;
+            scheme.IsSelected = true;
 
             // Update the selected scheme property
             switch (featureType)
@@ -528,7 +530,8 @@ namespace ProductivityWallpaper.ViewModels
                 var featureName = GetFeatureDisplayName(featureType);
                 var defaultScheme = new SchemeModel($"{featureName} 1", featureType)
                 {
-                    IsActive = true
+                    IsActive = true,
+                    IsSelected = true
                 };
                 schemes.Add(defaultScheme);
 
