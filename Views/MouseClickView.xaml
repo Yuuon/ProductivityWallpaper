@@ -216,9 +216,8 @@
                            Margin="0,0,8,0"
                            Visibility="{Binding IsEditingName, Converter={StaticResource InverseBooleanToVisibilityConverter}}"/>
                 
-                <TextBox Text="{Binding SchemeName, UpdateSourceTrigger=PropertyChanged}"
-                         Style="{StaticResource SubHeaderTextStyle}"
-                         Background="Transparent"
+                 <TextBox Text="{Binding SchemeName, UpdateSourceTrigger=PropertyChanged}"
+                          Background="Transparent"
                          BorderThickness="0"
                          Foreground="{StaticResource TextPrimaryBrush}"
                          CaretBrush="{StaticResource TextPrimaryBrush}"
