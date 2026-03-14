@@ -143,6 +143,50 @@ Wave 3: Secondary Feature Pages
 
 ---
 
+## Phase 01-fix: Creator View Final Fixes
+
+**Goal:** Fix persistent Creator View UI/UX issues from Phase-01-Issue-Fix.md (third fix attempt)
+
+**Status:** 📝 Planned
+
+**Requirements:** FIX-01, FIX-02, FIX-03, FIX-04, FIX-05
+
+### Phase 01-fix Plans
+
+| Plan | Objective | Files | Wave | Requirements |
+|------|-----------|-------|------|--------------|
+| 01-fix-01 | Arrow vertical alignment fix | CreatorView.xaml | 1 | FIX-02 |
+| 01-fix-02 | Scheme auto-creation on expand | CreatorViewModel.cs, CreatorView.xaml | 1 | FIX-04 |
+| 01-fix-03 | Navigation highlight consistency | CreatorViewModel.cs, CreatorView.xaml | 1 | FIX-03 |
+| 01-fix-04 | Checkmark vs highlight distinction | CreatorView.xaml, CreatorViewModel.cs | 2 | FIX-05 |
+| 01-fix-05 | Feature page display fix (critical) | CreatorViewModel.cs, CreatorView.xaml, App.xaml | 2 | FIX-01 |
+
+### Wave Structure
+
+```
+Wave 1: Navigation and Visual Fixes (Parallel)
+├── 01-fix-01: Arrow stays centered when expanded
+├── 01-fix-02: Auto-create scheme when expanding empty feature
+└── 01-fix-03: Parent header highlighted when child scheme selected
+
+Wave 2: State and Content Fixes
+├── 01-fix-04: IsSelected (highlight) vs IsActive (checkmark) distinction
+└── 01-fix-05: Clock/Pomodoro/Anniversary pages display correctly
+    Depends on: 01-fix-03 (navigation state), 01-fix-04 (selection state)
+```
+
+### Issues Being Fixed
+
+| ID | Issue | Description |
+|----|-------|-------------|
+| FIX-01 | Feature page display | Clock/Pomodoro/Anniversary pages show content, not theme name |
+| FIX-02 | Arrow vertical alignment | Arrow stays centered when ToggleButton expanded |
+| FIX-03 | Navigation highlight consistency | Parent header highlighted when child scheme selected |
+| FIX-04 | Scheme auto-creation | Empty features auto-create "{FeatureName} 1" on expand |
+| FIX-05 | Checkmark/active state | Clear distinction: highlight=viewing, checkmark=enabled |
+
+---
+
 ## Phase 2: System Awareness
 
 **Goal:** Implement system event monitoring and video triggering
@@ -218,4 +262,4 @@ Phase 3 (Quality)
 
 ## Next Step
 
-Run `/gsd-execute-phase 01` to begin Phase 1 execution.
+Run `/gsd-execute-phase 01-fix` to begin Phase 01-fix execution.
