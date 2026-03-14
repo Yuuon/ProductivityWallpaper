@@ -260,28 +260,28 @@
                                         </StackPanel>
                                         
                                         <!-- Expand/Collapse Arrow -->
-                                        <Path Grid.Column="2"
-                                              Data="M6 9L12 15L18 9"
-                                              Stroke="{StaticResource TextSecondaryBrush}"
-                                              StrokeThickness="2"
-                                              Width="16"
-                                              Height="16"
-                                              Stretch="Uniform"
-                                              VerticalAlignment="Center">
-                                            <Path.Style>
-                                                <Style TargetType="Path">
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsDesktopBackgroundExpanded}" Value="True">
-                                                            <Setter Property="RenderTransform">
-                                                                <Setter.Value>
-                                                                    <RotateTransform Angle="180" CenterX="8" CenterY="8"/>
-                                                                </Setter.Value>
-                                                            </Setter>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Path.Style>
-                                        </Path>
+                                        <Grid Grid.Column="2" Width="16" Height="16">
+                                            <Path Data="M6 9L12 15L18 9"
+                                                  Stroke="{StaticResource TextSecondaryBrush}"
+                                                  StrokeThickness="2"
+                                                  Stretch="Uniform"
+                                                  VerticalAlignment="Center"
+                                                  HorizontalAlignment="Center">
+                                                <Path.Style>
+                                                    <Style TargetType="Path">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsDesktopBackgroundExpanded}" Value="True">
+                                                                <Setter Property="RenderTransform">
+                                                                    <Setter.Value>
+                                                                        <RotateTransform Angle="180" CenterX="8" CenterY="8"/>
+                                                                    </Setter.Value>
+                                                                </Setter>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Path.Style>
+                                            </Path>
+                                        </Grid>
                                     </Grid>
                                 </ToggleButton>
                                 
@@ -331,28 +331,28 @@
                                                        Visibility="{Binding MouseClickSchemes.Count, Converter={StaticResource CountToVisibilityConverter}}"/>
                                         </StackPanel>
                                         
-                                        <Path Grid.Column="2"
-                                              Data="M6 9L12 15L18 9"
-                                              Stroke="{StaticResource TextSecondaryBrush}"
-                                              StrokeThickness="2"
-                                              Width="16"
-                                              Height="16"
-                                              Stretch="Uniform"
-                                              VerticalAlignment="Center">
-                                            <Path.Style>
-                                                <Style TargetType="Path">
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsMouseClickExpanded}" Value="True">
-                                                            <Setter Property="RenderTransform">
-                                                                <Setter.Value>
-                                                                    <RotateTransform Angle="180" CenterX="8" CenterY="8"/>
-                                                                </Setter.Value>
-                                                            </Setter>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Path.Style>
-                                        </Path>
+                                        <Grid Grid.Column="2" Width="16" Height="16">
+                                            <Path Data="M6 9L12 15L18 9"
+                                                  Stroke="{StaticResource TextSecondaryBrush}"
+                                                  StrokeThickness="2"
+                                                  Stretch="Uniform"
+                                                  VerticalAlignment="Center"
+                                                  HorizontalAlignment="Center">
+                                                <Path.Style>
+                                                    <Style TargetType="Path">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsMouseClickExpanded}" Value="True">
+                                                                <Setter Property="RenderTransform">
+                                                                    <Setter.Value>
+                                                                        <RotateTransform Angle="180" CenterX="8" CenterY="8"/>
+                                                                    </Setter.Value>
+                                                                </Setter>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Path.Style>
+                                            </Path>
+                                        </Grid>
                                     </Grid>
                                 </ToggleButton>
                                 
@@ -401,28 +401,28 @@
                                                        Visibility="{Binding ShutdownSchemes.Count, Converter={StaticResource CountToVisibilityConverter}}"/>
                                         </StackPanel>
                                         
-                                        <Path Grid.Column="2"
-                                              Data="M6 9L12 15L18 9"
-                                              Stroke="{StaticResource TextSecondaryBrush}"
-                                              StrokeThickness="2"
-                                              Width="16"
-                                              Height="16"
-                                              Stretch="Uniform"
-                                              VerticalAlignment="Center">
-                                            <Path.Style>
-                                                <Style TargetType="Path">
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsShutdownExpanded}" Value="True">
-                                                            <Setter Property="RenderTransform">
-                                                                <Setter.Value>
-                                                                    <RotateTransform Angle="180" CenterX="8" CenterY="8"/>
-                                                                </Setter.Value>
-                                                            </Setter>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Path.Style>
-                                        </Path>
+                                        <Grid Grid.Column="2" Width="16" Height="16">
+                                            <Path Data="M6 9L12 15L18 9"
+                                                  Stroke="{StaticResource TextSecondaryBrush}"
+                                                  StrokeThickness="2"
+                                                  Stretch="Uniform"
+                                                  VerticalAlignment="Center"
+                                                  HorizontalAlignment="Center">
+                                                <Path.Style>
+                                                    <Style TargetType="Path">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsShutdownExpanded}" Value="True">
+                                                                <Setter Property="RenderTransform">
+                                                                    <Setter.Value>
+                                                                        <RotateTransform Angle="180" CenterX="8" CenterY="8"/>
+                                                                    </Setter.Value>
+                                                                </Setter>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Path.Style>
+                                            </Path>
+                                        </Grid>
                                     </Grid>
                                 </ToggleButton>
                                 
@@ -471,28 +471,28 @@
                                                        Visibility="{Binding BootRestartSchemes.Count, Converter={StaticResource CountToVisibilityConverter}}"/>
                                         </StackPanel>
                                         
-                                        <Path Grid.Column="2"
-                                              Data="M6 9L12 15L18 9"
-                                              Stroke="{StaticResource TextSecondaryBrush}"
-                                              StrokeThickness="2"
-                                              Width="16"
-                                              Height="16"
-                                              Stretch="Uniform"
-                                              VerticalAlignment="Center">
-                                            <Path.Style>
-                                                <Style TargetType="Path">
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsBootRestartExpanded}" Value="True">
-                                                            <Setter Property="RenderTransform">
-                                                                <Setter.Value>
-                                                                    <RotateTransform Angle="180" CenterX="8" CenterY="8"/>
-                                                                </Setter.Value>
-                                                            </Setter>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Path.Style>
-                                        </Path>
+                                        <Grid Grid.Column="2" Width="16" Height="16">
+                                            <Path Data="M6 9L12 15L18 9"
+                                                  Stroke="{StaticResource TextSecondaryBrush}"
+                                                  StrokeThickness="2"
+                                                  Stretch="Uniform"
+                                                  VerticalAlignment="Center"
+                                                  HorizontalAlignment="Center">
+                                                <Path.Style>
+                                                    <Style TargetType="Path">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsBootRestartExpanded}" Value="True">
+                                                                <Setter Property="RenderTransform">
+                                                                    <Setter.Value>
+                                                                        <RotateTransform Angle="180" CenterX="8" CenterY="8"/>
+                                                                    </Setter.Value>
+                                                                </Setter>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Path.Style>
+                                            </Path>
+                                        </Grid>
                                     </Grid>
                                 </ToggleButton>
                                 
@@ -541,28 +541,28 @@
                                                        Visibility="{Binding ScreenWakeSchemes.Count, Converter={StaticResource CountToVisibilityConverter}}"/>
                                         </StackPanel>
                                         
-                                        <Path Grid.Column="2"
-                                              Data="M6 9L12 15L18 9"
-                                              Stroke="{StaticResource TextSecondaryBrush}"
-                                              StrokeThickness="2"
-                                              Width="16"
-                                              Height="16"
-                                              Stretch="Uniform"
-                                              VerticalAlignment="Center">
-                                            <Path.Style>
-                                                <Style TargetType="Path">
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsScreenWakeExpanded}" Value="True">
-                                                            <Setter Property="RenderTransform">
-                                                                <Setter.Value>
-                                                                    <RotateTransform Angle="180" CenterX="8" CenterY="8"/>
-                                                                </Setter.Value>
-                                                            </Setter>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Path.Style>
-                                        </Path>
+                                        <Grid Grid.Column="2" Width="16" Height="16">
+                                            <Path Data="M6 9L12 15L18 9"
+                                                  Stroke="{StaticResource TextSecondaryBrush}"
+                                                  StrokeThickness="2"
+                                                  Stretch="Uniform"
+                                                  VerticalAlignment="Center"
+                                                  HorizontalAlignment="Center">
+                                                <Path.Style>
+                                                    <Style TargetType="Path">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsScreenWakeExpanded}" Value="True">
+                                                                <Setter Property="RenderTransform">
+                                                                    <Setter.Value>
+                                                                        <RotateTransform Angle="180" CenterX="8" CenterY="8"/>
+                                                                    </Setter.Value>
+                                                                </Setter>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Path.Style>
+                                            </Path>
+                                        </Grid>
                                     </Grid>
                                 </ToggleButton>
                                 
