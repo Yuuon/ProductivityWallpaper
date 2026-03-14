@@ -21,6 +21,12 @@
             <converters:BooleanToTabStyleConverter x:Key="BooleanToTabStyleConverter"/>
             <converters:BooleanToFeatureButtonConverter x:Key="BooleanToFeatureButtonConverter"/>
             <converters:CountToVisibilityConverter x:Key="CountToVisibilityConverter"/>
+            <converters:FileSizeConverter x:Key="FileSizeConverter"/>
+            <converters:DurationConverter x:Key="DurationConverter"/>
+            <converters:MediaTypeIsVideoConverter x:Key="MediaTypeIsVideoConverter"/>
+            <converters:MediaTypeIsImageConverter x:Key="MediaTypeIsImageConverter"/>
+            <converters:MediaTypeIsAudioConverter x:Key="MediaTypeIsAudioConverter"/>
+            <converters:BooleanToActiveTextConverter x:Key="BooleanToActiveTextConverter"/>
             
             <!-- View-ViewModel Mappings -->
             <DataTemplate DataType="{x:Type vm:WallpaperViewModel}">
@@ -45,6 +51,10 @@
             
             <DataTemplate DataType="{x:Type vm:CreatorViewModel}">
                 <views:CreatorView/>
+            </DataTemplate>
+            
+            <DataTemplate DataType="{x:Type vm:DesktopBackgroundViewModel}">
+                <views:DesktopBackgroundView/>
             </DataTemplate>
         </ResourceDictionary>
     </Application.Resources>

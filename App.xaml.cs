@@ -33,11 +33,17 @@ namespace ProductivityWallpaper
             services.AddSingleton<WallpaperViewModel>();
             services.AddSingleton<AiToolViewModel>();
             services.AddSingleton<SettingsViewModel>();
-            
+
             // New ViewModels
             services.AddSingleton<WorkshopViewModel>();
             services.AddSingleton<MyThemeViewModel>();
-            services.AddSingleton<CreatorViewModel>();
+            services.AddTransient<DesktopBackgroundViewModel>();
+
+            // CreatorViewModel with factory injection
+            services.AddSingleton<CreatorViewModel>(serviceProvider =>
+            {
+                return new CreatorViewModel(() => serviceProvider.GetRequiredService<DesktopBackgroundViewModel>());
+            });
 
             // Views
             services.AddSingleton<MainWindow>();

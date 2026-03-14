@@ -13,6 +13,8 @@ namespace ProductivityWallpaper.ViewModels
     /// </summary>
     public partial class CreatorViewModel : ObservableObject
     {
+        // --- DI Services ---
+        private readonly Func<DesktopBackgroundViewModel> _desktopBackgroundVmFactory;
         // --- Feature Types Supporting Multi-Scheme ---
         private static readonly FeatureType[] MultiSchemeFeatures = new[]
         {
@@ -156,8 +158,18 @@ namespace ProductivityWallpaper.ViewModels
         /// <summary>
         /// Initializes a new instance of the <see cref="CreatorViewModel"/> class.
         /// </summary>
-        public CreatorViewModel()
+        public CreatorViewModel() : this(null)
         {
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="CreatorViewModel"/> class with DI.
+        /// </summary>
+        /// <param name="desktopBackgroundVmFactory">Factory for creating DesktopBackgroundViewModel instances.</param>
+        public CreatorViewModel(Func<DesktopBackgroundViewModel> desktopBackgroundVmFactory)
+        {
+            _desktopBackgroundVmFactory = desktopBackgroundVmFactory ?? (() => new DesktopBackgroundViewModel());
+
             // Initialize scheme collections for all multi-scheme features
             _schemesByFeature = new Dictionary<FeatureType, ObservableCollection<SchemeModel>>();
             foreach (var featureType in MultiSchemeFeatures)
@@ -445,9 +457,30 @@ namespace ProductivityWallpaper.ViewModels
         /// <param name="featureName">The name of the feature.</param>
         private void LoadFeatureContent(string featureName)
         {
-            // Load appropriate content based on feature
-            // This is a placeholder - actual implementation would load specific user controls
-            HasPreviewContent = false;
+            switch (featureName)
+            {
+                case "DesktopBackground":
+                    // Create and configure DesktopBackgroundViewModel
+                    var desktopBgVm = _desktopBackgroundVmFactory();
+                    if (SelectedDesktopBackgroundScheme != null)
+                    {
+                        desktopBgVm.SchemeName = SelectedDesktopBackgroundScheme.Name;
+                    }
+                    ConfigurationContent = desktopBgVm;
+                    HasPreviewContent = false;
+                    break;
+
+                case "ThemePreview":
+                    ConfigurationContent = null;
+                    HasPreviewContent = false;
+                    break;
+
+                default:
+                    // For other features, clear content for now
+                    ConfigurationContent = null;
+                    HasPreviewContent = false;
+                    break;
+            }
         }
     }
 }
