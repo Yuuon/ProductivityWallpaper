@@ -229,6 +229,55 @@ Wave 2: UI Polish
 
 ---
 
+## Phase 01-fix-v3: Creator View Root Cause Fixes (5th Attempt - FINAL)
+
+**Goal:** Definitive fix for Creator View - ROOT CAUSE IDENTIFIED: ViewModels ARE created (logs prove it) but ContentControl not displaying them. This is a WPF DataTemplate/content display issue, NOT ViewModel creation issue.
+
+**Status:** 📝 Planned
+
+**Requirements:** FIX-V3-001, FIX-V3-002, FIX-V3-003, FIX-V3-004, FIX-V3-005
+
+### Phase 01-fix-v3 Plans
+
+| Plan | Objective | Files | Wave | Requirements | Status |
+|------|-----------|-------|------|--------------|--------|
+| 01-fix-v3-01 | Content display fix + Navigation rewrite + Image converter | CreatorView.xaml, CreatorViewModel.cs, CreatorViewState.cs, StringToImageSourceConverter.cs | 1 | FIX-V3-001, FIX-V3-002, FIX-V3-003 | 📝 Planned |
+| 01-fix-v3-02 | Scheme highlight + UI polish verification | CreatorView.xaml, Theme.xaml | 2 | FIX-V3-004, FIX-V3-005 | 📝 Planned |
+
+### Wave Structure
+
+```
+Wave 1: Critical Content Display (Root Cause Fix)
+├── 01-fix-v3-01: ContentPresenter fix, CreatorViewState enum, Image converter
+│   └── Fixes: ContentControl not displaying ViewModels despite creation
+│   └── Creates: CreatorViewState enum for single navigation state
+│   └── Creates: StringToImageSourceConverter for empty PreviewImagePath
+│   └── Depends on: All prior work for base structure
+
+Wave 2: UI Polish
+└── 01-fix-v3-02: Scheme highlight verification, arrow/scrollbar verification
+    └── Depends on: Wave 1 for navigation state correctness
+```
+
+### Issues Being Fixed
+
+| ID | Issue | Priority | Description |
+|----|-------|----------|-------------|
+| FIX-V3-001 | ContentControl display | P0 | ViewModels created but ContentControl not displaying them - use ContentPresenter with explicit null ContentTemplate |
+| FIX-V3-002 | Unified navigation state | P0 | Replace multiple boolean flags with single CreatorViewState enum, one source of truth |
+| FIX-V3-003 | ImageSource binding | P1 | StringToImageSourceConverter for empty PreviewImagePath causing binding errors |
+| FIX-V3-004 | Scheme highlight | P1 | Verify IsSelected trigger works with SchemeSelectedBrush for visual feedback |
+| FIX-V3-005 | UI polish | P2 | Arrow centering, scrollbar padding verification, button MinWidth |
+
+### Key Insight
+
+Previous 4 attempts failed because they focused on ViewModel creation (which already works per NavigationMonitor logs) instead of content display (which is broken). This attempt focuses on:
+1. ContentControl/ContentPresenter display mechanism
+2. Single enum state (not multiple booleans)
+3. Image binding converter
+
+---
+
 ## Phase 2: System Awareness
 
 **Goal:** Implement system event monitoring and video triggering
