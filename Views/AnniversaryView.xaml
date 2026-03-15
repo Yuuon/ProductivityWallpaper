@@ -249,7 +249,7 @@
                                                 <Grid>
                                                     
                                                     <!-- Preview Image -->
-                                                    <Image Source="{Binding PreviewImagePath}"
+                                                    <Image Source="{Binding PreviewImagePath, Converter={StaticResource StringToImageSourceConverter}}"
                                                           Stretch="UniformToFill"
                                                           Margin="4"
                                                           Opacity="0.5">
