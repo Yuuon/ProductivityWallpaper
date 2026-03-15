@@ -6,7 +6,7 @@ namespace ProductivityWallpaper.Models
 {
     // --- Wallpaper Module Models ---
 
-    public enum MediaType { Image, Video, Web, Interactive }
+    public enum MediaType_Old { Image, Video, Web, Interactive }
 
     public enum TriggerType
     {
@@ -20,17 +20,17 @@ namespace ProductivityWallpaper.Models
         public string Id { get; set; } = Guid.NewGuid().ToString();
         public string FilePath { get; set; } = string.Empty;
         public string ThumbnailPath { get; set; } = string.Empty;
-        public MediaType Type { get; set; }
+        public MediaType_Old Type { get; set; }
 
         [JsonIgnore]
-        public string DisplayName => Type == MediaType.Interactive
+        public string DisplayName => Type == MediaType_Old.Interactive
             ? new DirectoryInfo(FilePath).Name  // 如果是互动包，显示文件夹名
             : System.IO.Path.GetFileName(FilePath);
 
         [JsonIgnore]
         public string DisplayThumbnail => !string.IsNullOrEmpty(ThumbnailPath) && System.IO.File.Exists(ThumbnailPath)
             ? ThumbnailPath
-            : (Type == MediaType.Interactive
+            : (Type == MediaType_Old.Interactive
                 ? "/Resources/Images/interactive_thumb.png" // 以后可以换成互动壁纸专用图标
                 : "/Resources/Images/default_thumb.png");
 

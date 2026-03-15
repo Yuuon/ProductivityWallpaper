@@ -25,7 +25,7 @@ namespace ProductivityWallpaper.Converters
             {
                 // Build resource key from type name (e.g., "DesktopBackgroundViewModel" → "DesktopBackgroundTemplate")
                 var resourceKey = vmType.Name.Replace("ViewModel", "Template");
-                template = Application.Current.TryFindResource(resourceKey) as DataTemplate;
+                template = System.Windows.Application.Current.TryFindResource(resourceKey) as DataTemplate;
 
                 if (template != null)
                 {
@@ -35,7 +35,7 @@ namespace ProductivityWallpaper.Converters
                 {
                     // Fallback: try implicit DataTemplate (by DataType)
                     var dataTemplateKey = new DataTemplateKey(vmType);
-                    template = Application.Current.TryFindResource(dataTemplateKey) as DataTemplate;
+                    template = System.Windows.Application.Current.TryFindResource(dataTemplateKey) as DataTemplate;
 
                     if (template != null)
                     {
