@@ -211,7 +211,8 @@
                         <!-- Theme Preview (Simple Button) -->
                         <Button Command="{Binding SelectFeatureCommand}"
                                 CommandParameter="ThemePreview"
-                                Style="{Binding IsThemePreviewActive, Converter={StaticResource BooleanToFeatureButtonConverter}}">
+                                Style="{Binding IsThemePreviewActive, Converter={StaticResource BooleanToFeatureButtonConverter}}"
+                                MinWidth="200">
                             <Grid>
                                 <TextBlock Text="{DynamicResource Creator_Feature_ThemePreview}"
                                           VerticalAlignment="Center"/>
@@ -614,6 +615,7 @@
                         <Button Command="{Binding SelectFeatureCommand}"
                                 CommandParameter="OpenApp"
                                 Style="{Binding IsOpenAppActive, Converter={StaticResource BooleanToFeatureButtonConverter}}"
+                                MinWidth="200"
                                 Margin="0,8,0,0">
                             <Grid>
                                 <TextBlock Text="{DynamicResource Creator_Feature_OpenApp}"
@@ -625,6 +627,7 @@
                         <Button Command="{Binding SelectFeatureCommand}"
                                 CommandParameter="DesktopClock"
                                 Style="{Binding IsDesktopClockActive, Converter={StaticResource BooleanToFeatureButtonConverter}}"
+                                MinWidth="200"
                                 Margin="0,8,0,0">
                             <Grid>
                                 <TextBlock Text="{DynamicResource Creator_Feature_DesktopClock}"
@@ -636,6 +639,7 @@
                         <Button Command="{Binding SelectFeatureCommand}"
                                 CommandParameter="Pomodoro"
                                 Style="{Binding IsPomodoroActive, Converter={StaticResource BooleanToFeatureButtonConverter}}"
+                                MinWidth="200"
                                 Margin="0,8,0,0">
                             <Grid>
                                 <TextBlock Text="{DynamicResource Creator_Feature_Pomodoro}"
@@ -647,6 +651,7 @@
                         <Button Command="{Binding SelectFeatureCommand}"
                                 CommandParameter="Anniversary"
                                 Style="{Binding IsAnniversaryActive, Converter={StaticResource BooleanToFeatureButtonConverter}}"
+                                MinWidth="200"
                                 Margin="0,8,0,0">
                             <Grid>
                                 <TextBlock Text="{DynamicResource Creator_Feature_Anniversary}"
