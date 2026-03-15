@@ -51,13 +51,26 @@ namespace ProductivityWallpaper.ViewModels
                 IsShutdownExpanded = false;
                 IsBootRestartExpanded = false;
                 IsScreenWakeExpanded = false;
-                
+
                 // Auto-create scheme if none exist
                 EnsureDefaultScheme(FeatureType.DesktopBackground);
-                
+
                 // Select the feature and show content
                 SelectedFeature = "DesktopBackground";
                 LoadFeatureContent("DesktopBackground");
+            }
+            else
+            {
+                // Collapsed: clear highlight if this feature is not selected
+                if (SelectedFeature != "DesktopBackground")
+                {
+                    // Deselect any selected scheme for this feature
+                    if (SelectedDesktopBackgroundScheme != null)
+                    {
+                        SelectedDesktopBackgroundScheme.IsSelected = false;
+                        SelectedDesktopBackgroundScheme = null;
+                    }
+                }
             }
         }
 
