@@ -278,6 +278,62 @@ Previous 4 attempts failed because they focused on ViewModel creation (which alr
 
 ---
 
+## Phase 01-fix-v4: Creator View Final Fixes (6th Attempt - DEFINITIVE)
+
+**Goal:** Final fix attempt using ContentTemplateSelector pattern - addresses root cause of content display failure and remaining UI polish issues.
+
+**Status:** 📝 Planned (2 plans ready for execution)
+
+**Requirements:** FIX-V4-001, FIX-V4-002, FIX-V4-003, FIX-V4-004
+
+### Phase 01-fix-v4 Plans
+
+| Plan | Objective | Files | Wave | Requirements | Status |
+|------|-----------|-------|------|--------------|--------|
+| 01-fix-v4-01 | ContentTemplateSelector implementation (P0 Critical) | CreatorViewTemplateSelector.cs, App.xaml, App.xaml.cs, CreatorView.xaml | 1 | FIX-V4-001, FIX-V4-002 | 📝 Planned |
+| 01-fix-v4-02 | UI polish (scheme highlight, arrow position) | Theme.xaml, CreatorView.xaml | 2 | FIX-V4-003, FIX-V4-004 | 📝 Planned |
+
+### Wave Structure
+
+```
+Wave 1: Core Content Display Fix
+├── 01-fix-v4-01: Factory-pattern ContentTemplateSelector
+│   └── Creates: IViewModelTemplateSelector interface
+│   └── Creates: ViewModelTemplateSelectorFactory with caching
+│   └── Creates: CreatorViewTemplateSelector WPF wrapper
+│   └── Updates: App.xaml resource registration
+│   └── Updates: App.xaml.cs DI registration
+│   └── Updates: CreatorView.xaml ContentPresenter
+│   └── Fixes: Implicit DataTemplate lookup failure
+
+Wave 2: UI Polish
+└── 01-fix-v4-02: Scheme highlight visibility + arrow centering
+    └── Updates: SchemeSelectedBrush opacity (0.2 → 0.35)
+    └── Updates: SchemeItemTemplate with bold text on select
+    └── Updates: Arrow Grid Height="40" for all 5 expandable features
+    └── Verifies: Navigation highlight logic
+    └── Verifies: Scrollbar button compression fix
+    Depends on: 01-fix-v4-01 (TemplateSelector must work first)
+```
+
+### Issues Being Fixed
+
+| ID | Issue | Priority | Description |
+|----|-------|----------|-------------|
+| FIX-V4-001 | Content display | P0 | ViewModels created but not displayed - use explicit ContentTemplateSelector instead of implicit lookup |
+| FIX-V4-002 | Template resolution logging | P1 | Factory pattern enables testability and diagnostic logging |
+| FIX-V4-003 | Scheme highlight visibility | P1 | Increase opacity 20%→35%, add bold text when selected |
+| FIX-V4-004 | Arrow vertical alignment | P2 | Arrow vertically centered when ToggleButton expanded (Grid Height="40") |
+
+### Critical Success Factors
+
+1. **ContentTemplateSelector** - Explicit factory pattern avoids WPF's implicit template lookup failures
+2. **Diagnostic Logging** - Extensive Debug.WriteLine for troubleshooting
+3. **Caching** - Template cache avoids repeated resource dictionary lookups
+4. **Vertical Centering** - Arrow containers match button height (40px) for proper rotation center
+
+---
+
 ## Phase 02: Data Structure
 
 **Goal:** Establish complete data structures for theme packages and local widget settings
@@ -418,12 +474,18 @@ Phase 3 (Quality)
 | 01-fix | Creator View Fixes | ✅ Complete | 5 |
 | 01-fix-v2 | Critical Fixes | ✅ Complete | 3 |
 | 01-fix-v3 | Root Cause Fixes | ✅ Complete | 2 |
-| **02** | **Data Structure** | 📝 Planned | **3** |
+| **01-fix-v4** | **Final Fixes** | 📝 **Planned** | **2** |
+| 02 | Data Structure | 📝 Planned | 3 |
 | 2 | System Awareness | 📋 Backlog | - |
 | 3 | Quality & Testing | 📋 Backlog | - |
 
 ## Next Step
 
-Phase 02 is planned with 3 executable plans. Ready for execution.
+Phase 01-fix-v4 is planned with 2 executable plans (Wave 1 → Wave 2). Ready for execution.
 
-Run `/gsd-execute-phase 02` to begin implementing Phase 02: Data Structure.
+Run `/gsd-execute-phase 01-fix-v4` to begin implementing Phase 01-fix-v4: Creator View Final Fixes.
+
+**Execution order:**
+1. Execute Wave 1: `01-fix-v4-01-PLAN.md` (TemplateSelector implementation)
+2. Verify content display works for all 9 features
+3. Execute Wave 2: `01-fix-v4-02-PLAN.md` (UI polish)
