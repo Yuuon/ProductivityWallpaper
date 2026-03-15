@@ -48,30 +48,11 @@
                         </Style.Triggers>
                     </Style>
                 </Button.Style>
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    
-                    <TextBlock Text="{Binding Name}"
-                               Foreground="{StaticResource TextPrimaryBrush}"
-                               FontSize="13"
-                               VerticalAlignment="Center"
-                               TextTrimming="CharacterEllipsis"/>
-                    
-                    <!-- Active Indicator Checkmark - shows when IsActive=true -->
-                    <Path Grid.Column="1"
-                           Data="M4.5 8.5L7 11L11.5 6.5"
-                           Stroke="{StaticResource AccentBrush}"
-                           StrokeThickness="2"
-                           Width="16"
-                           Height="16"
-                           Stretch="Uniform"
+                <TextBlock Text="{Binding Name}"
+                           Foreground="{StaticResource TextPrimaryBrush}"
+                           FontSize="13"
                            VerticalAlignment="Center"
-                           Margin="8,0,0,0"
-                           Visibility="{Binding IsActive, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-                </Grid>
+                           TextTrimming="CharacterEllipsis"/>
             </Button>
         </DataTemplate>
 
