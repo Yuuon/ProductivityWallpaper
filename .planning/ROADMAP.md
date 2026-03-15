@@ -187,6 +187,48 @@ Wave 2: State and Content Fixes
 
 ---
 
+## Phase 01-fix-v2: Creator View Critical Fixes (4th Attempt)
+
+**Goal:** Emergency fix for Creator View - fix page display for all features, add monitoring, fix highlight persistence, UI polish
+
+**Status:** 📝 Planned
+
+**Requirements:** FIX-V2-001, FIX-V2-002, FIX-V2-003, FIX-V2-004
+
+### Phase 01-fix-v2 Plans
+
+| Plan | Objective | Files | Wave | Requirements | Status |
+|------|-----------|-------|------|--------------|--------|
+| 01-fix-v2-01 | Page display debugging + Navigation monitor | NavigationMonitorService.cs, CreatorViewModel.cs | 1 | FIX-V2-001, FIX-V2-002 | 📝 Planned |
+| 01-fix-v2-02 | Expandable button highlight persistence fix | CreatorViewModel.cs | 1 | FIX-V2-003 | 📝 Planned |
+| 01-fix-v2-03 | UI polish (checkmark removal, arrow, scrollbar) | CreatorView.xaml | 2 | FIX-V2-004 | 📝 Planned |
+
+### Wave Structure
+
+```
+Wave 1: Critical Fixes (Parallel)
+├── 01-fix-v2-01: Navigation monitoring + error handling for all ViewModel factories
+│   └── Creates: NavigationMonitorService with logging
+│   └── Fixes: Silent failures in LoadFeatureContent()
+└── 01-fix-v2-02: Expandable highlight cleanup when collapsing
+    └── Fixes: Buttons staying highlighted after collapse
+
+Wave 2: UI Polish
+└── 01-fix-v2-03: Remove checkmarks, center arrows, verify scrollbar
+    └── Depends on: Wave 1 for testing infrastructure
+```
+
+### Issues Being Fixed
+
+| ID | Issue | Priority | Description |
+|----|-------|----------|-------------|
+| FIX-V2-001 | Page display | P0 | All 9 features must display, not just Theme Preview |
+| FIX-V2-002 | Navigation monitor | P1 | Runtime monitoring of button→ViewModel→success flow |
+| FIX-V2-003 | Highlight persistence | P1 | Expandable buttons clear highlight when collapsed |
+| FIX-V2-004 | UI polish | P2 | Remove checkmark, center arrow, scrollbar spacing |
+
+---
+
 ## Phase 2: System Awareness
 
 **Goal:** Implement system event monitoring and video triggering
@@ -262,4 +304,4 @@ Phase 3 (Quality)
 
 ## Next Step
 
-Run `/gsd-execute-phase 01-fix` to begin Phase 01-fix execution.
+Run `/gsd-execute-phase 01-fix-v2` to begin Phase 01-fix-v2 execution.
