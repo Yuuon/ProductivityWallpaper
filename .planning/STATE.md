@@ -128,7 +128,7 @@ Warnings: 0 (post-fixes)
 | 2-fix | Creator View Issue Fixes v1 | ✅ Complete | 100% |
 | 3-fix-v2 | Creator View Issue Fixes v2 | ⚠️ Issues Persist | 80% |
 | 01-fix | Creator View Issue Fixes - Planned | 📝 Planned | 100% |
-| 01-fix-v2 | Creator View Critical Fixes - 4th | 🔄 In Progress | 40% |
+| 01-fix-v2 | Creator View Critical Fixes - 4th | 🔄 In Progress | 67% |
 | 2 | System Awareness | 📋 Planned | 0% |
 | 3 | Quality & Testing | 📋 Backlog | 0% |
 
@@ -147,8 +147,8 @@ Warnings: 0 (post-fixes)
 9. ✅ ~~Plan Phase 01-fix~~ (Complete - 5 plans created)
 10. ✅ ~~Discuss Phase 01-fix-v2~~ (Complete - fourth fix context)
 11. ✅ ~~Plan Phase 01-fix-v2~~ (Complete - 3 plans created)
-12. 🔄 **Execute Phase 01-fix-v2** (In Progress - Plan 02 complete)
-    - ✅ 01-fix-v2-01: Navigation monitoring service
+12. 🔄 **Execute Phase 01-fix-v2** (In Progress - Plans 01 & 02 complete)
+    - ✅ 01-fix-v2-01: Navigation monitoring service + error handling (3 tasks complete)
     - ✅ 01-fix-v2-02: Expandable highlight persistence fix
     - ⏳ 01-fix-v2-03: UI polish (checkmark, arrow, scrollbar)
 13. ⏳ **Plan Phase 2 System Awareness** (`/gsd-plan-phase 2`)
@@ -238,6 +238,14 @@ Warnings: 0 (post-fixes)
 5. Checkmark/active state
 
 ### Phase 01-fix-v2 Execution Progress
+
+**Plan 01-fix-v2-01 Complete (2026-03-15):**
+- ✅ Created NavigationMonitorService with thread-safe logging
+- ✅ Wrapped all 8 ViewModel factory calls in try-catch blocks
+- ✅ Added comprehensive debug logging to SelectFeature method
+- ✅ All exceptions now logged with full stack traces
+- ✅ Build successful, commits: 39eb586, d6e259e, a290d5b
+- 📄 SUMMARY: `.planning/phases/01-fix-v2/01-fix-v2-01-SUMMARY.md`
 
 **Plan 01-fix-v2-02 Complete (2026-03-15):**
 - ✅ Fixed expandable button highlight persistence in all 5 partial methods
