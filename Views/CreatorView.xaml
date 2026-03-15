@@ -689,11 +689,12 @@
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
                 
-                <!-- Theme Name Header -->
+                <!-- Theme Name Header — only visible in ThemePreview mode -->
                 <Grid Grid.Row="0" 
                       HorizontalAlignment="Left"
                       Height="32"
-                      Margin="0,0,0,24">
+                      Margin="0,0,0,24"
+                      Visibility="{Binding IsThemePreviewActive, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <StackPanel Orientation="Horizontal" 
                                 VerticalAlignment="Center"
                                 Visibility="{Binding IsEditingThemeName, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
@@ -754,52 +755,66 @@
                 
                 <!-- Feature Content -->
                 <Grid Grid.Row="1">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="{Binding IsThemePreviewActive, Converter={StaticResource BooleanToStarConverter}, ConverterParameter='7'}"/>
-                        <ColumnDefinition Width="{Binding IsThemePreviewActive, Converter={StaticResource BooleanToStarConverter}, ConverterParameter='3'}"/>
-                    </Grid.ColumnDefinitions>
                     
-                    <!-- Left: Preview (Only visible for Theme Preview) -->
-                    <Border Grid.Column="0"
+                    <!-- === Theme Preview Layout (split: preview 7* + config 3*) === -->
+                    <Grid Visibility="{Binding IsThemePreviewActive, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="7*"/>
+                            <ColumnDefinition Width="3*"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <!-- Left: Preview Area -->
+                        <Border Grid.Column="0"
+                                Background="{StaticResource BackgroundBlockBrush}"
+                                BorderBrush="{StaticResource BorderLineBrush}"
+                                BorderThickness="1"
+                                CornerRadius="10"
+                                Margin="0,0,16,0">
+                            <Grid>
+                                <!-- Empty state placeholder -->
+                                <StackPanel VerticalAlignment="Center" 
+                                            HorizontalAlignment="Center"
+                                            Visibility="{Binding HasPreviewContent, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+                                    <Path Data="M724.068 278.015C714.459 278.015 706.669 285.805 706.669 295.414C706.669 301 709.303 305.972 713.393 309.154C713.044 309.611 712.505 310.106 711.782 310.592C710.672 311.339 709.336 311.921 708.194 312.207C707.919 312.275 707.673 312.432 707.496 312.655C707.32 312.877 707.221 313.151 707.216 313.435C707.212 313.719 707.301 313.997 707.47 314.225C707.64 314.453 707.88 314.619 708.153 314.696C710.645 315.408 713.589 315.394 716.153 314.942C717.444 314.714 718.675 314.369 719.737 313.925C720.54 313.589 721.295 313.177 721.909 312.68C722.617 312.767 723.338 312.812 724.068 312.812C733.677 312.812 741.467 305.023 741.467 295.414C741.467 285.805 733.677 278.015 724.068 278.015ZM709.247 295.413C709.247 287.228 715.882 280.592 724.068 280.592C732.253 280.592 738.889 287.228 738.889 295.413C738.889 303.599 732.253 310.234 724.068 310.234C723.259 310.234 722.467 310.17 721.695 310.046C721.488 310.012 721.276 310.03 721.077 310.097C720.879 310.164 720.7 310.279 720.555 310.431C720.22 310.785 719.617 311.181 718.743 311.547C717.886 311.905 716.843 312.203 715.706 312.403C714.927 312.54 714.122 312.63 713.318 312.665C714.594 311.789 715.837 310.59 716.279 309.137C716.359 308.874 716.353 308.592 716.261 308.332C716.169 308.073 715.997 307.849 715.769 307.695C711.831 305.028 709.247 300.522 709.247 295.413Z"
+                                          Width="64" Height="64"
+                                          Fill="{StaticResource IconBrush}"
+                                          Stretch="Uniform"
+                                          HorizontalAlignment="Center"
+                                          Margin="0,0,0,16"/>
+                                    <TextBlock Text="{DynamicResource Creator_EmptyPreview}"
+                                               Style="{StaticResource BodyTextStyle}"
+                                               Foreground="{StaticResource TextSecondaryBrush}"
+                                               TextAlignment="Center"/>
+                                </StackPanel>
+                                
+                                <!-- Preview content (when available) -->
+                                <ContentControl Content="{Binding PreviewContent}"
+                                                Visibility="{Binding HasPreviewContent, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                            </Grid>
+                        </Border>
+                        
+                        <!-- Right: Theme Preview Configuration -->
+                        <Border Grid.Column="1"
+                                Background="{StaticResource BackgroundBlockBrush}"
+                                BorderBrush="{StaticResource BorderLineBrush}"
+                                BorderThickness="1"
+                                CornerRadius="10">
+                            <ContentControl Content="{Binding ConfigurationContent}"/>
+                        </Border>
+                    </Grid>
+                    
+                    <!-- === Feature Page Layout (full-width content) === -->
+                    <Border Visibility="{Binding IsThemePreviewActive, Converter={StaticResource InverseBooleanToVisibilityConverter}}"
                             Background="{StaticResource BackgroundBlockBrush}"
                             BorderBrush="{StaticResource BorderLineBrush}"
                             BorderThickness="1"
-                            CornerRadius="10"
-                            Margin="0,0,16,0"
-                            Visibility="{Binding IsThemePreviewActive, Converter={StaticResource BooleanToVisibilityConverter}}">
-                        <Grid>
-                            <StackPanel VerticalAlignment="Center" 
-                                        HorizontalAlignment="Center"
-                                        Visibility="{Binding HasPreviewContent, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
-                                <Path Data="M724.068 278.015C714.459 278.015 706.669 285.805 706.669 295.414C706.669 301 709.303 305.972 713.393 309.154C713.044 309.611 712.505 310.106 711.782 310.592C710.672 311.339 709.336 311.921 708.194 312.207C707.919 312.275 707.673 312.432 707.496 312.655C707.32 312.877 707.221 313.151 707.216 313.435C707.212 313.719 707.301 313.997 707.47 314.225C707.64 314.453 707.88 314.619 708.153 314.696C710.645 315.408 713.589 315.394 716.153 314.942C717.444 314.714 718.675 314.369 719.737 313.925C720.54 313.589 721.295 313.177 721.909 312.68C722.617 312.767 723.338 312.812 724.068 312.812C733.677 312.812 741.467 305.023 741.467 295.414C741.467 285.805 733.677 278.015 724.068 278.015ZM709.247 295.413C709.247 287.228 715.882 280.592 724.068 280.592C732.253 280.592 738.889 287.228 738.889 295.413C738.889 303.599 732.253 310.234 724.068 310.234C723.259 310.234 722.467 310.17 721.695 310.046C721.488 310.012 721.276 310.03 721.077 310.097C720.879 310.164 720.7 310.279 720.555 310.431C720.22 310.785 719.617 311.181 718.743 311.547C717.886 311.905 716.843 312.203 715.706 312.403C714.927 312.54 714.122 312.63 713.318 312.665C714.594 311.789 715.837 310.59 716.279 309.137C716.359 308.874 716.353 308.592 716.261 308.332C716.169 308.073 715.997 307.849 715.769 307.695C711.831 305.028 709.247 300.522 709.247 295.413Z"
-                                      Width="64" Height="64"
-                                      Fill="{StaticResource IconBrush}"
-                                      Stretch="Uniform"
-                                      HorizontalAlignment="Center"
-                                      Margin="0,0,0,16"/>
-                                <TextBlock Text="{DynamicResource Creator_EmptyPreview}"
-                                           Style="{StaticResource BodyTextStyle}"
-                                           Foreground="{StaticResource TextSecondaryBrush}"
-                                           TextAlignment="Center"/>
-                            </StackPanel>
-                            
-                            <ContentControl Content="{Binding PreviewContent}"
-                                            Visibility="{Binding HasPreviewContent, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-                        </Grid>
-                    </Border>
-                    
-                    <!-- Right: Configuration Content -->
-                    <Border Grid.Column="1"
-                            Background="{StaticResource BackgroundBlockBrush}"
-                            BorderBrush="{StaticResource BorderLineBrush}"
-                            BorderThickness="1"
-                            CornerRadius="10"
-                            Margin="{Binding IsThemePreviewActive, Converter={StaticResource BooleanToLeftMarginConverter}, ConverterParameter='16,0,0,0'}">
+                            CornerRadius="10">
                         <!-- ContentControl uses WPF's built-in implicit DataTemplate resolution.
                              When ConfigurationContent is set to a ViewModel (e.g., DesktopBackgroundViewModel),
                              WPF automatically finds the matching DataTemplate in App.xaml resources. -->
                         <ContentControl Content="{Binding ConfigurationContent}"/>
                     </Border>
+                    
                 </Grid>
             </Grid>
         </Grid>
