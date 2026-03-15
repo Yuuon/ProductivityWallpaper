@@ -4,7 +4,7 @@
 **Phase:** 01-fix-v3 (Creator View Root Cause Fixes - 5th Attempt)
 **Status:** 🔄 In Progress
 **Last Updated:** 2026-03-15
-**Last Session:** Completed 01-fix-v3-01 - Root cause fix (ContentPresenter, enum state, converter)
+**Last Session:** Completed 01-fix-v3-02 - UI polish (scheme highlight, arrows, scrollbar, MinWidth)
 
 ---
 
@@ -28,7 +28,13 @@
    - ContentPresenter fixes DataTemplate lookup
    - CreatorViewState enum unifies navigation
    - StringToImageSourceConverter eliminates binding errors
-⏳ **Pending** - Phase 01-fix-v3 plans 02-05 (if needed)
+✅ **Phase 01-fix-v3-02** - Complete - UI polish (Wave 2)
+   - Verified SchemeSelectedBrush and IsSelected trigger
+   - Verified arrow vertical alignment (5 containers)
+   - Verified ScrollViewer padding (0,0,12,0)
+   - Added MinWidth="200" to 5 navigation buttons
+   - Build succeeds with 0 errors
+⏳ **Pending** - Phase 01-fix-v3 plans 03-05 (if needed)
 ⏳ **Ready for Phase 2 System Awareness** (after all fixes complete)
 
 ---
