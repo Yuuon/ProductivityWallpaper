@@ -58,7 +58,7 @@ namespace ProductivityWallpaper.ViewModels
                 EnsureDefaultScheme(FeatureType.DesktopBackground);
 
                 // Select the feature and show content
-                SelectedFeature = "DesktopBackground";
+                CurrentState = CreatorViewState.DesktopBackground;
                 LoadFeatureContent("DesktopBackground");
             }
             else
@@ -93,7 +93,7 @@ namespace ProductivityWallpaper.ViewModels
                 EnsureDefaultScheme(FeatureType.MouseClick);
 
                 // Select the feature and show content
-                SelectedFeature = "MouseClick";
+                CurrentState = CreatorViewState.MouseClick;
                 LoadFeatureContent("MouseClick");
             }
             else
@@ -128,7 +128,7 @@ namespace ProductivityWallpaper.ViewModels
                 EnsureDefaultScheme(FeatureType.Shutdown);
 
                 // Select the feature and show content
-                SelectedFeature = "Shutdown";
+                CurrentState = CreatorViewState.Shutdown;
                 LoadFeatureContent("Shutdown");
             }
             else
@@ -163,7 +163,7 @@ namespace ProductivityWallpaper.ViewModels
                 EnsureDefaultScheme(FeatureType.BootRestart);
 
                 // Select the feature and show content
-                SelectedFeature = "BootRestart";
+                CurrentState = CreatorViewState.BootRestart;
                 LoadFeatureContent("BootRestart");
             }
             else
@@ -198,7 +198,7 @@ namespace ProductivityWallpaper.ViewModels
                 EnsureDefaultScheme(FeatureType.ScreenWake);
 
                 // Select the feature and show content
-                SelectedFeature = "ScreenWake";
+                CurrentState = CreatorViewState.ScreenWake;
                 LoadFeatureContent("ScreenWake");
             }
             else
@@ -255,70 +255,76 @@ namespace ProductivityWallpaper.ViewModels
 
         // --- Feature Selection States ---
         /// <summary>
-        /// The currently selected feature name.
+        /// The currently selected view state.
         /// </summary>
         [ObservableProperty]
-        [NotifyPropertyChangedFor(nameof(IsThemePreviewSelected))]
-        [NotifyPropertyChangedFor(nameof(IsDesktopBackgroundSelected))]
-        [NotifyPropertyChangedFor(nameof(IsMouseClickSelected))]
-        [NotifyPropertyChangedFor(nameof(IsShutdownSelected))]
-        [NotifyPropertyChangedFor(nameof(IsBootRestartSelected))]
-        [NotifyPropertyChangedFor(nameof(IsScreenWakeSelected))]
-        [NotifyPropertyChangedFor(nameof(IsOpenAppSelected))]
-        [NotifyPropertyChangedFor(nameof(IsDesktopClockSelected))]
-        [NotifyPropertyChangedFor(nameof(IsPomodoroSelected))]
-        [NotifyPropertyChangedFor(nameof(IsAnniversarySelected))]
-        private string _selectedFeature = "ThemePreview";
+        [NotifyPropertyChangedFor(nameof(IsThemePreviewActive))]
+        [NotifyPropertyChangedFor(nameof(IsDesktopBackgroundActive))]
+        [NotifyPropertyChangedFor(nameof(IsMouseClickActive))]
+        [NotifyPropertyChangedFor(nameof(IsShutdownActive))]
+        [NotifyPropertyChangedFor(nameof(IsBootRestartActive))]
+        [NotifyPropertyChangedFor(nameof(IsScreenWakeActive))]
+        [NotifyPropertyChangedFor(nameof(IsOpenAppActive))]
+        [NotifyPropertyChangedFor(nameof(IsDesktopClockActive))]
+        [NotifyPropertyChangedFor(nameof(IsPomodoroActive))]
+        [NotifyPropertyChangedFor(nameof(IsAnniversaryActive))]
+        private CreatorViewState _currentState = CreatorViewState.ThemePreview;
 
         /// <summary>
-        /// Gets whether Theme Preview is selected.
+        /// Gets whether Theme Preview is active.
         /// </summary>
-        public bool IsThemePreviewSelected => SelectedFeature == "ThemePreview";
+        public bool IsThemePreviewActive => CurrentState == CreatorViewState.ThemePreview;
 
         /// <summary>
-        /// Gets whether Desktop Background is selected.
+        /// Gets whether Desktop Background is active.
         /// </summary>
-        public bool IsDesktopBackgroundSelected => SelectedFeature == "DesktopBackground";
+        public bool IsDesktopBackgroundActive => CurrentState == CreatorViewState.DesktopBackground;
 
         /// <summary>
-        /// Gets whether Mouse Click is selected.
+        /// Gets whether Mouse Click is active.
         /// </summary>
-        public bool IsMouseClickSelected => SelectedFeature == "MouseClick";
+        public bool IsMouseClickActive => CurrentState == CreatorViewState.MouseClick;
 
         /// <summary>
-        /// Gets whether Shutdown is selected.
+        /// Gets whether Shutdown is active.
         /// </summary>
-        public bool IsShutdownSelected => SelectedFeature == "Shutdown";
+        public bool IsShutdownActive => CurrentState == CreatorViewState.Shutdown;
 
         /// <summary>
-        /// Gets whether Boot/Restart is selected.
+        /// Gets whether Boot/Restart is active.
         /// </summary>
-        public bool IsBootRestartSelected => SelectedFeature == "BootRestart";
+        public bool IsBootRestartActive => CurrentState == CreatorViewState.BootRestart;
 
         /// <summary>
-        /// Gets whether Screen Wake is selected.
+        /// Gets whether Screen Wake is active.
         /// </summary>
-        public bool IsScreenWakeSelected => SelectedFeature == "ScreenWake";
+        public bool IsScreenWakeActive => CurrentState == CreatorViewState.ScreenWake;
 
         /// <summary>
-        /// Gets whether Open App is selected.
+        /// Gets whether Open App is active.
         /// </summary>
-        public bool IsOpenAppSelected => SelectedFeature == "OpenApp";
+        public bool IsOpenAppActive => CurrentState == CreatorViewState.OpenApp;
 
         /// <summary>
-        /// Gets whether Desktop Clock is selected.
+        /// Gets whether Desktop Clock is active.
         /// </summary>
-        public bool IsDesktopClockSelected => SelectedFeature == "DesktopClock";
+        public bool IsDesktopClockActive => CurrentState == CreatorViewState.DesktopClock;
 
         /// <summary>
-        /// Gets whether Pomodoro is selected.
+        /// Gets whether Pomodoro is active.
         /// </summary>
-        public bool IsPomodoroSelected => SelectedFeature == "Pomodoro";
+        public bool IsPomodoroActive => CurrentState == CreatorViewState.Pomodoro;
 
         /// <summary>
-        /// Gets whether Anniversary is selected.
+        /// Gets whether Anniversary is active.
         /// </summary>
-        public bool IsAnniversarySelected => SelectedFeature == "Anniversary";
+        public bool IsAnniversaryActive => CurrentState == CreatorViewState.Anniversary;
+
+        // --- Obsolete SelectedFeature for backward compatibility ---
+        /// <summary>
+        /// The currently selected feature name (string, for backward compatibility).
+        /// </summary>
+        public string SelectedFeature => CurrentState.ToString();
 
         // --- Header Highlight Properties (for expandable features) ---
         /// <summary>
@@ -492,8 +498,16 @@ namespace ProductivityWallpaper.ViewModels
 
             try
             {
-                // Set selected feature - all IsXXXSelected properties are computed from this
-                SelectedFeature = featureName;
+                // Set selected feature - parse string to enum
+                if (Enum.TryParse<CreatorViewState>(featureName, out var state))
+                {
+                    CurrentState = state;
+                }
+                else
+                {
+                    Debug.WriteLine($"[Navigation] ERROR: Unknown feature name: {featureName}");
+                    return;
+                }
 
                 // Collapse submenus for simple features and Theme Preview
                 switch (featureName)
@@ -667,7 +681,10 @@ namespace ProductivityWallpaper.ViewModels
             scheme.IsSelected = true;
 
             // Set the parent feature as selected (for header highlighting)
-            SelectedFeature = featureType.ToString();
+            if (Enum.TryParse<CreatorViewState>(featureType.ToString(), out var state))
+            {
+                CurrentState = state;
+            }
 
             // Update the selected scheme property and load content
             switch (featureType)
