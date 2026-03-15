@@ -42,6 +42,7 @@
                             <!-- IsSelected = viewing/editing (accent highlight) -->
                             <DataTrigger Binding="{Binding IsSelected}" Value="True">
                                 <Setter Property="Background" Value="{StaticResource SchemeSelectedBrush}"/>
+                                <Setter Property="FontWeight" Value="SemiBold"/>
                             </DataTrigger>
                             
                             <!-- IsActive = enabled for wallpaper (NO background change, just checkmark) -->
@@ -254,11 +255,13 @@
                                         </StackPanel>
                                         
                                         <!-- Expand/Collapse Arrow -->
-                                        <Grid Grid.Column="2" Width="16" Height="16" VerticalAlignment="Center">
+                                        <Grid Grid.Column="2" Width="16" Height="40" VerticalAlignment="Center">
                                             <Path Data="M6 9L12 15L18 9"
                                                   Stroke="{StaticResource TextSecondaryBrush}"
                                                   StrokeThickness="2"
                                                   Stretch="Uniform"
+                                                  Width="16"
+                                                  Height="16"
                                                   VerticalAlignment="Center"
                                                   HorizontalAlignment="Center">
                                                 <Path.Style>
@@ -333,11 +336,13 @@
                                                        Visibility="{Binding MouseClickSchemes.Count, Converter={StaticResource CountToVisibilityConverter}}"/>
                                         </StackPanel>
                                         
-                                        <Grid Grid.Column="2" Width="16" Height="16" VerticalAlignment="Center">
+                                        <Grid Grid.Column="2" Width="16" Height="40" VerticalAlignment="Center">
                                             <Path Data="M6 9L12 15L18 9"
                                                   Stroke="{StaticResource TextSecondaryBrush}"
                                                   StrokeThickness="2"
                                                   Stretch="Uniform"
+                                                  Width="16"
+                                                  Height="16"
                                                   VerticalAlignment="Center"
                                                   HorizontalAlignment="Center">
                                                 <Path.Style>
@@ -411,11 +416,13 @@
                                                         Visibility="{Binding ShutdownSchemes.Count, Converter={StaticResource CountToVisibilityConverter}}"/>
                                         </StackPanel>
                                         
-                                        <Grid Grid.Column="2" Width="16" Height="16" VerticalAlignment="Center">
+                                        <Grid Grid.Column="2" Width="16" Height="40" VerticalAlignment="Center">
                                             <Path Data="M6 9L12 15L18 9"
                                                   Stroke="{StaticResource TextSecondaryBrush}"
                                                   StrokeThickness="2"
                                                   Stretch="Uniform"
+                                                  Width="16"
+                                                  Height="16"
                                                   VerticalAlignment="Center"
                                                   HorizontalAlignment="Center">
                                                 <Path.Style>
@@ -489,11 +496,13 @@
                                                         Visibility="{Binding BootRestartSchemes.Count, Converter={StaticResource CountToVisibilityConverter}}"/>
                                         </StackPanel>
                                         
-                                        <Grid Grid.Column="2" Width="16" Height="16" VerticalAlignment="Center">
+                                        <Grid Grid.Column="2" Width="16" Height="40" VerticalAlignment="Center">
                                             <Path Data="M6 9L12 15L18 9"
                                                   Stroke="{StaticResource TextSecondaryBrush}"
                                                   StrokeThickness="2"
                                                   Stretch="Uniform"
+                                                  Width="16"
+                                                  Height="16"
                                                   VerticalAlignment="Center"
                                                   HorizontalAlignment="Center">
                                                 <Path.Style>
@@ -567,11 +576,13 @@
                                                         Visibility="{Binding ScreenWakeSchemes.Count, Converter={StaticResource CountToVisibilityConverter}}"/>
                                         </StackPanel>
                                         
-                                        <Grid Grid.Column="2" Width="16" Height="16" VerticalAlignment="Center">
+                                        <Grid Grid.Column="2" Width="16" Height="40" VerticalAlignment="Center">
                                             <Path Data="M6 9L12 15L18 9"
                                                   Stroke="{StaticResource TextSecondaryBrush}"
                                                   StrokeThickness="2"
                                                   Stretch="Uniform"
+                                                  Width="16"
+                                                  Height="16"
                                                   VerticalAlignment="Center"
                                                   HorizontalAlignment="Center">
                                                 <Path.Style>
@@ -780,7 +791,7 @@
                             CornerRadius="10"
                             Margin="{Binding IsThemePreviewActive, Converter={StaticResource BooleanToLeftMarginConverter}, ConverterParameter='16,0,0,0'}">
                         <ContentPresenter Content="{Binding ConfigurationContent}"
-                                          ContentTemplate="{x:Null}"/>
+                                          ContentTemplateSelector="{StaticResource CreatorViewTemplateSelector}"/>
                     </Border>
                 </Grid>
             </Grid>
