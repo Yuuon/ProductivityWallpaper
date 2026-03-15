@@ -30,6 +30,7 @@
             <converters:ClockFormatToBoolConverter x:Key="ClockFormatToBoolConverter"/>
             <converters:BooleanToStarConverter x:Key="BooleanToStarConverter"/>
             <converters:BooleanToLeftMarginConverter x:Key="BooleanToLeftMarginConverter"/>
+            <converters:StringToImageSourceConverter x:Key="StringToImageSourceConverter"/>
 
             <!-- View-ViewModel Mappings -->
             <DataTemplate DataType="{x:Type vm:WallpaperViewModel}">
