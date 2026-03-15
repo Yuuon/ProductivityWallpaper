@@ -488,23 +488,45 @@ namespace ProductivityWallpaper.ViewModels
         [RelayCommand]
         private void SelectFeature(string featureName)
         {
-            // Set selected feature - all IsXXXSelected properties are computed from this
-            SelectedFeature = featureName;
+            Debug.WriteLine($"[Navigation] Selecting feature: {featureName}");
 
-            // Collapse submenus for simple features and Theme Preview
-            switch (featureName)
+            try
             {
-                case "ThemePreview":
-                case "OpenApp":
-                case "DesktopClock":
-                case "Pomodoro":
-                case "Anniversary":
-                    CollapseAllNavExcept();
-                    break;
-            }
+                // Set selected feature - all IsXXXSelected properties are computed from this
+                SelectedFeature = featureName;
 
-            // Load preview and configuration content
-            LoadFeatureContent(featureName);
+                // Collapse submenus for simple features and Theme Preview
+                switch (featureName)
+                {
+                    case "ThemePreview":
+                    case "OpenApp":
+                    case "DesktopClock":
+                    case "Pomodoro":
+                    case "Anniversary":
+                        CollapseAllNavExcept();
+                        break;
+                }
+
+                Debug.WriteLine($"[Navigation] Loading content for: {featureName}");
+
+                // Load preview and configuration content
+                LoadFeatureContent(featureName);
+
+                // Verify content was loaded
+                if (ConfigurationContent != null)
+                {
+                    Debug.WriteLine($"[Navigation] SUCCESS: {featureName} loaded, Content type: {ConfigurationContent.GetType().Name}");
+                }
+                else
+                {
+                    Debug.WriteLine($"[Navigation] WARNING: {featureName} loaded but ConfigurationContent is null");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[Navigation] FAILED: {featureName} - {ex.Message}");
+                NavigationMonitorService.LogNavigation(featureName, null, ex);
+            }
         }
 
         /// <summary>
