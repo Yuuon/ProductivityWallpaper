@@ -1,10 +1,10 @@
 # Project State
 
 **Project:** ProductivityWallpaper  
-**Phase:** 01-fix (Creator View Issue Fixes - Final)  
+**Phase:** 01-fix-v2 (Creator View Critical Fixes - 4th Attempt)  
 **Status:** 📝 Context Gathered  
 **Last Updated:** 2026-03-14  
-**Last Session:** Discussed Phase 01-fix context - third fix attempt with clarified requirements
+**Last Session:** Discussed Phase 01-fix-v2 context - fourth fix attempt with critical debugging focus
 
 ---
 
@@ -18,13 +18,13 @@
 ✅ **Phase 1 validated** - VALIDATION.md created  
 ✅ **Phase 2 Fix v1** - Creator View navigation and layout issues resolved  
 ✅ **Phase 3 Fix v2** - Creator View fixes attempted (8 tasks, verification pending)
-✅ **Phase 01-fix** - Execution Complete
-   - Plan 01-fix-01: Arrow alignment - ✅ Complete
-   - Plan 01-fix-02: Scheme auto-creation - ✅ Complete
-   - Plan 01-fix-03: Navigation highlight - ✅ Complete
-   - Plan 01-fix-04: Checkmark distinction - ✅ Complete
-   - Plan 01-fix-05: Feature page display - ✅ Complete
-⏳ **Ready for Phase 2 System Awareness** (after 01-fix complete)
+✅ **Phase 01-fix** - Plans Created (5 plans ready for execution)
+⚠️ **Phase 01-fix-v2** - Context gathered - Fourth fix attempt needed
+   - Critical: All pages except Theme Preview not displaying
+   - Critical: Expandable button highlight persists when collapsed
+   - New requirement: Self-testing/monitoring mechanism
+⏳ **Pending** - Phase 01-fix and 01-fix-v2 execution
+⏳ **Ready for Phase 2 System Awareness** (after all fixes complete)
 
 ---
 
@@ -127,7 +127,8 @@ Warnings: 0 (post-fixes)
 | 1 | Foundation - Creator Theme UI | ✅ Validated | 100% |
 | 2-fix | Creator View Issue Fixes v1 | ✅ Complete | 100% |
 | 3-fix-v2 | Creator View Issue Fixes v2 | ⚠️ Issues Persist | 80% |
-| 01-fix | Creator View Issue Fixes - Final | ✅ Complete | 100% |
+| 01-fix | Creator View Issue Fixes - Planned | 📝 Planned | 100% |
+| 01-fix-v2 | Creator View Critical Fixes - 4th | 📝 Context Ready | 0% |
 | 2 | System Awareness | 📋 Planned | 0% |
 | 3 | Quality & Testing | 📋 Backlog | 0% |
 
@@ -143,10 +144,12 @@ Warnings: 0 (post-fixes)
 6. ✅ ~~Execute Phase 2 Fix v1~~ (Complete)
 7. ✅ ~~Execute Phase 3 Fix v2~~ (Complete - partial success)
 8. ✅ ~~Discuss Phase 01-fix~~ (Complete - context gathered)
-9. ⏳ **Plan Phase 01-fix** (`/gsd-plan-phase 01-fix`)
-10. ⏳ Execute Phase 01-fix (Creator View final fixes)
-11. ⏳ **Plan Phase 2 System Awareness** (`/gsd-plan-phase 2`)
-12. ⏳ Execute Phase 2 (System Awareness)
+9. ✅ ~~Plan Phase 01-fix~~ (Complete - 5 plans created)
+10. ✅ ~~Discuss Phase 01-fix-v2~~ (Complete - fourth fix context)
+11. ⏳ **Plan Phase 01-fix-v2** (`/gsd-plan-phase 01-fix-v2`)
+12. ⏳ Execute Phase 01-fix-v2 (Critical fixes)
+13. ⏳ **Plan Phase 2 System Awareness** (`/gsd-plan-phase 2`)
+14. ⏳ Execute Phase 2 (System Awareness)
 
 ---
 
@@ -230,6 +233,39 @@ Warnings: 0 (post-fixes)
 3. Navigation highlight consistency
 4. Scheme auto-creation
 5. Checkmark/active state
+
+### Phase 01-fix-v2 Discussion Results (2026-03-14)
+
+**Context Document:** `.planning/phases/01-fix-v2/01-CONTEXT.md`
+
+**Critical Issues Identified (Fourth Fix Attempt):**
+
+**1. Page Display - CRITICAL (P0):**
+- **Status:** All pages except Theme Preview not displaying
+- **Evidence:** DataTemplates registered, LoadFeatureContent sets ConfigurationContent, but ContentControl stays empty
+- **Root Causes:** ViewModel instantiation exceptions (silent), DataTemplate lookup failure, View XAML errors
+- **Fix:** Add try-catch with logging, verify DataTemplate types match exactly, add runtime verification
+
+**2. Expandable Button Highlight Persistence:**
+- **Issue:** Buttons stay highlighted after collapsing
+- **Expected:** When collapsed and feature not selected → remove highlight
+- **Fix:** Check `IsXXXExpanded` changed → if false and not selected → clear highlight
+
+**3. Self-Testing/Monitoring (NEW REQUIREMENT):**
+- **Decision:** Runtime monitoring (not unit tests)
+- **Implementation:** NavigationMonitor service to track button clicks → ViewModel creation → success/failure
+- **Purpose:** Prevent regression, enable debugging
+
+**4. Checkmark Removal:**
+- **Decision:** Remove checkmark completely from scheme items
+- **Reason:** Simplifies UI, highlight color indicates selection
+- **Implementation:** Remove Path checkmark from SchemeItemTemplate
+
+**Priority for Phase 01-fix-v2:**
+1. Page display debugging (P0 - critical)
+2. Navigation monitoring (P1 - enables verification)
+3. Expandable highlight fix (P1)
+4. Scrollbar/Arrow/Checkmark polish (P2)
 
 ### Code Quality
 - All files follow CONVENTIONS.md patterns
