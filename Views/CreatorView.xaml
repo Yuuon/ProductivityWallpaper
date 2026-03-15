@@ -774,7 +774,8 @@
                             BorderThickness="1"
                             CornerRadius="10"
                             Margin="{Binding IsThemePreviewActive, Converter={StaticResource BooleanToLeftMarginConverter}, ConverterParameter='16,0,0,0'}">
-                        <ContentControl Content="{Binding ConfigurationContent}"/>
+                        <ContentPresenter Content="{Binding ConfigurationContent}"
+                                          ContentTemplate="{x:Null}"/>
                     </Border>
                 </Grid>
             </Grid>
