@@ -33,6 +33,14 @@ namespace ProductivityWallpaper.Models
         [ObservableProperty]
         private bool _isSelected;
 
+        /// <summary>
+        /// The click action for this region (visual + audio IDs).
+        /// Uses ID-based references to ThemeResourceLibrary.
+        /// </summary>
+        [ObservableProperty]
+        private ClickAction _clickAction = new();
+
+        // Legacy properties kept for backward compatibility
         [ObservableProperty]
         private MediaItemModel? _visualContent;
 
