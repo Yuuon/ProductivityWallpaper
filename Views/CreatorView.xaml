@@ -211,7 +211,7 @@
                         <!-- Theme Preview (Simple Button) -->
                         <Button Command="{Binding SelectFeatureCommand}"
                                 CommandParameter="ThemePreview"
-                                Style="{Binding IsThemePreviewSelected, Converter={StaticResource BooleanToFeatureButtonConverter}}">
+                                Style="{Binding IsThemePreviewActive, Converter={StaticResource BooleanToFeatureButtonConverter}}">
                             <Grid>
                                 <TextBlock Text="{DynamicResource Creator_Feature_ThemePreview}"
                                           VerticalAlignment="Center"/>
@@ -613,7 +613,7 @@
                         <!-- Open App (Simple Button) -->
                         <Button Command="{Binding SelectFeatureCommand}"
                                 CommandParameter="OpenApp"
-                                Style="{Binding IsOpenAppSelected, Converter={StaticResource BooleanToFeatureButtonConverter}}"
+                                Style="{Binding IsOpenAppActive, Converter={StaticResource BooleanToFeatureButtonConverter}}"
                                 Margin="0,8,0,0">
                             <Grid>
                                 <TextBlock Text="{DynamicResource Creator_Feature_OpenApp}"
@@ -624,7 +624,7 @@
                         <!-- Desktop Clock (Simple Button) -->
                         <Button Command="{Binding SelectFeatureCommand}"
                                 CommandParameter="DesktopClock"
-                                Style="{Binding IsDesktopClockSelected, Converter={StaticResource BooleanToFeatureButtonConverter}}"
+                                Style="{Binding IsDesktopClockActive, Converter={StaticResource BooleanToFeatureButtonConverter}}"
                                 Margin="0,8,0,0">
                             <Grid>
                                 <TextBlock Text="{DynamicResource Creator_Feature_DesktopClock}"
@@ -635,7 +635,7 @@
                         <!-- Pomodoro (Simple Button) -->
                         <Button Command="{Binding SelectFeatureCommand}"
                                 CommandParameter="Pomodoro"
-                                Style="{Binding IsPomodoroSelected, Converter={StaticResource BooleanToFeatureButtonConverter}}"
+                                Style="{Binding IsPomodoroActive, Converter={StaticResource BooleanToFeatureButtonConverter}}"
                                 Margin="0,8,0,0">
                             <Grid>
                                 <TextBlock Text="{DynamicResource Creator_Feature_Pomodoro}"
@@ -646,7 +646,7 @@
                         <!-- Anniversary (Simple Button) -->
                         <Button Command="{Binding SelectFeatureCommand}"
                                 CommandParameter="Anniversary"
-                                Style="{Binding IsAnniversarySelected, Converter={StaticResource BooleanToFeatureButtonConverter}}"
+                                Style="{Binding IsAnniversaryActive, Converter={StaticResource BooleanToFeatureButtonConverter}}"
                                 Margin="0,8,0,0">
                             <Grid>
                                 <TextBlock Text="{DynamicResource Creator_Feature_Anniversary}"
@@ -732,8 +732,8 @@
                 <!-- Feature Content -->
                 <Grid Grid.Row="1">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="{Binding IsThemePreviewSelected, Converter={StaticResource BooleanToStarConverter}, ConverterParameter='7'}"/>
-                        <ColumnDefinition Width="{Binding IsThemePreviewSelected, Converter={StaticResource BooleanToStarConverter}, ConverterParameter='3'}"/>
+                        <ColumnDefinition Width="{Binding IsThemePreviewActive, Converter={StaticResource BooleanToStarConverter}, ConverterParameter='7'}"/>
+                        <ColumnDefinition Width="{Binding IsThemePreviewActive, Converter={StaticResource BooleanToStarConverter}, ConverterParameter='3'}"/>
                     </Grid.ColumnDefinitions>
                     
                     <!-- Left: Preview (Only visible for Theme Preview) -->
@@ -743,7 +743,7 @@
                             BorderThickness="1"
                             CornerRadius="10"
                             Margin="0,0,16,0"
-                            Visibility="{Binding IsThemePreviewSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            Visibility="{Binding IsThemePreviewActive, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <Grid>
                             <!-- Empty State -->
                             <StackPanel VerticalAlignment="Center" 
@@ -773,7 +773,7 @@
                             BorderBrush="{StaticResource BorderLineBrush}"
                             BorderThickness="1"
                             CornerRadius="10"
-                            Margin="{Binding IsThemePreviewSelected, Converter={StaticResource BooleanToLeftMarginConverter}, ConverterParameter='16,0,0,0'}">
+                            Margin="{Binding IsThemePreviewActive, Converter={StaticResource BooleanToLeftMarginConverter}, ConverterParameter='16,0,0,0'}">
                         <ContentControl Content="{Binding ConfigurationContent}"/>
                     </Border>
                 </Grid>
