@@ -32,9 +32,6 @@
             <converters:BooleanToLeftMarginConverter x:Key="BooleanToLeftMarginConverter"/>
             <converters:StringToImageSourceConverter x:Key="StringToImageSourceConverter"/>
 
-            <!-- Template Selector -->
-            <converters:CreatorViewTemplateSelector x:Key="CreatorViewTemplateSelector"/>
-
             <!-- View-ViewModel Mappings -->
             <DataTemplate DataType="{x:Type vm:WallpaperViewModel}">
                 <views:WallpaperView/>
