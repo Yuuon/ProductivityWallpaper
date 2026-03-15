@@ -28,6 +28,10 @@ namespace ProductivityWallpaper
             services.AddSingleton<ConfigService>();
             services.AddSingleton<MouseHookService>();
 
+            // Theme and User Settings Services
+            services.AddSingleton<ThemeService>();
+            services.AddSingleton<UserSettingsService>();
+
             // ViewModels
             services.AddSingleton<MainViewModel>();
             services.AddSingleton<WallpaperViewModel>();

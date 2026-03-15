@@ -33,7 +33,7 @@ namespace ProductivityWallpaper.ViewModels
         private bool _isAutoThemeColor = false;
 
         // 计算属性：控制 Checkbox 是否可用
-        public bool CanUseAutoTheme => SelectedMedia != null && SelectedMedia.Type == MediaType.Image;
+        public bool CanUseAutoTheme => SelectedMedia != null && SelectedMedia.Type == MediaType_Old.Image;
 
         public WallpaperViewModel(WallpaperService wpService, ConfigService configService)
         {
@@ -129,16 +129,16 @@ namespace ProductivityWallpaper.ViewModels
                 _wallpaperService.SetAutoColorization(IsAutoThemeColor);
             }
 
-            if (SelectedMedia.Type == MediaType.Image)
+            if (SelectedMedia.Type == MediaType_Old.Image)
             {
                 _wallpaperService.SetStaticWallpaper(SelectedMedia.FilePath, SelectedMonitor?.Index ?? -1);
             }
-            else if (SelectedMedia.Type == MediaType.Video)
+            else if (SelectedMedia.Type == MediaType_Old.Video)
             {
                 // 调用服务播放视频
                 _wallpaperService.ApplyVideoWallpaper(SelectedMedia.FilePath, SelectedMonitor?.Index ?? -1);
             }
-            else if (SelectedMedia.Type == MediaType.Interactive)
+            else if (SelectedMedia.Type == MediaType_Old.Interactive)
             {
                 _wallpaperService.ApplyInteractiveWallpaper(SelectedMedia, SelectedMonitor?.Index ?? -1);
             }
