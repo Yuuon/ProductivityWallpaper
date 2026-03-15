@@ -757,94 +757,181 @@ namespace ProductivityWallpaper.ViewModels
                     // Theme Preview shows the split layout with preview area
                     HasPreviewContent = false; // No actual preview content yet
                     ConfigurationContent = null;
+                    NavigationMonitorService.LogNavigation("ThemePreview", null);
                     break;
 
                 case "DesktopBackground":
-                    // Create and configure DesktopBackgroundViewModel
-                    var desktopBgVm = _desktopBackgroundVmFactory();
-                    if (SelectedDesktopBackgroundScheme != null)
+                    try
                     {
-                        desktopBgVm.SchemeName = SelectedDesktopBackgroundScheme.Name;
+                        // Create and configure DesktopBackgroundViewModel
+                        var desktopBgVm = _desktopBackgroundVmFactory();
+                        if (SelectedDesktopBackgroundScheme != null)
+                        {
+                            desktopBgVm.SchemeName = SelectedDesktopBackgroundScheme.Name;
+                        }
+                        ConfigurationContent = desktopBgVm;
+                        HasPreviewContent = false;
+                        NavigationMonitorService.LogNavigation("DesktopBackground", desktopBgVm);
                     }
-                    ConfigurationContent = desktopBgVm;
-                    HasPreviewContent = false;
+                    catch (Exception ex)
+                    {
+                        NavigationMonitorService.LogNavigation("DesktopBackground", null, ex);
+                        ConfigurationContent = null;
+                        HasPreviewContent = false;
+                        Debug.WriteLine($"[ERROR] Failed to create DesktopBackgroundViewModel: {ex.Message}");
+                    }
                     break;
 
                 case "MouseClick":
-                    // Create and configure MouseClickViewModel
-                    var mouseClickVm = _mouseClickVmFactory();
-                    if (SelectedMouseClickScheme != null)
+                    try
                     {
-                        mouseClickVm.SchemeName = SelectedMouseClickScheme.Name;
+                        // Create and configure MouseClickViewModel
+                        var mouseClickVm = _mouseClickVmFactory();
+                        if (SelectedMouseClickScheme != null)
+                        {
+                            mouseClickVm.SchemeName = SelectedMouseClickScheme.Name;
+                        }
+                        ConfigurationContent = mouseClickVm;
+                        HasPreviewContent = false;
+                        NavigationMonitorService.LogNavigation("MouseClick", mouseClickVm);
                     }
-                    ConfigurationContent = mouseClickVm;
-                    HasPreviewContent = false;
+                    catch (Exception ex)
+                    {
+                        NavigationMonitorService.LogNavigation("MouseClick", null, ex);
+                        ConfigurationContent = null;
+                        HasPreviewContent = false;
+                        Debug.WriteLine($"[ERROR] Failed to create MouseClickViewModel: {ex.Message}");
+                    }
                     break;
 
                 case "DesktopClock":
-                    // Create and configure DesktopClockViewModel
-                    ConfigurationContent = null; // Force refresh
-                    var clockVm = _desktopClockVmFactory();
-                    System.Diagnostics.Debug.WriteLine($"DesktopClockViewModel created: {clockVm != null}");
-                    ConfigurationContent = clockVm;
-                    HasPreviewContent = false;
+                    try
+                    {
+                        // Create and configure DesktopClockViewModel
+                        var clockVm = _desktopClockVmFactory();
+                        Debug.WriteLine($"DesktopClockViewModel created: {clockVm != null}");
+                        ConfigurationContent = clockVm;
+                        HasPreviewContent = false;
+                        NavigationMonitorService.LogNavigation("DesktopClock", clockVm);
+                    }
+                    catch (Exception ex)
+                    {
+                        NavigationMonitorService.LogNavigation("DesktopClock", null, ex);
+                        ConfigurationContent = null;
+                        HasPreviewContent = false;
+                        Debug.WriteLine($"[ERROR] Failed to create DesktopClockViewModel: {ex.Message}");
+                    }
                     break;
 
                 case "Pomodoro":
-                    // Create and configure PomodoroViewModel
-                    ConfigurationContent = null; // Force refresh
-                    var pomodoroVm = _pomodoroVmFactory();
-                    System.Diagnostics.Debug.WriteLine($"PomodoroViewModel created: {pomodoroVm != null}");
-                    ConfigurationContent = pomodoroVm;
-                    HasPreviewContent = false;
+                    try
+                    {
+                        // Create and configure PomodoroViewModel
+                        var pomodoroVm = _pomodoroVmFactory();
+                        Debug.WriteLine($"PomodoroViewModel created: {pomodoroVm != null}");
+                        ConfigurationContent = pomodoroVm;
+                        HasPreviewContent = false;
+                        NavigationMonitorService.LogNavigation("Pomodoro", pomodoroVm);
+                    }
+                    catch (Exception ex)
+                    {
+                        NavigationMonitorService.LogNavigation("Pomodoro", null, ex);
+                        ConfigurationContent = null;
+                        HasPreviewContent = false;
+                        Debug.WriteLine($"[ERROR] Failed to create PomodoroViewModel: {ex.Message}");
+                    }
                     break;
 
                 case "Anniversary":
-                    // Create and configure AnniversaryViewModel
-                    ConfigurationContent = null; // Force refresh
-                    var anniversaryVm = _anniversaryVmFactory();
-                    System.Diagnostics.Debug.WriteLine($"AnniversaryViewModel created: {anniversaryVm != null}");
-                    ConfigurationContent = anniversaryVm;
-                    HasPreviewContent = false;
+                    try
+                    {
+                        // Create and configure AnniversaryViewModel
+                        var anniversaryVm = _anniversaryVmFactory();
+                        Debug.WriteLine($"AnniversaryViewModel created: {anniversaryVm != null}");
+                        ConfigurationContent = anniversaryVm;
+                        HasPreviewContent = false;
+                        NavigationMonitorService.LogNavigation("Anniversary", anniversaryVm);
+                    }
+                    catch (Exception ex)
+                    {
+                        NavigationMonitorService.LogNavigation("Anniversary", null, ex);
+                        ConfigurationContent = null;
+                        HasPreviewContent = false;
+                        Debug.WriteLine($"[ERROR] Failed to create AnniversaryViewModel: {ex.Message}");
+                    }
                     break;
 
                 case "Shutdown":
-                    // Create and configure ShutdownViewModel
-                    var shutdownVm = _shutdownVmFactory();
-                    if (SelectedShutdownScheme != null)
+                    try
                     {
-                        shutdownVm.SchemeName = SelectedShutdownScheme.Name;
+                        // Create and configure ShutdownViewModel
+                        var shutdownVm = _shutdownVmFactory();
+                        if (SelectedShutdownScheme != null)
+                        {
+                            shutdownVm.SchemeName = SelectedShutdownScheme.Name;
+                        }
+                        ConfigurationContent = shutdownVm;
+                        HasPreviewContent = false;
+                        NavigationMonitorService.LogNavigation("Shutdown", shutdownVm);
                     }
-                    ConfigurationContent = shutdownVm;
-                    HasPreviewContent = false;
+                    catch (Exception ex)
+                    {
+                        NavigationMonitorService.LogNavigation("Shutdown", null, ex);
+                        ConfigurationContent = null;
+                        HasPreviewContent = false;
+                        Debug.WriteLine($"[ERROR] Failed to create ShutdownViewModel: {ex.Message}");
+                    }
                     break;
 
                 case "BootRestart":
-                    // Create and configure BootRestartViewModel
-                    var bootRestartVm = _bootRestartVmFactory();
-                    if (SelectedBootRestartScheme != null)
+                    try
                     {
-                        bootRestartVm.SchemeName = SelectedBootRestartScheme.Name;
+                        // Create and configure BootRestartViewModel
+                        var bootRestartVm = _bootRestartVmFactory();
+                        if (SelectedBootRestartScheme != null)
+                        {
+                            bootRestartVm.SchemeName = SelectedBootRestartScheme.Name;
+                        }
+                        ConfigurationContent = bootRestartVm;
+                        HasPreviewContent = false;
+                        NavigationMonitorService.LogNavigation("BootRestart", bootRestartVm);
                     }
-                    ConfigurationContent = bootRestartVm;
-                    HasPreviewContent = false;
+                    catch (Exception ex)
+                    {
+                        NavigationMonitorService.LogNavigation("BootRestart", null, ex);
+                        ConfigurationContent = null;
+                        HasPreviewContent = false;
+                        Debug.WriteLine($"[ERROR] Failed to create BootRestartViewModel: {ex.Message}");
+                    }
                     break;
 
                 case "ScreenWake":
-                    // Create and configure ScreenWakeViewModel
-                    var screenWakeVm = _screenWakeVmFactory();
-                    if (SelectedScreenWakeScheme != null)
+                    try
                     {
-                        screenWakeVm.SchemeName = SelectedScreenWakeScheme.Name;
+                        // Create and configure ScreenWakeViewModel
+                        var screenWakeVm = _screenWakeVmFactory();
+                        if (SelectedScreenWakeScheme != null)
+                        {
+                            screenWakeVm.SchemeName = SelectedScreenWakeScheme.Name;
+                        }
+                        ConfigurationContent = screenWakeVm;
+                        HasPreviewContent = false;
+                        NavigationMonitorService.LogNavigation("ScreenWake", screenWakeVm);
                     }
-                    ConfigurationContent = screenWakeVm;
-                    HasPreviewContent = false;
+                    catch (Exception ex)
+                    {
+                        NavigationMonitorService.LogNavigation("ScreenWake", null, ex);
+                        ConfigurationContent = null;
+                        HasPreviewContent = false;
+                        Debug.WriteLine($"[ERROR] Failed to create ScreenWakeViewModel: {ex.Message}");
+                    }
                     break;
 
                 case "OpenApp":
                     // Open App feature - full width configuration
                     ConfigurationContent = null; // TODO: Create OpenAppViewModel
                     HasPreviewContent = false;
+                    NavigationMonitorService.LogNavigation("OpenApp", null);
                     break;
 
                 default:

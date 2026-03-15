@@ -191,7 +191,7 @@ Wave 2: State and Content Fixes
 
 **Goal:** Emergency fix for Creator View - fix page display for all features, add monitoring, fix highlight persistence, UI polish
 
-**Status:** 📝 Planned
+**Status:** 🔄 In Progress (2/3 plans complete)
 
 **Requirements:** FIX-V2-001, FIX-V2-002, FIX-V2-003, FIX-V2-004
 
@@ -200,7 +200,7 @@ Wave 2: State and Content Fixes
 | Plan | Objective | Files | Wave | Requirements | Status |
 |------|-----------|-------|------|--------------|--------|
 | 01-fix-v2-01 | Page display debugging + Navigation monitor | NavigationMonitorService.cs, CreatorViewModel.cs | 1 | FIX-V2-001, FIX-V2-002 | 📝 Planned |
-| 01-fix-v2-02 | Expandable button highlight persistence fix | CreatorViewModel.cs | 1 | FIX-V2-003 | 📝 Planned |
+| 01-fix-v2-02 | Expandable button highlight persistence fix | CreatorViewModel.cs | 1 | FIX-V2-003 | ✅ Complete |
 | 01-fix-v2-03 | UI polish (checkmark removal, arrow, scrollbar) | CreatorView.xaml | 2 | FIX-V2-004 | 📝 Planned |
 
 ### Wave Structure
