@@ -278,6 +278,57 @@ Previous 4 attempts failed because they focused on ViewModel creation (which alr
 
 ---
 
+## Phase 02: Data Structure
+
+**Goal:** Establish complete data structures for theme packages and local widget settings
+
+**Source:** Phase-02-DataStructure.md
+
+**Requirements:** DS-01, DS-02, DS-03, DS-04, DS-05, DS-06, DS-07
+
+### Phase 02 Plans
+
+| Plan | Objective | Files | Wave | Requirements |
+|------|-----------|-------|------|--------------|
+| 02-01 | Theme Manifest and Resource Models | ThemeManifest.cs, ResourceEntry.cs, ThemeService.cs | 1 | DS-01, DS-02 |
+| 02-02 | Scheme Resource References | FeatureType.cs, SchemeModel.cs, ClickRegionModel.cs | 1 | DS-03, DS-04, DS-05 |
+| 02-03 | System Events and Widget Settings | UserWidgetSettings.cs, UserSettingsService.cs | 2 | DS-06, DS-07 |
+
+### Wave Structure
+
+```
+Wave 1: Core Models (Parallel)
+├── 02-01: Theme manifest, resource library, loading services
+└── 02-02: FeatureType extension, ID-based references, ClickAction
+
+Wave 2: User Settings
+└── 02-03: User widget settings, anniversary events, persistence
+    Depends on: 02-01 (ThemeManifest), 02-02 (SchemeModel)
+```
+
+### Key Data Structures
+
+**Theme Package:**
+- `theme.json` manifest with metadata, resource library, schemes
+- Resources organized by type: `/images/`, `/videos/`, `/audio/`
+- Thumbnails in `/thumbnails/`
+
+**Scheme References:**
+- ID-based media references (not embedded objects)
+- MediaReferenceList for ordered playback
+- ClickAction for visual + audio (max 5)
+
+**System Events:**
+- Extended FeatureType: SessionLock, SessionUnlock, NetworkDisconnect, NetworkReconnect, PowerLow, PowerCharging
+- Same multi-scheme support as Desktop Background
+
+**User Settings:**
+- Separate from theme data (UserWidgetSettings)
+- Pomodoro: global defaults + per-theme override toggle
+- Anniversary: user events only (personal data)
+
+---
+
 ## Phase 2: System Awareness
 
 **Goal:** Implement system event monitoring and video triggering
@@ -318,21 +369,29 @@ Previous 4 attempts failed because they focused on ViewModel creation (which alr
 
 ```
 Phase 1 (Creator Theme UI)
-├── Required for Phase 2
-│   ├── All feature pages must exist
-│   └── Scheme management for event configuration
+├── Required for Phase 02
+│   └── Feature pages for data structure integration
 └── Independent
     └── UI-only, no backend integration yet
+
+Phase 02 (Data Structure)
+├── Required for Phase 2 (System Awareness)
+│   ├── ThemeManifest for event configuration storage
+│   └── Extended FeatureType enum
+└── Required for Creator
+    └── Theme export/load functionality
 
 Phase 2 (System Awareness)
 ├── Required for Phase 3
 │   └── Stable event handling for testing
 └── Builds on
-    └── Phase 1 UI for configuration
+    ├── Phase 1 UI for configuration
+    └── Phase 02 data structures
 
 Phase 3 (Quality)
 └── Builds on
     ├── Phase 1 (UI to test)
+    ├── Phase 02 (data models to test)
     └── Phase 2 (event handling to test)
 ```
 
@@ -351,8 +410,20 @@ Phase 3 (Quality)
 
 ---
 
+## Phase Status
+
+| Phase | Name | Status | Plans |
+|-------|------|--------|-------|
+| 01-foundation | Creator Theme UI | ✅ Complete | 6 |
+| 01-fix | Creator View Fixes | ✅ Complete | 5 |
+| 01-fix-v2 | Critical Fixes | ✅ Complete | 3 |
+| 01-fix-v3 | Root Cause Fixes | ✅ Complete | 2 |
+| **02** | **Data Structure** | 📝 Planned | **3** |
+| 2 | System Awareness | 📋 Backlog | - |
+| 3 | Quality & Testing | 📋 Backlog | - |
+
 ## Next Step
 
-Phase 01-fix-v3 is complete. Ready for Phase 2: System Awareness implementation.
+Phase 02 is planned with 3 executable plans. Ready for execution.
 
-Run `/gsd-plan-phase 2` to begin planning Phase 2: System Awareness.
+Run `/gsd-execute-phase 02` to begin implementing Phase 02: Data Structure.
