@@ -83,7 +83,8 @@ namespace ProductivityWallpaper.Services
         {
             return resourceIds
                 .Select(ResolveToMediaItem)
-                .Where(item => item != null)!;
+                .Where(item => item != null)
+                .Select(item => item!);
         }
 
         /// <summary>

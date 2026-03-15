@@ -45,7 +45,7 @@ namespace ProductivityWallpaper.Models
     public partial class ClockStyleModel : ObservableObject
     {
         // --- Fields ---
-        private string _id = Guid.NewGuid().ToString();
+        private string _id = string.Empty;
         private string _name = string.Empty;
         private string _description = string.Empty;
         private string _previewImagePath = string.Empty;
@@ -162,6 +162,15 @@ namespace ProductivityWallpaper.Models
             _id = id;
             _name = name;
             _previewImagePath = previewImagePath;
+        }
+
+        /// <summary>
+        /// Creates a new ClockStyleModel with a generated UUID.
+        /// Use this instead of the default constructor when creating new styles.
+        /// </summary>
+        public static ClockStyleModel CreateNew(string name, string previewImagePath = "")
+        {
+            return new ClockStyleModel(Guid.NewGuid().ToString(), name, previewImagePath);
         }
     }
 

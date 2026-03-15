@@ -160,7 +160,7 @@ namespace ProductivityWallpaper.Services
             if (File.Exists(destPath))
             {
                 var nameWithoutExt = Path.GetFileNameWithoutExtension(fileName);
-                fileName = $"{nameWithoutExt}_{Guid.NewGuid().ToString()[..8]}{extension}";
+                fileName = $"{nameWithoutExt}_{Guid.NewGuid()}{extension}";
                 destPath = Path.Combine(destFolder, fileName);
             }
 
