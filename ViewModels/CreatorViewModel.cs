@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ProductivityWallpaper.Models;
+using ProductivityWallpaper.Services;
 
 namespace ProductivityWallpaper.ViewModels
 {
@@ -86,13 +88,26 @@ namespace ProductivityWallpaper.ViewModels
                 IsShutdownExpanded = false;
                 IsBootRestartExpanded = false;
                 IsScreenWakeExpanded = false;
-                
+
                 // Auto-create scheme if none exist
                 EnsureDefaultScheme(FeatureType.MouseClick);
-                
+
                 // Select the feature and show content
                 SelectedFeature = "MouseClick";
                 LoadFeatureContent("MouseClick");
+            }
+            else
+            {
+                // Collapsed: clear highlight if this feature is not selected
+                if (SelectedFeature != "MouseClick")
+                {
+                    // Deselect any selected scheme for this feature
+                    if (SelectedMouseClickScheme != null)
+                    {
+                        SelectedMouseClickScheme.IsSelected = false;
+                        SelectedMouseClickScheme = null;
+                    }
+                }
             }
         }
 
@@ -108,13 +123,26 @@ namespace ProductivityWallpaper.ViewModels
                 IsMouseClickExpanded = false;
                 IsBootRestartExpanded = false;
                 IsScreenWakeExpanded = false;
-                
+
                 // Auto-create scheme if none exist
                 EnsureDefaultScheme(FeatureType.Shutdown);
-                
+
                 // Select the feature and show content
                 SelectedFeature = "Shutdown";
                 LoadFeatureContent("Shutdown");
+            }
+            else
+            {
+                // Collapsed: clear highlight if this feature is not selected
+                if (SelectedFeature != "Shutdown")
+                {
+                    // Deselect any selected scheme for this feature
+                    if (SelectedShutdownScheme != null)
+                    {
+                        SelectedShutdownScheme.IsSelected = false;
+                        SelectedShutdownScheme = null;
+                    }
+                }
             }
         }
 
@@ -130,13 +158,26 @@ namespace ProductivityWallpaper.ViewModels
                 IsMouseClickExpanded = false;
                 IsShutdownExpanded = false;
                 IsScreenWakeExpanded = false;
-                
+
                 // Auto-create scheme if none exist
                 EnsureDefaultScheme(FeatureType.BootRestart);
-                
+
                 // Select the feature and show content
                 SelectedFeature = "BootRestart";
                 LoadFeatureContent("BootRestart");
+            }
+            else
+            {
+                // Collapsed: clear highlight if this feature is not selected
+                if (SelectedFeature != "BootRestart")
+                {
+                    // Deselect any selected scheme for this feature
+                    if (SelectedBootRestartScheme != null)
+                    {
+                        SelectedBootRestartScheme.IsSelected = false;
+                        SelectedBootRestartScheme = null;
+                    }
+                }
             }
         }
 
@@ -152,13 +193,26 @@ namespace ProductivityWallpaper.ViewModels
                 IsMouseClickExpanded = false;
                 IsShutdownExpanded = false;
                 IsBootRestartExpanded = false;
-                
+
                 // Auto-create scheme if none exist
                 EnsureDefaultScheme(FeatureType.ScreenWake);
-                
+
                 // Select the feature and show content
                 SelectedFeature = "ScreenWake";
                 LoadFeatureContent("ScreenWake");
+            }
+            else
+            {
+                // Collapsed: clear highlight if this feature is not selected
+                if (SelectedFeature != "ScreenWake")
+                {
+                    // Deselect any selected scheme for this feature
+                    if (SelectedScreenWakeScheme != null)
+                    {
+                        SelectedScreenWakeScheme.IsSelected = false;
+                        SelectedScreenWakeScheme = null;
+                    }
+                }
             }
         }
 
