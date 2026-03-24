@@ -67,7 +67,7 @@ namespace ProductivityWallpaper.Services
                         var item = new MediaItem
                         {
                             FilePath = dir,
-                            Type = MediaType.Interactive
+                            Type = MediaType_Old.Interactive
                         };
 
                         try
@@ -104,13 +104,13 @@ namespace ProductivityWallpaper.Services
 
                     if (ext == ".jpg" || ext == ".png" || ext == ".bmp")
                     {
-                        item.Type = MediaType.Image;
+                        item.Type = MediaType_Old.Image;
                         isValid = true;
                         item.ThumbnailPath = GenerateImageThumbnail(file, cacheDir);
                     }
                     else if (ext == ".mp4" || ext == ".webm" || ext == ".mkv")
                     {
-                        item.Type = MediaType.Video;
+                        item.Type = MediaType_Old.Video;
                         isValid = true;
                         item.ThumbnailPath = GenerateVideoThumbnail(file, cacheDir);
                     }

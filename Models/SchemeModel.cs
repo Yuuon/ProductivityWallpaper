@@ -1,62 +1,13 @@
 using System;
+using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace ProductivityWallpaper.Models
 {
     /// <summary>
-    /// Represents the type of feature that a scheme can be associated with.
-    /// </summary>
-    public enum FeatureType
-    {
-        /// <summary>
-        /// Desktop background wallpaper feature.
-        /// </summary>
-        DesktopBackground,
-
-        /// <summary>
-        /// Mouse click interaction feature.
-        /// </summary>
-        MouseClick,
-
-        /// <summary>
-        /// System shutdown event feature.
-        /// </summary>
-        Shutdown,
-
-        /// <summary>
-        /// System boot or restart event feature.
-        /// </summary>
-        BootRestart,
-
-        /// <summary>
-        /// Screen wake from sleep event feature.
-        /// </summary>
-        ScreenWake,
-
-        /// <summary>
-        /// Application opening feature.
-        /// </summary>
-        OpenApp,
-
-        /// <summary>
-        /// Desktop clock widget feature.
-        /// </summary>
-        DesktopClock,
-
-        /// <summary>
-        /// Pomodoro timer feature.
-        /// </summary>
-        Pomodoro,
-
-        /// <summary>
-        /// Anniversary/important date reminder feature.
-        /// </summary>
-        Anniversary
-    }
-
-    /// <summary>
     /// Represents a configuration scheme for a specific feature.
-    /// A scheme contains settings and media files for a particular behavior or appearance.
+    /// A scheme contains settings and media references for a particular behavior or appearance.
+    /// Media is referenced by ID (not embedded objects) for theme resource sharing.
     /// </summary>
     public partial class SchemeModel : ObservableObject
     {
@@ -165,5 +116,40 @@ namespace ProductivityWallpaper.Models
             _name = name;
             _featureType = featureType;
         }
+
+        // ==================== Media References (ID-based) ====================
+
+        /// <summary>
+        /// Desktop background media (ordered list with playback settings).
+        /// Used for DesktopBackground feature type.
+        /// </summary>
+        [ObservableProperty]
+        private MediaReferenceList _desktopBackgroundMedia = new();
+
+        /// <summary>
+        /// Media for system events (shutdown, boot, wake, lock, unlock, etc.).
+        /// Same structure as desktop background but typically shorter clips.
+        /// </summary>
+        [ObservableProperty]
+        private MediaReferenceList _eventMedia = new();
+
+        /// <summary>
+        /// Click regions for MouseClick feature type.
+        /// Each region has position, size, and associated click actions.
+        /// </summary>
+        [ObservableProperty]
+        private ObservableCollection<ClickRegionModel> _clickRegions = new();
+
+        /// <summary>
+        /// Hover text displayed when mouse hovers over character.
+        /// </summary>
+        [ObservableProperty]
+        private string _hoverText = string.Empty;
+
+        /// <summary>
+        /// Delay in milliseconds before showing hover text.
+        /// </summary>
+        [ObservableProperty]
+        private int _hoverDelayMs = 500;
     }
 }

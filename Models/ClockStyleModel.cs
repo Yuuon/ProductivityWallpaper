@@ -19,6 +19,27 @@ namespace ProductivityWallpaper.Models
     }
 
     /// <summary>
+    /// Represents the type of widget a style applies to.
+    /// </summary>
+    public enum WidgetType
+    {
+        /// <summary>
+        /// Desktop clock widget.
+        /// </summary>
+        Clock,
+
+        /// <summary>
+        /// Pomodoro timer widget.
+        /// </summary>
+        Pomodoro,
+
+        /// <summary>
+        /// Anniversary countdown widget.
+        /// </summary>
+        Anniversary
+    }
+
+    /// <summary>
     /// Represents a clock style configuration with display settings.
     /// </summary>
     public partial class ClockStyleModel : ObservableObject
@@ -26,10 +47,13 @@ namespace ProductivityWallpaper.Models
         // --- Fields ---
         private string _id = string.Empty;
         private string _name = string.Empty;
+        private string _description = string.Empty;
         private string _previewImagePath = string.Empty;
         private bool _isActive;
         private ClockFormat _format = ClockFormat.Hour24;
         private double _opacity = 1.0;
+        private WidgetType _widgetType = WidgetType.Clock;
+        private string? _previewImageId;
 
         // --- Properties ---
         /// <summary>
@@ -57,6 +81,33 @@ namespace ProductivityWallpaper.Models
         {
             get => _previewImagePath;
             set => SetProperty(ref _previewImagePath, value);
+        }
+
+        /// <summary>
+        /// Gets or sets the description of this style.
+        /// </summary>
+        public string Description
+        {
+            get => _description;
+            set => SetProperty(ref _description, value);
+        }
+
+        /// <summary>
+        /// Gets or sets the type of widget this style applies to.
+        /// </summary>
+        public WidgetType WidgetType
+        {
+            get => _widgetType;
+            set => SetProperty(ref _widgetType, value);
+        }
+
+        /// <summary>
+        /// Gets or sets the preview image resource ID (in theme library).
+        /// </summary>
+        public string? PreviewImageId
+        {
+            get => _previewImageId;
+            set => SetProperty(ref _previewImageId, value);
         }
 
         /// <summary>
@@ -111,6 +162,15 @@ namespace ProductivityWallpaper.Models
             _id = id;
             _name = name;
             _previewImagePath = previewImagePath;
+        }
+
+        /// <summary>
+        /// Creates a new ClockStyleModel with a generated UUID.
+        /// Use this instead of the default constructor when creating new styles.
+        /// </summary>
+        public static ClockStyleModel CreateNew(string name, string previewImagePath = "")
+        {
+            return new ClockStyleModel(Guid.NewGuid().ToString(), name, previewImagePath);
         }
     }
 

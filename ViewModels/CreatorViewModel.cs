@@ -24,6 +24,7 @@ namespace ProductivityWallpaper.ViewModels
         private readonly Func<ShutdownViewModel> _shutdownVmFactory;
         private readonly Func<BootRestartViewModel> _bootRestartVmFactory;
         private readonly Func<ScreenWakeViewModel> _screenWakeVmFactory;
+
         // --- Feature Types Supporting Multi-Scheme ---
         private static readonly FeatureType[] MultiSchemeFeatures = new[]
         {
@@ -35,206 +36,103 @@ namespace ProductivityWallpaper.ViewModels
         };
 
         // --- Scheme Collections by Feature ---
-        /// <summary>
-        /// Dictionary mapping feature types to their scheme collections.
-        /// </summary>
         private readonly Dictionary<FeatureType, ObservableCollection<SchemeModel>> _schemesByFeature;
 
         // --- Expansion States for Multi-Scheme Features ---
+        // Guard flag to prevent recursive updates during batch collapse
+        private bool _isUpdatingExpansion;
+
         [ObservableProperty]
         private bool _isDesktopBackgroundExpanded;
-
-        partial void OnIsDesktopBackgroundExpandedChanged(bool value)
-        {
-            if (value)
-            {
-                // Single-expand: collapse others
-                IsMouseClickExpanded = false;
-                IsShutdownExpanded = false;
-                IsBootRestartExpanded = false;
-                IsScreenWakeExpanded = false;
-
-                // Auto-create scheme if none exist
-                EnsureDefaultScheme(FeatureType.DesktopBackground);
-
-                // Select the feature and show content
-                CurrentState = CreatorViewState.DesktopBackground;
-                LoadFeatureContent("DesktopBackground");
-            }
-            else
-            {
-                // Collapsed: clear highlight if this feature is not selected
-                if (SelectedFeature != "DesktopBackground")
-                {
-                    // Deselect any selected scheme for this feature
-                    if (SelectedDesktopBackgroundScheme != null)
-                    {
-                        SelectedDesktopBackgroundScheme.IsSelected = false;
-                        SelectedDesktopBackgroundScheme = null;
-                    }
-                }
-            }
-        }
 
         [ObservableProperty]
         private bool _isMouseClickExpanded;
 
-        partial void OnIsMouseClickExpandedChanged(bool value)
-        {
-            if (value)
-            {
-                // Single-expand: collapse others
-                IsDesktopBackgroundExpanded = false;
-                IsShutdownExpanded = false;
-                IsBootRestartExpanded = false;
-                IsScreenWakeExpanded = false;
-
-                // Auto-create scheme if none exist
-                EnsureDefaultScheme(FeatureType.MouseClick);
-
-                // Select the feature and show content
-                CurrentState = CreatorViewState.MouseClick;
-                LoadFeatureContent("MouseClick");
-            }
-            else
-            {
-                // Collapsed: clear highlight if this feature is not selected
-                if (SelectedFeature != "MouseClick")
-                {
-                    // Deselect any selected scheme for this feature
-                    if (SelectedMouseClickScheme != null)
-                    {
-                        SelectedMouseClickScheme.IsSelected = false;
-                        SelectedMouseClickScheme = null;
-                    }
-                }
-            }
-        }
-
         [ObservableProperty]
         private bool _isShutdownExpanded;
-
-        partial void OnIsShutdownExpandedChanged(bool value)
-        {
-            if (value)
-            {
-                // Single-expand: collapse others
-                IsDesktopBackgroundExpanded = false;
-                IsMouseClickExpanded = false;
-                IsBootRestartExpanded = false;
-                IsScreenWakeExpanded = false;
-
-                // Auto-create scheme if none exist
-                EnsureDefaultScheme(FeatureType.Shutdown);
-
-                // Select the feature and show content
-                CurrentState = CreatorViewState.Shutdown;
-                LoadFeatureContent("Shutdown");
-            }
-            else
-            {
-                // Collapsed: clear highlight if this feature is not selected
-                if (SelectedFeature != "Shutdown")
-                {
-                    // Deselect any selected scheme for this feature
-                    if (SelectedShutdownScheme != null)
-                    {
-                        SelectedShutdownScheme.IsSelected = false;
-                        SelectedShutdownScheme = null;
-                    }
-                }
-            }
-        }
 
         [ObservableProperty]
         private bool _isBootRestartExpanded;
 
-        partial void OnIsBootRestartExpandedChanged(bool value)
-        {
-            if (value)
-            {
-                // Single-expand: collapse others
-                IsDesktopBackgroundExpanded = false;
-                IsMouseClickExpanded = false;
-                IsShutdownExpanded = false;
-                IsScreenWakeExpanded = false;
-
-                // Auto-create scheme if none exist
-                EnsureDefaultScheme(FeatureType.BootRestart);
-
-                // Select the feature and show content
-                CurrentState = CreatorViewState.BootRestart;
-                LoadFeatureContent("BootRestart");
-            }
-            else
-            {
-                // Collapsed: clear highlight if this feature is not selected
-                if (SelectedFeature != "BootRestart")
-                {
-                    // Deselect any selected scheme for this feature
-                    if (SelectedBootRestartScheme != null)
-                    {
-                        SelectedBootRestartScheme.IsSelected = false;
-                        SelectedBootRestartScheme = null;
-                    }
-                }
-            }
-        }
-
         [ObservableProperty]
         private bool _isScreenWakeExpanded;
 
+        partial void OnIsDesktopBackgroundExpandedChanged(bool value)
+        {
+            if (_isUpdatingExpansion) return;
+            if (value) HandleFeatureExpanded(FeatureType.DesktopBackground);
+        }
+
+        partial void OnIsMouseClickExpandedChanged(bool value)
+        {
+            if (_isUpdatingExpansion) return;
+            if (value) HandleFeatureExpanded(FeatureType.MouseClick);
+        }
+
+        partial void OnIsShutdownExpandedChanged(bool value)
+        {
+            if (_isUpdatingExpansion) return;
+            if (value) HandleFeatureExpanded(FeatureType.Shutdown);
+        }
+
+        partial void OnIsBootRestartExpandedChanged(bool value)
+        {
+            if (_isUpdatingExpansion) return;
+            if (value) HandleFeatureExpanded(FeatureType.BootRestart);
+        }
+
         partial void OnIsScreenWakeExpandedChanged(bool value)
         {
-            if (value)
-            {
-                // Single-expand: collapse others
-                IsDesktopBackgroundExpanded = false;
-                IsMouseClickExpanded = false;
-                IsShutdownExpanded = false;
-                IsBootRestartExpanded = false;
+            if (_isUpdatingExpansion) return;
+            if (value) HandleFeatureExpanded(FeatureType.ScreenWake);
+        }
 
-                // Auto-create scheme if none exist
-                EnsureDefaultScheme(FeatureType.ScreenWake);
-
-                // Select the feature and show content
-                CurrentState = CreatorViewState.ScreenWake;
-                LoadFeatureContent("ScreenWake");
-            }
-            else
+        /// <summary>
+        /// Central handler for feature expansion. Collapses others, sets state, loads content.
+        /// </summary>
+        private void HandleFeatureExpanded(FeatureType expandedFeature)
+        {
+            _isUpdatingExpansion = true;
+            try
             {
-                // Collapsed: clear highlight if this feature is not selected
-                if (SelectedFeature != "ScreenWake")
-                {
-                    // Deselect any selected scheme for this feature
-                    if (SelectedScreenWakeScheme != null)
-                    {
-                        SelectedScreenWakeScheme.IsSelected = false;
-                        SelectedScreenWakeScheme = null;
-                    }
-                }
+                // Single-expand: collapse all others
+                if (expandedFeature != FeatureType.DesktopBackground) IsDesktopBackgroundExpanded = false;
+                if (expandedFeature != FeatureType.MouseClick) IsMouseClickExpanded = false;
+                if (expandedFeature != FeatureType.Shutdown) IsShutdownExpanded = false;
+                if (expandedFeature != FeatureType.BootRestart) IsBootRestartExpanded = false;
+                if (expandedFeature != FeatureType.ScreenWake) IsScreenWakeExpanded = false;
             }
+            finally
+            {
+                _isUpdatingExpansion = false;
+            }
+
+            // Auto-create default scheme if needed
+            EnsureDefaultScheme(expandedFeature);
+
+            // Set current state (this also clears stale selections via OnCurrentStateChanged)
+            if (Enum.TryParse<CreatorViewState>(expandedFeature.ToString(), out var state))
+            {
+                CurrentState = state;
+            }
+
+            LoadFeatureContent(expandedFeature.ToString());
         }
 
         // --- Selected Schemes for Each Feature ---
         [ObservableProperty]
-        [NotifyPropertyChangedFor(nameof(IsDesktopBackgroundHeaderHighlighted))]
         private SchemeModel? _selectedDesktopBackgroundScheme;
 
         [ObservableProperty]
-        [NotifyPropertyChangedFor(nameof(IsMouseClickHeaderHighlighted))]
         private SchemeModel? _selectedMouseClickScheme;
 
         [ObservableProperty]
-        [NotifyPropertyChangedFor(nameof(IsShutdownHeaderHighlighted))]
         private SchemeModel? _selectedShutdownScheme;
 
         [ObservableProperty]
-        [NotifyPropertyChangedFor(nameof(IsBootRestartHeaderHighlighted))]
         private SchemeModel? _selectedBootRestartScheme;
 
         [ObservableProperty]
-        [NotifyPropertyChangedFor(nameof(IsScreenWakeHeaderHighlighted))]
         private SchemeModel? _selectedScreenWakeScheme;
 
         // --- Page States ---
@@ -254,9 +152,6 @@ namespace ProductivityWallpaper.ViewModels
         private bool _isEditingThemeName;
 
         // --- Feature Selection States ---
-        /// <summary>
-        /// The currently selected view state.
-        /// </summary>
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(IsThemePreviewActive))]
         [NotifyPropertyChangedFor(nameof(IsDesktopBackgroundActive))]
@@ -268,104 +163,40 @@ namespace ProductivityWallpaper.ViewModels
         [NotifyPropertyChangedFor(nameof(IsDesktopClockActive))]
         [NotifyPropertyChangedFor(nameof(IsPomodoroActive))]
         [NotifyPropertyChangedFor(nameof(IsAnniversaryActive))]
+        [NotifyPropertyChangedFor(nameof(IsDesktopBackgroundHeaderHighlighted))]
+        [NotifyPropertyChangedFor(nameof(IsMouseClickHeaderHighlighted))]
+        [NotifyPropertyChangedFor(nameof(IsShutdownHeaderHighlighted))]
+        [NotifyPropertyChangedFor(nameof(IsBootRestartHeaderHighlighted))]
+        [NotifyPropertyChangedFor(nameof(IsScreenWakeHeaderHighlighted))]
         private CreatorViewState _currentState = CreatorViewState.ThemePreview;
 
         /// <summary>
-        /// Gets whether Theme Preview is active.
+        /// Called when CurrentState changes. Clears stale scheme selections from non-current features.
+        /// This is the single source of truth for ensuring only one feature is highlighted at a time.
         /// </summary>
+        partial void OnCurrentStateChanged(CreatorViewState value)
+        {
+            ClearStaleSchemeSelections(value);
+        }
+
         public bool IsThemePreviewActive => CurrentState == CreatorViewState.ThemePreview;
-
-        /// <summary>
-        /// Gets whether Desktop Background is active.
-        /// </summary>
         public bool IsDesktopBackgroundActive => CurrentState == CreatorViewState.DesktopBackground;
-
-        /// <summary>
-        /// Gets whether Mouse Click is active.
-        /// </summary>
         public bool IsMouseClickActive => CurrentState == CreatorViewState.MouseClick;
-
-        /// <summary>
-        /// Gets whether Shutdown is active.
-        /// </summary>
         public bool IsShutdownActive => CurrentState == CreatorViewState.Shutdown;
-
-        /// <summary>
-        /// Gets whether Boot/Restart is active.
-        /// </summary>
         public bool IsBootRestartActive => CurrentState == CreatorViewState.BootRestart;
-
-        /// <summary>
-        /// Gets whether Screen Wake is active.
-        /// </summary>
         public bool IsScreenWakeActive => CurrentState == CreatorViewState.ScreenWake;
-
-        /// <summary>
-        /// Gets whether Open App is active.
-        /// </summary>
         public bool IsOpenAppActive => CurrentState == CreatorViewState.OpenApp;
-
-        /// <summary>
-        /// Gets whether Desktop Clock is active.
-        /// </summary>
         public bool IsDesktopClockActive => CurrentState == CreatorViewState.DesktopClock;
-
-        /// <summary>
-        /// Gets whether Pomodoro is active.
-        /// </summary>
         public bool IsPomodoroActive => CurrentState == CreatorViewState.Pomodoro;
-
-        /// <summary>
-        /// Gets whether Anniversary is active.
-        /// </summary>
         public bool IsAnniversaryActive => CurrentState == CreatorViewState.Anniversary;
 
-        // --- Obsolete SelectedFeature for backward compatibility ---
-        /// <summary>
-        /// The currently selected feature name (string, for backward compatibility).
-        /// </summary>
-        public string SelectedFeature => CurrentState.ToString();
-
         // --- Header Highlight Properties (for expandable features) ---
-        /// <summary>
-        /// Gets whether Desktop Background header should be highlighted.
-        /// True when directly selected or when any of its schemes is selected.
-        /// </summary>
-        public bool IsDesktopBackgroundHeaderHighlighted => 
-            SelectedFeature == "DesktopBackground" || 
-            (SelectedDesktopBackgroundScheme?.IsSelected == true);
-
-        /// <summary>
-        /// Gets whether Mouse Click header should be highlighted.
-        /// True when directly selected or when any of its schemes is selected.
-        /// </summary>
-        public bool IsMouseClickHeaderHighlighted => 
-            SelectedFeature == "MouseClick" || 
-            (SelectedMouseClickScheme?.IsSelected == true);
-
-        /// <summary>
-        /// Gets whether Shutdown header should be highlighted.
-        /// True when directly selected or when any of its schemes is selected.
-        /// </summary>
-        public bool IsShutdownHeaderHighlighted => 
-            SelectedFeature == "Shutdown" || 
-            (SelectedShutdownScheme?.IsSelected == true);
-
-        /// <summary>
-        /// Gets whether Boot/Restart header should be highlighted.
-        /// True when directly selected or when any of its schemes is selected.
-        /// </summary>
-        public bool IsBootRestartHeaderHighlighted => 
-            SelectedFeature == "BootRestart" || 
-            (SelectedBootRestartScheme?.IsSelected == true);
-
-        /// <summary>
-        /// Gets whether Screen Wake header should be highlighted.
-        /// True when directly selected or when any of its schemes is selected.
-        /// </summary>
-        public bool IsScreenWakeHeaderHighlighted => 
-            SelectedFeature == "ScreenWake" || 
-            (SelectedScreenWakeScheme?.IsSelected == true);
+        // Simplified: only depends on CurrentState, so only one can be true at a time.
+        public bool IsDesktopBackgroundHeaderHighlighted => CurrentState == CreatorViewState.DesktopBackground;
+        public bool IsMouseClickHeaderHighlighted => CurrentState == CreatorViewState.MouseClick;
+        public bool IsShutdownHeaderHighlighted => CurrentState == CreatorViewState.Shutdown;
+        public bool IsBootRestartHeaderHighlighted => CurrentState == CreatorViewState.BootRestart;
+        public bool IsScreenWakeHeaderHighlighted => CurrentState == CreatorViewState.ScreenWake;
 
         // --- Content Properties ---
         [ObservableProperty]
@@ -377,59 +208,18 @@ namespace ProductivityWallpaper.ViewModels
         [ObservableProperty]
         private object? _configurationContent;
 
-        /// <summary>
-        /// Gets the dictionary mapping feature types to their scheme collections.
-        /// </summary>
         public Dictionary<FeatureType, ObservableCollection<SchemeModel>> SchemesByFeature => _schemesByFeature;
+        public ObservableCollection<SchemeModel> DesktopBackgroundSchemes => _schemesByFeature[FeatureType.DesktopBackground];
+        public ObservableCollection<SchemeModel> MouseClickSchemes => _schemesByFeature[FeatureType.MouseClick];
+        public ObservableCollection<SchemeModel> ShutdownSchemes => _schemesByFeature[FeatureType.Shutdown];
+        public ObservableCollection<SchemeModel> BootRestartSchemes => _schemesByFeature[FeatureType.BootRestart];
+        public ObservableCollection<SchemeModel> ScreenWakeSchemes => _schemesByFeature[FeatureType.ScreenWake];
 
-        /// <summary>
-        /// Gets the schemes for Desktop Background feature.
-        /// </summary>
-        public ObservableCollection<SchemeModel> DesktopBackgroundSchemes => 
-            _schemesByFeature[FeatureType.DesktopBackground];
-
-        /// <summary>
-        /// Gets the schemes for Mouse Click feature.
-        /// </summary>
-        public ObservableCollection<SchemeModel> MouseClickSchemes => 
-            _schemesByFeature[FeatureType.MouseClick];
-
-        /// <summary>
-        /// Gets the schemes for Shutdown feature.
-        /// </summary>
-        public ObservableCollection<SchemeModel> ShutdownSchemes => 
-            _schemesByFeature[FeatureType.Shutdown];
-
-        /// <summary>
-        /// Gets the schemes for Boot/Restart feature.
-        /// </summary>
-        public ObservableCollection<SchemeModel> BootRestartSchemes => 
-            _schemesByFeature[FeatureType.BootRestart];
-
-        /// <summary>
-        /// Gets the schemes for Screen Wake feature.
-        /// </summary>
-        public ObservableCollection<SchemeModel> ScreenWakeSchemes => 
-            _schemesByFeature[FeatureType.ScreenWake];
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="CreatorViewModel"/> class.
-        /// </summary>
+        // --- Constructors ---
         public CreatorViewModel() : this(null, null, null, null, null, null, null, null)
         {
         }
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="CreatorViewModel"/> class with DI.
-        /// </summary>
-        /// <param name="desktopBackgroundVmFactory">Factory for creating DesktopBackgroundViewModel instances.</param>
-        /// <param name="mouseClickVmFactory">Factory for creating MouseClickViewModel instances.</param>
-        /// <param name="desktopClockVmFactory">Factory for creating DesktopClockViewModel instances.</param>
-        /// <param name="pomodoroVmFactory">Factory for creating PomodoroViewModel instances.</param>
-        /// <param name="anniversaryVmFactory">Factory for creating AnniversaryViewModel instances.</param>
-        /// <param name="shutdownVmFactory">Factory for creating ShutdownViewModel instances.</param>
-        /// <param name="bootRestartVmFactory">Factory for creating BootRestartViewModel instances.</param>
-        /// <param name="screenWakeVmFactory">Factory for creating ScreenWakeViewModel instances.</param>
         public CreatorViewModel(
             Func<DesktopBackgroundViewModel> desktopBackgroundVmFactory,
             Func<MouseClickViewModel> mouseClickVmFactory,
@@ -449,7 +239,6 @@ namespace ProductivityWallpaper.ViewModels
             _bootRestartVmFactory = bootRestartVmFactory ?? (() => new BootRestartViewModel());
             _screenWakeVmFactory = screenWakeVmFactory ?? (() => new ScreenWakeViewModel());
 
-            // Initialize scheme collections for all multi-scheme features
             _schemesByFeature = new Dictionary<FeatureType, ObservableCollection<SchemeModel>>();
             foreach (var featureType in MultiSchemeFeatures)
             {
@@ -459,15 +248,11 @@ namespace ProductivityWallpaper.ViewModels
 
         // --- Commands ---
 
-        /// <summary>
-        /// Starts creating a new theme with the specified name.
-        /// </summary>
         [RelayCommand]
         private void StartCreating()
         {
-            // Use user input if provided, otherwise use default placeholder text
-            CurrentThemeName = string.IsNullOrWhiteSpace(NewThemeName) 
-                ? "输入主题名字..." 
+            CurrentThemeName = string.IsNullOrWhiteSpace(NewThemeName)
+                ? "输入主题名字..."
                 : NewThemeName.Trim();
 
             IsWelcomePage = false;
@@ -475,9 +260,6 @@ namespace ProductivityWallpaper.ViewModels
             SelectFeature("ThemePreview");
         }
 
-        /// <summary>
-        /// Returns to the welcome page and resets the state.
-        /// </summary>
         [RelayCommand]
         private void BackToWelcome()
         {
@@ -486,11 +268,6 @@ namespace ProductivityWallpaper.ViewModels
             NewThemeName = string.Empty;
         }
 
-        /// <summary>
-        /// Selects a feature and updates the UI state.
-        /// Collapses all expanded menus when selecting a simple feature.
-        /// </summary>
-        /// <param name="featureName">The name of the feature to select.</param>
         [RelayCommand]
         private void SelectFeature(string featureName)
         {
@@ -498,18 +275,13 @@ namespace ProductivityWallpaper.ViewModels
 
             try
             {
-                // Set selected feature - parse string to enum
-                if (Enum.TryParse<CreatorViewState>(featureName, out var state))
-                {
-                    CurrentState = state;
-                }
-                else
+                if (!Enum.TryParse<CreatorViewState>(featureName, out var state))
                 {
                     Debug.WriteLine($"[Navigation] ERROR: Unknown feature name: {featureName}");
                     return;
                 }
 
-                // Collapse submenus for simple features and Theme Preview
+                // For simple features, collapse all expandable menus
                 switch (featureName)
                 {
                     case "ThemePreview":
@@ -517,24 +289,18 @@ namespace ProductivityWallpaper.ViewModels
                     case "DesktopClock":
                     case "Pomodoro":
                     case "Anniversary":
-                        CollapseAllNavExcept();
+                        CollapseAllNav();
                         break;
                 }
 
-                Debug.WriteLine($"[Navigation] Loading content for: {featureName}");
+                // Setting CurrentState triggers OnCurrentStateChanged which clears stale selections
+                CurrentState = state;
 
-                // Load preview and configuration content
                 LoadFeatureContent(featureName);
 
-                // Verify content was loaded
-                if (ConfigurationContent != null)
-                {
-                    Debug.WriteLine($"[Navigation] SUCCESS: {featureName} loaded, Content type: {ConfigurationContent.GetType().Name}");
-                }
-                else
-                {
-                    Debug.WriteLine($"[Navigation] WARNING: {featureName} loaded but ConfigurationContent is null");
-                }
+                Debug.WriteLine(ConfigurationContent != null
+                    ? $"[Navigation] SUCCESS: {featureName} loaded, Content type: {ConfigurationContent.GetType().Name}"
+                    : $"[Navigation] {featureName} loaded, ConfigurationContent is null (expected for ThemePreview/OpenApp)");
             }
             catch (Exception ex)
             {
@@ -543,18 +309,12 @@ namespace ProductivityWallpaper.ViewModels
             }
         }
 
-        /// <summary>
-        /// Toggles the editing state for the theme name.
-        /// </summary>
         [RelayCommand]
         private void ToggleEditThemeName()
         {
             IsEditingThemeName = true;
         }
 
-        /// <summary>
-        /// Finishes editing the theme name.
-        /// </summary>
         [RelayCommand]
         private void FinishEditThemeName()
         {
@@ -562,33 +322,28 @@ namespace ProductivityWallpaper.ViewModels
         }
 
         /// <summary>
-        /// Collapses all navigation menus except the specified one.
+        /// Collapses all expandable navigation menus.
         /// </summary>
-        /// <param name="exceptFeature">The feature to keep expanded (if any).</param>
-        private void CollapseAllNavExcept(FeatureType? exceptFeature = null)
+        private void CollapseAllNav()
         {
-            if (exceptFeature != FeatureType.DesktopBackground)
+            _isUpdatingExpansion = true;
+            try
+            {
                 IsDesktopBackgroundExpanded = false;
-            if (exceptFeature != FeatureType.MouseClick)
                 IsMouseClickExpanded = false;
-            if (exceptFeature != FeatureType.Shutdown)
                 IsShutdownExpanded = false;
-            if (exceptFeature != FeatureType.BootRestart)
                 IsBootRestartExpanded = false;
-            if (exceptFeature != FeatureType.ScreenWake)
                 IsScreenWakeExpanded = false;
+            }
+            finally
+            {
+                _isUpdatingExpansion = false;
+            }
         }
 
-        /// <summary>
-        /// Toggles the expansion state of a feature's submenu.
-        /// Auto-creates a default scheme if the feature has none.
-        /// Collapses all other expanded menus when expanding.
-        /// </summary>
-        /// <param name="featureType">The feature type to toggle.</param>
         [RelayCommand]
         private void ToggleFeatureExpansion(FeatureType featureType)
         {
-            // Check current state before toggling
             bool isCurrentlyExpanded = featureType switch
             {
                 FeatureType.DesktopBackground => IsDesktopBackgroundExpanded,
@@ -599,42 +354,27 @@ namespace ProductivityWallpaper.ViewModels
                 _ => false
             };
 
-            // If expanding (currently collapsed), collapse all others first
-            if (!isCurrentlyExpanded)
-            {
-                CollapseAllNavExcept(featureType);
-            }
-
-            // Toggle the appropriate expansion property
+            // Toggle the expansion state (the partial OnChanged handler does the rest)
             switch (featureType)
             {
                 case FeatureType.DesktopBackground:
-                    IsDesktopBackgroundExpanded = !IsDesktopBackgroundExpanded;
-                    if (IsDesktopBackgroundExpanded) EnsureDefaultScheme(featureType);
+                    IsDesktopBackgroundExpanded = !isCurrentlyExpanded;
                     break;
                 case FeatureType.MouseClick:
-                    IsMouseClickExpanded = !IsMouseClickExpanded;
-                    if (IsMouseClickExpanded) EnsureDefaultScheme(featureType);
+                    IsMouseClickExpanded = !isCurrentlyExpanded;
                     break;
                 case FeatureType.Shutdown:
-                    IsShutdownExpanded = !IsShutdownExpanded;
-                    if (IsShutdownExpanded) EnsureDefaultScheme(featureType);
+                    IsShutdownExpanded = !isCurrentlyExpanded;
                     break;
                 case FeatureType.BootRestart:
-                    IsBootRestartExpanded = !IsBootRestartExpanded;
-                    if (IsBootRestartExpanded) EnsureDefaultScheme(featureType);
+                    IsBootRestartExpanded = !isCurrentlyExpanded;
                     break;
                 case FeatureType.ScreenWake:
-                    IsScreenWakeExpanded = !IsScreenWakeExpanded;
-                    if (IsScreenWakeExpanded) EnsureDefaultScheme(featureType);
+                    IsScreenWakeExpanded = !isCurrentlyExpanded;
                     break;
             }
         }
 
-        /// <summary>
-        /// Creates a new scheme for the specified feature with auto-generated name.
-        /// </summary>
-        /// <param name="featureType">The feature type to create a scheme for.</param>
         [RelayCommand]
         private void CreateNewScheme(FeatureType featureType)
         {
@@ -649,15 +389,9 @@ namespace ProductivityWallpaper.ViewModels
             var newScheme = new SchemeModel(schemeName, featureType);
             schemes.Add(newScheme);
 
-            // Auto-select the new scheme
             SelectScheme(newScheme);
         }
 
-        /// <summary>
-        /// Selects and activates a scheme for its feature.
-        /// Only one scheme can be active per feature.
-        /// </summary>
-        /// <param name="scheme">The scheme to select.</param>
         [RelayCommand]
         private void SelectScheme(SchemeModel? scheme)
         {
@@ -676,17 +410,17 @@ namespace ProductivityWallpaper.ViewModels
                 }
             }
 
-            // Activate and select the selected scheme
+            // Activate and select the chosen scheme
             scheme.IsActive = true;
             scheme.IsSelected = true;
 
-            // Set the parent feature as selected (for header highlighting)
+            // Set CurrentState (triggers OnCurrentStateChanged which clears other features' stale selections)
             if (Enum.TryParse<CreatorViewState>(featureType.ToString(), out var state))
             {
                 CurrentState = state;
             }
 
-            // Update the selected scheme property and load content
+            // Update the per-feature selected scheme reference and load content
             switch (featureType)
             {
                 case FeatureType.DesktopBackground:
@@ -715,10 +449,47 @@ namespace ProductivityWallpaper.ViewModels
         // --- Helper Methods ---
 
         /// <summary>
-        /// Ensures a default scheme exists for the specified feature.
-        /// Creates one if the feature has no schemes.
+        /// Clears IsSelected on all schemes for features that are NOT the current feature.
+        /// This ensures only one feature's schemes can be selected at a time,
+        /// preventing multiple expandable headers from being highlighted simultaneously.
         /// </summary>
-        /// <param name="featureType">The feature type to check.</param>
+        private void ClearStaleSchemeSelections(CreatorViewState currentState)
+        {
+            foreach (var kvp in _schemesByFeature)
+            {
+                // Skip the current feature — its selection is valid
+                if (kvp.Key.ToString() == currentState.ToString())
+                    continue;
+
+                foreach (var scheme in kvp.Value)
+                {
+                    scheme.IsSelected = false;
+                }
+            }
+
+            // Clear the selected scheme references for non-current features
+            if (currentState != CreatorViewState.DesktopBackground && SelectedDesktopBackgroundScheme != null)
+            {
+                SelectedDesktopBackgroundScheme = null;
+            }
+            if (currentState != CreatorViewState.MouseClick && SelectedMouseClickScheme != null)
+            {
+                SelectedMouseClickScheme = null;
+            }
+            if (currentState != CreatorViewState.Shutdown && SelectedShutdownScheme != null)
+            {
+                SelectedShutdownScheme = null;
+            }
+            if (currentState != CreatorViewState.BootRestart && SelectedBootRestartScheme != null)
+            {
+                SelectedBootRestartScheme = null;
+            }
+            if (currentState != CreatorViewState.ScreenWake && SelectedScreenWakeScheme != null)
+            {
+                SelectedScreenWakeScheme = null;
+            }
+        }
+
         private void EnsureDefaultScheme(FeatureType featureType)
         {
             if (!_schemesByFeature.ContainsKey(featureType))
@@ -735,7 +506,6 @@ namespace ProductivityWallpaper.ViewModels
                 };
                 schemes.Add(defaultScheme);
 
-                // Update selected scheme property
                 switch (featureType)
                 {
                     case FeatureType.DesktopBackground:
@@ -757,11 +527,6 @@ namespace ProductivityWallpaper.ViewModels
             }
         }
 
-        /// <summary>
-        /// Gets the display name for a feature type.
-        /// </summary>
-        /// <param name="featureType">The feature type.</param>
-        /// <returns>The display name of the feature.</returns>
         private static string GetFeatureDisplayName(FeatureType featureType)
         {
             return featureType switch
@@ -779,13 +544,8 @@ namespace ProductivityWallpaper.ViewModels
             };
         }
 
-        /// <summary>
-        /// Loads the preview and configuration content for a feature.
-        /// </summary>
-        /// <param name="featureName">The name of the feature.</param>
         private void LoadFeatureContent(string featureName)
         {
-            // Reset content first
             PreviewContent = null;
             ConfigurationContent = null;
             HasPreviewContent = false;
@@ -793,8 +553,7 @@ namespace ProductivityWallpaper.ViewModels
             switch (featureName)
             {
                 case "ThemePreview":
-                    // Theme Preview shows the split layout with preview area
-                    HasPreviewContent = false; // No actual preview content yet
+                    HasPreviewContent = false;
                     ConfigurationContent = null;
                     NavigationMonitorService.LogNavigation("ThemePreview", null);
                     break;
@@ -802,181 +561,132 @@ namespace ProductivityWallpaper.ViewModels
                 case "DesktopBackground":
                     try
                     {
-                        // Create and configure DesktopBackgroundViewModel
                         var desktopBgVm = _desktopBackgroundVmFactory();
                         if (SelectedDesktopBackgroundScheme != null)
-                        {
                             desktopBgVm.SchemeName = SelectedDesktopBackgroundScheme.Name;
-                        }
                         ConfigurationContent = desktopBgVm;
-                        HasPreviewContent = false;
                         NavigationMonitorService.LogNavigation("DesktopBackground", desktopBgVm);
                     }
                     catch (Exception ex)
                     {
-                        NavigationMonitorService.LogNavigation("DesktopBackground", null, ex);
-                        ConfigurationContent = null;
-                        HasPreviewContent = false;
                         Debug.WriteLine($"[ERROR] Failed to create DesktopBackgroundViewModel: {ex.Message}");
+                        NavigationMonitorService.LogNavigation("DesktopBackground", null, ex);
                     }
                     break;
 
                 case "MouseClick":
                     try
                     {
-                        // Create and configure MouseClickViewModel
                         var mouseClickVm = _mouseClickVmFactory();
                         if (SelectedMouseClickScheme != null)
-                        {
                             mouseClickVm.SchemeName = SelectedMouseClickScheme.Name;
-                        }
                         ConfigurationContent = mouseClickVm;
-                        HasPreviewContent = false;
                         NavigationMonitorService.LogNavigation("MouseClick", mouseClickVm);
                     }
                     catch (Exception ex)
                     {
-                        NavigationMonitorService.LogNavigation("MouseClick", null, ex);
-                        ConfigurationContent = null;
-                        HasPreviewContent = false;
                         Debug.WriteLine($"[ERROR] Failed to create MouseClickViewModel: {ex.Message}");
+                        NavigationMonitorService.LogNavigation("MouseClick", null, ex);
                     }
                     break;
 
                 case "DesktopClock":
                     try
                     {
-                        // Create and configure DesktopClockViewModel
                         var clockVm = _desktopClockVmFactory();
-                        Debug.WriteLine($"DesktopClockViewModel created: {clockVm != null}");
                         ConfigurationContent = clockVm;
-                        HasPreviewContent = false;
                         NavigationMonitorService.LogNavigation("DesktopClock", clockVm);
                     }
                     catch (Exception ex)
                     {
-                        NavigationMonitorService.LogNavigation("DesktopClock", null, ex);
-                        ConfigurationContent = null;
-                        HasPreviewContent = false;
                         Debug.WriteLine($"[ERROR] Failed to create DesktopClockViewModel: {ex.Message}");
+                        NavigationMonitorService.LogNavigation("DesktopClock", null, ex);
                     }
                     break;
 
                 case "Pomodoro":
                     try
                     {
-                        // Create and configure PomodoroViewModel
                         var pomodoroVm = _pomodoroVmFactory();
-                        Debug.WriteLine($"PomodoroViewModel created: {pomodoroVm != null}");
                         ConfigurationContent = pomodoroVm;
-                        HasPreviewContent = false;
                         NavigationMonitorService.LogNavigation("Pomodoro", pomodoroVm);
                     }
                     catch (Exception ex)
                     {
-                        NavigationMonitorService.LogNavigation("Pomodoro", null, ex);
-                        ConfigurationContent = null;
-                        HasPreviewContent = false;
                         Debug.WriteLine($"[ERROR] Failed to create PomodoroViewModel: {ex.Message}");
+                        NavigationMonitorService.LogNavigation("Pomodoro", null, ex);
                     }
                     break;
 
                 case "Anniversary":
                     try
                     {
-                        // Create and configure AnniversaryViewModel
                         var anniversaryVm = _anniversaryVmFactory();
-                        Debug.WriteLine($"AnniversaryViewModel created: {anniversaryVm != null}");
                         ConfigurationContent = anniversaryVm;
-                        HasPreviewContent = false;
                         NavigationMonitorService.LogNavigation("Anniversary", anniversaryVm);
                     }
                     catch (Exception ex)
                     {
-                        NavigationMonitorService.LogNavigation("Anniversary", null, ex);
-                        ConfigurationContent = null;
-                        HasPreviewContent = false;
                         Debug.WriteLine($"[ERROR] Failed to create AnniversaryViewModel: {ex.Message}");
+                        NavigationMonitorService.LogNavigation("Anniversary", null, ex);
                     }
                     break;
 
                 case "Shutdown":
                     try
                     {
-                        // Create and configure ShutdownViewModel
                         var shutdownVm = _shutdownVmFactory();
                         if (SelectedShutdownScheme != null)
-                        {
                             shutdownVm.SchemeName = SelectedShutdownScheme.Name;
-                        }
                         ConfigurationContent = shutdownVm;
-                        HasPreviewContent = false;
                         NavigationMonitorService.LogNavigation("Shutdown", shutdownVm);
                     }
                     catch (Exception ex)
                     {
-                        NavigationMonitorService.LogNavigation("Shutdown", null, ex);
-                        ConfigurationContent = null;
-                        HasPreviewContent = false;
                         Debug.WriteLine($"[ERROR] Failed to create ShutdownViewModel: {ex.Message}");
+                        NavigationMonitorService.LogNavigation("Shutdown", null, ex);
                     }
                     break;
 
                 case "BootRestart":
                     try
                     {
-                        // Create and configure BootRestartViewModel
                         var bootRestartVm = _bootRestartVmFactory();
                         if (SelectedBootRestartScheme != null)
-                        {
                             bootRestartVm.SchemeName = SelectedBootRestartScheme.Name;
-                        }
                         ConfigurationContent = bootRestartVm;
-                        HasPreviewContent = false;
                         NavigationMonitorService.LogNavigation("BootRestart", bootRestartVm);
                     }
                     catch (Exception ex)
                     {
-                        NavigationMonitorService.LogNavigation("BootRestart", null, ex);
-                        ConfigurationContent = null;
-                        HasPreviewContent = false;
                         Debug.WriteLine($"[ERROR] Failed to create BootRestartViewModel: {ex.Message}");
+                        NavigationMonitorService.LogNavigation("BootRestart", null, ex);
                     }
                     break;
 
                 case "ScreenWake":
                     try
                     {
-                        // Create and configure ScreenWakeViewModel
                         var screenWakeVm = _screenWakeVmFactory();
                         if (SelectedScreenWakeScheme != null)
-                        {
                             screenWakeVm.SchemeName = SelectedScreenWakeScheme.Name;
-                        }
                         ConfigurationContent = screenWakeVm;
-                        HasPreviewContent = false;
                         NavigationMonitorService.LogNavigation("ScreenWake", screenWakeVm);
                     }
                     catch (Exception ex)
                     {
-                        NavigationMonitorService.LogNavigation("ScreenWake", null, ex);
-                        ConfigurationContent = null;
-                        HasPreviewContent = false;
                         Debug.WriteLine($"[ERROR] Failed to create ScreenWakeViewModel: {ex.Message}");
+                        NavigationMonitorService.LogNavigation("ScreenWake", null, ex);
                     }
                     break;
 
                 case "OpenApp":
-                    // Open App feature - full width configuration
-                    ConfigurationContent = null; // TODO: Create OpenAppViewModel
-                    HasPreviewContent = false;
+                    ConfigurationContent = null;
                     NavigationMonitorService.LogNavigation("OpenApp", null);
                     break;
 
                 default:
-                    // For other features, clear content for now
                     ConfigurationContent = null;
-                    HasPreviewContent = false;
                     break;
             }
         }
