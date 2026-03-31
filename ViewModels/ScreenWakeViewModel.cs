@@ -175,13 +175,13 @@ namespace ProductivityWallpaper.ViewModels
             if (item == null || !File.Exists(item.FilePath))
                 return;
 
-            // Open preview window - will be implemented with PreviewWindow
-            // var previewWindow = new Views.PreviewWindow
-            // {
-            //     DataContext = item,
-            //     Title = $"Preview - {item.FileName}"
-            // };
-            // previewWindow.Show();
+            // Open preview window
+            var previewWindow = new Views.PreviewWindow
+            {
+                DataContext = item,
+                Title = $"Preview - {item.FileName}"
+            };
+            previewWindow.Show();
         }
 
         /// <summary>
@@ -252,6 +252,12 @@ namespace ProductivityWallpaper.ViewModels
                     OrderIndex = ImageVideoItems.Count,
                     DisplayMode = DisplayMode.Fill
                 };
+
+                // Generate thumbnail for images (set file path as thumbnail for images)
+                if (mediaType == MediaFileType.Image)
+                {
+                    item.ThumbnailPath = filePath;
+                }
 
                 // Try to get duration for video files
                 if (mediaType == MediaFileType.Video)
