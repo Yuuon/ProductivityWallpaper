@@ -3,15 +3,19 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading.Tasks;
+using System.Timers;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ProductivityWallpaper.Models;
 using ProductivityWallpaper.Services;
+using ProductivityWallpaper.Views;
 
 namespace ProductivityWallpaper.ViewModels
 {
     /// <summary>
-    /// ViewModel for the Creator view, managing theme creation and scheme configuration.
+    /// ViewModel for the Creator view, managing theme creation, scheme configuration,
+    /// dirty tracking, save/export operations, and auto-save backup.
     /// </summary>
     public partial class CreatorViewModel : ObservableObject
     {
@@ -24,6 +28,54 @@ namespace ProductivityWallpaper.ViewModels
         private readonly Func<ShutdownViewModel> _shutdownVmFactory;
         private readonly Func<BootRestartViewModel> _bootRestartVmFactory;
         private readonly Func<ScreenWakeViewModel> _screenWakeVmFactory;
+        private readonly IThemeService _themeService;
+
+        // --- Auto-Save Timer ---
+        private System.Timers.Timer? _autoSaveTimer;
+        private const int AutoSaveIntervalMinutes = 5;
+
+        // --- Dirty State Tracking ---
+
+        /// <summary>
+        /// Whether the current theme has unsaved changes.
+        /// </summary>
+        [ObservableProperty]
+        private bool _isDirty;
+
+        /// <summary>
+        /// Whether a save operation is currently in progress.
+        /// </summary>
+        [ObservableProperty]
+        private bool _isSaving;
+
+        /// <summary>
+        /// Whether an export operation is currently in progress.
+        /// </summary>
+        [ObservableProperty]
+        private bool _isExporting;
+
+        /// <summary>
+        /// The current theme manifest being edited.
+        /// </summary>
+        [ObservableProperty]
+        private ThemeManifest? _currentTheme;
+
+        /// <summary>
+        /// Status message for save/export operations.
+        /// </summary>
+        [ObservableProperty]
+        private string _saveStatusMessage = string.Empty;
+
+        /// <summary>
+        /// Name of the loaded theme for save operations.
+        /// </summary>
+        private string? _loadedThemeName;
+
+        partial void OnIsDirtyChanged(bool value)
+        {
+            SaveStatusMessage = value ? "Unsaved changes" : "All changes saved";
+            SaveThemeCommand.NotifyCanExecuteChanged();
+        }
 
         // --- Feature Types Supporting Multi-Scheme ---
         private static readonly FeatureType[] MultiSchemeFeatures = new[]
@@ -216,7 +268,7 @@ namespace ProductivityWallpaper.ViewModels
         public ObservableCollection<SchemeModel> ScreenWakeSchemes => _schemesByFeature[FeatureType.ScreenWake];
 
         // --- Constructors ---
-        public CreatorViewModel() : this(null, null, null, null, null, null, null, null)
+        public CreatorViewModel() : this(null, null, null, null, null, null, null, null, null)
         {
         }
 
@@ -228,7 +280,8 @@ namespace ProductivityWallpaper.ViewModels
             Func<AnniversaryViewModel> anniversaryVmFactory,
             Func<ShutdownViewModel> shutdownVmFactory,
             Func<BootRestartViewModel> bootRestartVmFactory,
-            Func<ScreenWakeViewModel> screenWakeVmFactory)
+            Func<ScreenWakeViewModel> screenWakeVmFactory,
+            IThemeService? themeService = null)
         {
             _desktopBackgroundVmFactory = desktopBackgroundVmFactory ?? (() => new DesktopBackgroundViewModel());
             _mouseClickVmFactory = mouseClickVmFactory ?? (() => new MouseClickViewModel());
@@ -238,12 +291,22 @@ namespace ProductivityWallpaper.ViewModels
             _shutdownVmFactory = shutdownVmFactory ?? (() => new ShutdownViewModel());
             _bootRestartVmFactory = bootRestartVmFactory ?? (() => new BootRestartViewModel());
             _screenWakeVmFactory = screenWakeVmFactory ?? (() => new ScreenWakeViewModel());
+            _themeService = themeService ?? new ThemeService();
 
             _schemesByFeature = new Dictionary<FeatureType, ObservableCollection<SchemeModel>>();
             foreach (var featureType in MultiSchemeFeatures)
             {
                 _schemesByFeature[featureType] = new ObservableCollection<SchemeModel>();
             }
+
+            // Subscribe to collection changes for dirty tracking
+            foreach (var schemes in _schemesByFeature.Values)
+            {
+                schemes.CollectionChanged += (s, e) => MarkDirty();
+            }
+
+            // Initialize auto-save timer (5-minute interval, backup only)
+            InitializeAutoSaveTimer();
         }
 
         // --- Commands ---
@@ -257,15 +320,59 @@ namespace ProductivityWallpaper.ViewModels
 
             IsWelcomePage = false;
             IsCreatingPage = true;
+
+            // Initialize new theme
+            InitializeNewTheme(CurrentThemeName);
             SelectFeature("ThemePreview");
         }
 
         [RelayCommand]
-        private void BackToWelcome()
+        private async Task BackToWelcome()
+        {
+            if (IsDirty)
+            {
+                var dialog = new SaveChangesDialog();
+                if (dialog.ShowDialog() == true)
+                {
+                    switch (dialog.Result)
+                    {
+                        case SaveChangesResult.Save:
+                            await SaveThemeAsync();
+                            PerformBackNavigation();
+                            break;
+                        case SaveChangesResult.DontSave:
+                            PerformBackNavigation();
+                            break;
+                        case SaveChangesResult.Cancel:
+                            return;
+                    }
+                }
+                else
+                {
+                    // Dialog was closed (cancelled)
+                    return;
+                }
+            }
+            else
+            {
+                PerformBackNavigation();
+            }
+        }
+
+        /// <summary>
+        /// Performs the actual back navigation, cleaning up state.
+        /// </summary>
+        private void PerformBackNavigation()
         {
             IsWelcomePage = true;
             IsCreatingPage = false;
             NewThemeName = string.Empty;
+            CurrentTheme = null;
+            _loadedThemeName = null;
+            IsDirty = false;
+
+            // Stop auto-save timer while not editing
+            _autoSaveTimer?.Stop();
         }
 
         [RelayCommand]
@@ -390,6 +497,7 @@ namespace ProductivityWallpaper.ViewModels
             schemes.Add(newScheme);
 
             SelectScheme(newScheme);
+            MarkDirty();
         }
 
         [RelayCommand]
@@ -689,6 +797,153 @@ namespace ProductivityWallpaper.ViewModels
                     ConfigurationContent = null;
                     break;
             }
+        }
+
+        // ==================== Save / Export / Auto-Save ====================
+
+        /// <summary>
+        /// Saves the current theme to disk. Resets IsDirty on success.
+        /// </summary>
+        [RelayCommand(CanExecute = nameof(CanSaveTheme))]
+        private async Task SaveThemeAsync()
+        {
+            if (CurrentTheme == null || string.IsNullOrEmpty(_loadedThemeName))
+                return;
+
+            IsSaving = true;
+            SaveStatusMessage = "Saving...";
+
+            try
+            {
+                await _themeService.SaveThemeAsync(CurrentTheme, isBackup: false);
+                IsDirty = false;
+                SaveStatusMessage = "Saved";
+                Debug.WriteLine($"[CreatorViewModel] Theme saved: {_loadedThemeName}");
+            }
+            catch (Exception ex)
+            {
+                SaveStatusMessage = $"Save failed: {ex.Message}";
+                Debug.WriteLine($"[CreatorViewModel] Save failed: {ex.Message}");
+            }
+            finally
+            {
+                IsSaving = false;
+            }
+        }
+
+        private bool CanSaveTheme() => IsDirty && !IsSaving && CurrentTheme != null;
+
+        /// <summary>
+        /// Exports the current theme as a complete portable package.
+        /// </summary>
+        [RelayCommand(CanExecute = nameof(CanExportTheme))]
+        private async Task ExportThemeAsync()
+        {
+            if (CurrentTheme == null)
+                return;
+
+            // Use WinForms FolderBrowserDialog for folder selection
+            using var dialog = new System.Windows.Forms.FolderBrowserDialog
+            {
+                Description = "Select export location for theme package",
+                ShowNewFolderButton = true
+            };
+
+            if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK)
+                return;
+
+            IsExporting = true;
+            SaveStatusMessage = "Exporting...";
+
+            try
+            {
+                var progress = new Progress<string>(msg =>
+                    SaveStatusMessage = $"Exporting: {msg}");
+
+                var exportPath = await _themeService.ExportThemeAsync(
+                    CurrentTheme, dialog.SelectedPath, progress);
+
+                SaveStatusMessage = $"Exported to: {exportPath}";
+                Debug.WriteLine($"[CreatorViewModel] Theme exported to: {exportPath}");
+            }
+            catch (Exception ex)
+            {
+                SaveStatusMessage = $"Export failed: {ex.Message}";
+                Debug.WriteLine($"[CreatorViewModel] Export failed: {ex.Message}");
+            }
+            finally
+            {
+                IsExporting = false;
+            }
+        }
+
+        private bool CanExportTheme() => !IsExporting && CurrentTheme != null;
+
+        // ==================== Auto-Save Timer ====================
+
+        /// <summary>
+        /// Initializes the 5-minute auto-save timer for backup saves.
+        /// </summary>
+        private void InitializeAutoSaveTimer()
+        {
+            _autoSaveTimer = new System.Timers.Timer(TimeSpan.FromMinutes(AutoSaveIntervalMinutes).TotalMilliseconds);
+            _autoSaveTimer.Elapsed += OnAutoSaveTimerElapsed;
+            _autoSaveTimer.AutoReset = true;
+        }
+
+        private async void OnAutoSaveTimerElapsed(object? sender, System.Timers.ElapsedEventArgs e)
+        {
+            if (!IsDirty || CurrentTheme == null || IsSaving)
+                return;
+
+            try
+            {
+                // Silent backup save — does NOT reset IsDirty
+                await _themeService.SaveThemeAsync(CurrentTheme, isBackup: true);
+                Debug.WriteLine("[AutoSave] Backup saved successfully");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[AutoSave] Failed: {ex.Message}");
+            }
+        }
+
+        // ==================== Theme Initialization ====================
+
+        /// <summary>
+        /// Initializes a new theme for editing.
+        /// </summary>
+        private void InitializeNewTheme(string themeName)
+        {
+            CurrentTheme = new ThemeManifest { Name = themeName };
+            _loadedThemeName = themeName;
+            _themeService.CurrentTheme = CurrentTheme;
+            IsDirty = false;
+
+            // Start auto-save timer
+            _autoSaveTimer?.Start();
+        }
+
+        // ==================== Dirty Tracking ====================
+
+        /// <summary>
+        /// Marks the current theme as having unsaved changes.
+        /// </summary>
+        private void MarkDirty()
+        {
+            if (!IsDirty)
+            {
+                IsDirty = true;
+            }
+        }
+
+        /// <summary>
+        /// Cleans up timer resources.
+        /// </summary>
+        public void Dispose()
+        {
+            _autoSaveTimer?.Stop();
+            _autoSaveTimer?.Dispose();
         }
     }
 }

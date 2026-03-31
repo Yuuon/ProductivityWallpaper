@@ -174,25 +174,85 @@
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
                 
-                <!-- Back Button -->
-                <Button Grid.Row="0"
-                        Command="{Binding BackToWelcomeCommand}"
-                        Margin="16,16,16,8"
-                        Background="Transparent"
-                        BorderThickness="0"
-                        HorizontalAlignment="Left">
-                    <StackPanel Orientation="Horizontal">
-                        <Path Data="M12 4L4 12L12 20 M6 12H20"
-                              Stroke="{StaticResource IconBrush}"
+                <!-- Header: Back Button (left) + Save Button (right) -->
+                <Grid Grid.Row="0" Margin="16,16,16,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <!-- Back Button (left side) -->
+                    <Button Grid.Column="0"
+                            Command="{Binding BackToWelcomeCommand}"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            HorizontalAlignment="Left">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Data="M12 4L4 12L12 20 M6 12H20"
+                                  Stroke="{StaticResource IconBrush}"
+                                  StrokeThickness="2"
+                                  Width="16" Height="16"
+                                  Stretch="Uniform"/>
+                            <TextBlock Text="{DynamicResource Creator_Back}"
+                                       Foreground="{StaticResource IconBrush}"
+                                       Margin="8,0,0,0"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    
+                    <!-- Save Button (right side) -->
+                    <Button Grid.Column="2"
+                            Command="{Binding SaveThemeCommand}"
+                            IsEnabled="{Binding IsDirty}"
+                            ToolTip="Save theme changes">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="BorderThickness" Value="0"/>
+                                <Setter Property="Padding" Value="8"/>
+                                <Setter Property="Opacity" Value="0.4"/>
+                                <Setter Property="Cursor" Value="Arrow"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border Background="{TemplateBinding Background}"
+                                                    CornerRadius="6"
+                                                    Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter HorizontalAlignment="Center"
+                                                                  VerticalAlignment="Center"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                                <Style.Triggers>
+                                    <Trigger Property="IsEnabled" Value="True">
+                                        <Setter Property="Opacity" Value="1"/>
+                                        <Setter Property="Cursor" Value="Hand"/>
+                                    </Trigger>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                        <Path Data="M17 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V7l-4-4z M7 3v5h8V3 M17 21v-8H7v8"
                               StrokeThickness="2"
-                              Width="16" Height="16"
-                              Stretch="Uniform"/>
-                        <TextBlock Text="{DynamicResource Creator_Back}"
-                                   Foreground="{StaticResource IconBrush}"
-                                   Margin="8,0,0,0"
-                                   VerticalAlignment="Center"/>
-                    </StackPanel>
-                </Button>
+                              Width="20" Height="20"
+                              Stretch="Uniform">
+                            <Path.Style>
+                                <Style TargetType="Path">
+                                    <Setter Property="Stroke" Value="{StaticResource IconBrush}"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsDirty}" Value="True">
+                                            <Setter Property="Stroke" Value="{StaticResource AccentBrush}"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Path.Style>
+                        </Path>
+                    </Button>
+                </Grid>
                 
                 <!-- Scrollable Navigation -->
                 <ScrollViewer Grid.Row="1" 
@@ -799,7 +859,38 @@
                                 BorderBrush="{StaticResource BorderLineBrush}"
                                 BorderThickness="1"
                                 CornerRadius="10">
-                            <ContentControl Content="{Binding ConfigurationContent}"/>
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                
+                                <!-- Config content -->
+                                <ContentControl Grid.Row="0" Content="{Binding ConfigurationContent}"/>
+                                
+                                <!-- Export Theme Package section -->
+                                <StackPanel Grid.Row="1" Margin="16,8,16,16">
+                                    <Button Command="{Binding ExportThemeCommand}"
+                                            Height="36"
+                                            Style="{StaticResource PrimaryButtonStyle}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Path Data="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4 M7 10l5 5 5-5 M12 15V3"
+                                                  Stroke="White"
+                                                  StrokeThickness="2"
+                                                  Width="16" Height="16"
+                                                  Stretch="Uniform"
+                                                  Margin="0,0,8,0"/>
+                                            <TextBlock Text="Export Theme Package"
+                                                       VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <TextBlock Text="Create a complete, portable theme package with all media files."
+                                               Foreground="{StaticResource TextSecondaryBrush}"
+                                               FontSize="11"
+                                               Margin="0,6,0,0"
+                                               TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </Grid>
                         </Border>
                     </Grid>
                     
