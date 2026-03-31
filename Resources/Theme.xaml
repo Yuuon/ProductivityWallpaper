@@ -326,4 +326,85 @@
         </Style.Triggers>
     </Style>
     
+    <!-- ==================== Placeholder Thumbnail Images ==================== -->
+    
+    <!-- Default media thumbnail: dark background with landscape/image icon -->
+    <DrawingImage x:Key="DefaultThumbImage">
+        <DrawingImage.Drawing>
+            <DrawingGroup>
+                <!-- Background -->
+                <GeometryDrawing Brush="#1A1830">
+                    <GeometryDrawing.Geometry>
+                        <RectangleGeometry Rect="0,0,64,36" RadiusX="4" RadiusY="4"/>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <!-- Image frame -->
+                <GeometryDrawing Brush="Transparent">
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="#A4A3B6" Thickness="1.5"/>
+                    </GeometryDrawing.Pen>
+                    <GeometryDrawing.Geometry>
+                        <RectangleGeometry Rect="20,6,24,24" RadiusX="2" RadiusY="2"/>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <!-- Sun circle -->
+                <GeometryDrawing Brush="#A4A3B6">
+                    <GeometryDrawing.Geometry>
+                        <EllipseGeometry Center="28.5,13.5" RadiusX="2.5" RadiusY="2.5"/>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <!-- Mountain landscape -->
+                <GeometryDrawing Brush="Transparent">
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="#A4A3B6" Thickness="1.5"/>
+                    </GeometryDrawing.Pen>
+                    <GeometryDrawing.Geometry>
+                        <PathGeometry Figures="M44,24 L37,16 L28,26 M30.5,21.5 L34,18 L40,24"/>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+    
+    <!-- Interactive wallpaper thumbnail: dark background with cursor/click icon -->
+    <DrawingImage x:Key="InteractiveThumbImage">
+        <DrawingImage.Drawing>
+            <DrawingGroup>
+                <!-- Background -->
+                <GeometryDrawing Brush="#1A1830">
+                    <GeometryDrawing.Geometry>
+                        <RectangleGeometry Rect="0,0,64,36" RadiusX="4" RadiusY="4"/>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <!-- Mouse cursor arrow -->
+                <GeometryDrawing Brush="#A4A3B6">
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="#A4A3B6" Thickness="1"/>
+                    </GeometryDrawing.Pen>
+                    <GeometryDrawing.Geometry>
+                        <PathGeometry Figures="M25,7 L25,25.5 L30.5,20 L36,23 L38,18.5 L32.5,15.5 L40,12 Z"/>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <!-- Click ripple - inner -->
+                <GeometryDrawing Brush="Transparent">
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="#A4A3B6" Thickness="1.2"/>
+                    </GeometryDrawing.Pen>
+                    <GeometryDrawing.Geometry>
+                        <EllipseGeometry Center="25,7" RadiusX="5" RadiusY="5"/>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <!-- Click ripple - outer -->
+                <GeometryDrawing Brush="Transparent">
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="#A4A3B6" Thickness="0.8"/>
+                    </GeometryDrawing.Pen>
+                    <GeometryDrawing.Geometry>
+                        <EllipseGeometry Center="25,7" RadiusX="9" RadiusY="9"/>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+
 </ResourceDictionary>

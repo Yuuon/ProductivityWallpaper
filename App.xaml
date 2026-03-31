@@ -18,6 +18,7 @@
             <converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
             <converters:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter"/>
             <converters:StringEmptyToVisibilityConverter x:Key="StringEmptyToVisibilityConverter"/>
+            <converters:InverseStringEmptyToVisibilityConverter x:Key="InverseStringEmptyToVisibilityConverter"/>
             <converters:BooleanToTabStyleConverter x:Key="BooleanToTabStyleConverter"/>
             <converters:BooleanToFeatureButtonConverter x:Key="BooleanToFeatureButtonConverter"/>
             <converters:CountToVisibilityConverter x:Key="CountToVisibilityConverter"/>
