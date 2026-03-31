@@ -10,7 +10,7 @@ namespace ProductivityWallpaper.ViewModels
     /// ViewModel for the Desktop Clock configuration view.
     /// Manages clock style selection, format toggles, and opacity settings.
     /// </summary>
-    public partial class DesktopClockViewModel : ObservableObject
+    public partial class DesktopClockViewModel : ObservableObject, IFeatureViewModel
     {
         // --- Observable Collections ---
         /// <summary>

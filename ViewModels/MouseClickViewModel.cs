@@ -14,7 +14,7 @@ namespace ProductivityWallpaper.ViewModels
     /// <summary>
     /// ViewModel for the Mouse Click configuration view, managing click regions and media assignments.
     /// </summary>
-    public partial class MouseClickViewModel : ObservableObject
+    public partial class MouseClickViewModel : ObservableObject, IFeatureViewModel
     {
         // --- Private Fields ---
         private readonly ConfigService _configService;
@@ -78,7 +78,11 @@ namespace ProductivityWallpaper.ViewModels
         [ObservableProperty]
         private bool _isEditingName;
 
-        // --- Computed Properties ---
+        /// <summary>
+        /// Whether this scheme is currently active.
+        /// </summary>
+        [ObservableProperty]
+        private bool _isActive;
 
         /// <summary>
         /// Returns true when a region is selected.
