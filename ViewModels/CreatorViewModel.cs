@@ -29,6 +29,9 @@ namespace ProductivityWallpaper.ViewModels
         private readonly Func<ScreenWakeViewModel> _screenWakeVmFactory;
         private readonly IThemeService _themeService;
 
+        // Cache of ViewModels per scheme to preserve state when switching pages
+        private readonly Dictionary<string, ObservableObject> _schemeViewModelCache = new();
+
         // --- Auto-Save Timer ---
         private System.Timers.Timer? _autoSaveTimer;
         private const int AutoSaveIntervalMinutes = 5;
@@ -74,6 +77,26 @@ namespace ProductivityWallpaper.ViewModels
         {
             SaveStatusMessage = value ? "Unsaved changes" : "All changes saved";
             SaveThemeCommand.NotifyCanExecuteChanged();
+        }
+
+        partial void OnIsSavingChanged(bool value)
+        {
+            SaveThemeCommand.NotifyCanExecuteChanged();
+        }
+
+        partial void OnCurrentThemeChanged(ThemeManifest? value)
+        {
+            SaveThemeCommand.NotifyCanExecuteChanged();
+            ExportThemeCommand.NotifyCanExecuteChanged();
+        }
+
+        partial void OnCurrentThemeNameChanged(string value)
+        {
+            if (CurrentTheme != null && !string.IsNullOrWhiteSpace(value) && CurrentTheme.Name != value)
+            {
+                CurrentTheme.Name = value;
+            }
+            MarkDirty();
         }
 
         // --- Feature Types Supporting Multi-Scheme ---
@@ -362,6 +385,7 @@ namespace ProductivityWallpaper.ViewModels
             NewThemeName = string.Empty;
             CurrentTheme = null;
             _loadedThemeName = null;
+            _schemeViewModelCache.Clear();
             IsDirty = false;
 
             // Stop auto-save timer while not editing
@@ -662,11 +686,17 @@ namespace ProductivityWallpaper.ViewModels
                 case "DesktopBackground":
                     try
                     {
-                        var desktopBgVm = _desktopBackgroundVmFactory();
-                        if (SelectedDesktopBackgroundScheme != null)
-                            desktopBgVm.SchemeName = SelectedDesktopBackgroundScheme.Name;
-                        ConfigurationContent = desktopBgVm;
-                        NavigationMonitorService.LogNavigation("DesktopBackground", desktopBgVm);
+                        var dbSchemeId = SelectedDesktopBackgroundScheme?.Id ?? "default_db";
+                        if (!_schemeViewModelCache.TryGetValue(dbSchemeId, out var dbCachedVm) || dbCachedVm is not DesktopBackgroundViewModel)
+                        {
+                            var desktopBgVm = _desktopBackgroundVmFactory();
+                            if (SelectedDesktopBackgroundScheme != null)
+                                desktopBgVm.SchemeName = SelectedDesktopBackgroundScheme.Name;
+                            _schemeViewModelCache[dbSchemeId] = desktopBgVm;
+                            dbCachedVm = desktopBgVm;
+                        }
+                        ConfigurationContent = dbCachedVm;
+                        NavigationMonitorService.LogNavigation("DesktopBackground", dbCachedVm);
                     }
                     catch (Exception ex)
                     {
@@ -678,11 +708,17 @@ namespace ProductivityWallpaper.ViewModels
                 case "MouseClick":
                     try
                     {
-                        var mouseClickVm = _mouseClickVmFactory();
-                        if (SelectedMouseClickScheme != null)
-                            mouseClickVm.SchemeName = SelectedMouseClickScheme.Name;
-                        ConfigurationContent = mouseClickVm;
-                        NavigationMonitorService.LogNavigation("MouseClick", mouseClickVm);
+                        var mcSchemeId = SelectedMouseClickScheme?.Id ?? "default_mc";
+                        if (!_schemeViewModelCache.TryGetValue(mcSchemeId, out var mcCachedVm) || mcCachedVm is not MouseClickViewModel)
+                        {
+                            var mouseClickVm = _mouseClickVmFactory();
+                            if (SelectedMouseClickScheme != null)
+                                mouseClickVm.SchemeName = SelectedMouseClickScheme.Name;
+                            _schemeViewModelCache[mcSchemeId] = mouseClickVm;
+                            mcCachedVm = mouseClickVm;
+                        }
+                        ConfigurationContent = mcCachedVm;
+                        NavigationMonitorService.LogNavigation("MouseClick", mcCachedVm);
                     }
                     catch (Exception ex)
                     {
@@ -694,9 +730,14 @@ namespace ProductivityWallpaper.ViewModels
                 case "DesktopClock":
                     try
                     {
-                        var clockVm = _desktopClockVmFactory();
-                        ConfigurationContent = clockVm;
-                        NavigationMonitorService.LogNavigation("DesktopClock", clockVm);
+                        if (!_schemeViewModelCache.TryGetValue("desktopClock", out var clockCachedVm) || clockCachedVm is not DesktopClockViewModel)
+                        {
+                            var clockVm = _desktopClockVmFactory();
+                            _schemeViewModelCache["desktopClock"] = clockVm;
+                            clockCachedVm = clockVm;
+                        }
+                        ConfigurationContent = clockCachedVm;
+                        NavigationMonitorService.LogNavigation("DesktopClock", clockCachedVm);
                     }
                     catch (Exception ex)
                     {
@@ -708,9 +749,14 @@ namespace ProductivityWallpaper.ViewModels
                 case "Pomodoro":
                     try
                     {
-                        var pomodoroVm = _pomodoroVmFactory();
-                        ConfigurationContent = pomodoroVm;
-                        NavigationMonitorService.LogNavigation("Pomodoro", pomodoroVm);
+                        if (!_schemeViewModelCache.TryGetValue("pomodoro", out var pomodoroCachedVm) || pomodoroCachedVm is not PomodoroViewModel)
+                        {
+                            var pomodoroVm = _pomodoroVmFactory();
+                            _schemeViewModelCache["pomodoro"] = pomodoroVm;
+                            pomodoroCachedVm = pomodoroVm;
+                        }
+                        ConfigurationContent = pomodoroCachedVm;
+                        NavigationMonitorService.LogNavigation("Pomodoro", pomodoroCachedVm);
                     }
                     catch (Exception ex)
                     {
@@ -722,9 +768,14 @@ namespace ProductivityWallpaper.ViewModels
                 case "Anniversary":
                     try
                     {
-                        var anniversaryVm = _anniversaryVmFactory();
-                        ConfigurationContent = anniversaryVm;
-                        NavigationMonitorService.LogNavigation("Anniversary", anniversaryVm);
+                        if (!_schemeViewModelCache.TryGetValue("anniversary", out var anniversaryCachedVm) || anniversaryCachedVm is not AnniversaryViewModel)
+                        {
+                            var anniversaryVm = _anniversaryVmFactory();
+                            _schemeViewModelCache["anniversary"] = anniversaryVm;
+                            anniversaryCachedVm = anniversaryVm;
+                        }
+                        ConfigurationContent = anniversaryCachedVm;
+                        NavigationMonitorService.LogNavigation("Anniversary", anniversaryCachedVm);
                     }
                     catch (Exception ex)
                     {
@@ -736,11 +787,17 @@ namespace ProductivityWallpaper.ViewModels
                 case "Shutdown":
                     try
                     {
-                        var shutdownVm = _shutdownVmFactory();
-                        if (SelectedShutdownScheme != null)
-                            shutdownVm.SchemeName = SelectedShutdownScheme.Name;
-                        ConfigurationContent = shutdownVm;
-                        NavigationMonitorService.LogNavigation("Shutdown", shutdownVm);
+                        var sdSchemeId = SelectedShutdownScheme?.Id ?? "default_sd";
+                        if (!_schemeViewModelCache.TryGetValue(sdSchemeId, out var sdCachedVm) || sdCachedVm is not ShutdownViewModel)
+                        {
+                            var shutdownVm = _shutdownVmFactory();
+                            if (SelectedShutdownScheme != null)
+                                shutdownVm.SchemeName = SelectedShutdownScheme.Name;
+                            _schemeViewModelCache[sdSchemeId] = shutdownVm;
+                            sdCachedVm = shutdownVm;
+                        }
+                        ConfigurationContent = sdCachedVm;
+                        NavigationMonitorService.LogNavigation("Shutdown", sdCachedVm);
                     }
                     catch (Exception ex)
                     {
@@ -752,11 +809,17 @@ namespace ProductivityWallpaper.ViewModels
                 case "BootRestart":
                     try
                     {
-                        var bootRestartVm = _bootRestartVmFactory();
-                        if (SelectedBootRestartScheme != null)
-                            bootRestartVm.SchemeName = SelectedBootRestartScheme.Name;
-                        ConfigurationContent = bootRestartVm;
-                        NavigationMonitorService.LogNavigation("BootRestart", bootRestartVm);
+                        var brSchemeId = SelectedBootRestartScheme?.Id ?? "default_br";
+                        if (!_schemeViewModelCache.TryGetValue(brSchemeId, out var brCachedVm) || brCachedVm is not BootRestartViewModel)
+                        {
+                            var bootRestartVm = _bootRestartVmFactory();
+                            if (SelectedBootRestartScheme != null)
+                                bootRestartVm.SchemeName = SelectedBootRestartScheme.Name;
+                            _schemeViewModelCache[brSchemeId] = bootRestartVm;
+                            brCachedVm = bootRestartVm;
+                        }
+                        ConfigurationContent = brCachedVm;
+                        NavigationMonitorService.LogNavigation("BootRestart", brCachedVm);
                     }
                     catch (Exception ex)
                     {
@@ -768,11 +831,17 @@ namespace ProductivityWallpaper.ViewModels
                 case "ScreenWake":
                     try
                     {
-                        var screenWakeVm = _screenWakeVmFactory();
-                        if (SelectedScreenWakeScheme != null)
-                            screenWakeVm.SchemeName = SelectedScreenWakeScheme.Name;
-                        ConfigurationContent = screenWakeVm;
-                        NavigationMonitorService.LogNavigation("ScreenWake", screenWakeVm);
+                        var swSchemeId = SelectedScreenWakeScheme?.Id ?? "default_sw";
+                        if (!_schemeViewModelCache.TryGetValue(swSchemeId, out var swCachedVm) || swCachedVm is not ScreenWakeViewModel)
+                        {
+                            var screenWakeVm = _screenWakeVmFactory();
+                            if (SelectedScreenWakeScheme != null)
+                                screenWakeVm.SchemeName = SelectedScreenWakeScheme.Name;
+                            _schemeViewModelCache[swSchemeId] = screenWakeVm;
+                            swCachedVm = screenWakeVm;
+                        }
+                        ConfigurationContent = swCachedVm;
+                        NavigationMonitorService.LogNavigation("ScreenWake", swCachedVm);
                     }
                     catch (Exception ex)
                     {
@@ -937,6 +1006,7 @@ namespace ProductivityWallpaper.ViewModels
         {
             _autoSaveTimer?.Stop();
             _autoSaveTimer?.Dispose();
+            _schemeViewModelCache.Clear();
         }
     }
 }
