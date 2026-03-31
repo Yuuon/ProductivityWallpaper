@@ -44,7 +44,22 @@
                         </Grid.RowDefinitions>
                         <Border Width="160" Height="100" Background="#222" CornerRadius="4" BorderBrush="#444" BorderThickness="1">
                             <Grid>
-                                <Image Source="{Binding DisplayThumbnail}" Stretch="UniformToFill"/>
+                                <Image Source="{Binding DisplayThumbnail}" Stretch="UniformToFill"
+                                       Visibility="{Binding DisplayThumbnail, Converter={StaticResource StringEmptyToVisibilityConverter}}"/>
+                                <!-- Fallback: interactive wallpaper icon -->
+                                <Image Source="{StaticResource InteractiveThumbImage}" Stretch="Uniform"
+                                       Margin="4"
+                                       Visibility="{Binding DisplayThumbnail, Converter={StaticResource InverseStringEmptyToVisibilityConverter}}">
+                                    <Image.Style>
+                                        <Style TargetType="Image">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsInteractive}" Value="False">
+                                                    <Setter Property="Source" Value="{StaticResource DefaultThumbImage}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Image.Style>
+                                </Image>
                                 <Border Background="#AA000000" VerticalAlignment="Top" HorizontalAlignment="Right" CornerRadius="0,4,0,4" Padding="4,2">
                                     <TextBlock Text="{Binding Type}" Foreground="White" FontSize="10"/>
                                 </Border>

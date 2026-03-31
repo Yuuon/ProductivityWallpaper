@@ -30,6 +30,8 @@ namespace ProductivityWallpaper
 
             // Theme and User Settings Services
             services.AddSingleton<ThemeService>();
+            services.AddSingleton<IThemeService>(sp => sp.GetRequiredService<ThemeService>());
+            services.AddSingleton<IThumbnailService, ThumbnailService>();
             services.AddSingleton<UserSettingsService>();
 
             // ViewModels
@@ -75,7 +77,8 @@ namespace ProductivityWallpaper
                     () => serviceProvider.GetRequiredService<AnniversaryViewModel>(),
                     () => serviceProvider.GetRequiredService<ShutdownViewModel>(),
                     () => serviceProvider.GetRequiredService<BootRestartViewModel>(),
-                    () => serviceProvider.GetRequiredService<ScreenWakeViewModel>());
+                    () => serviceProvider.GetRequiredService<ScreenWakeViewModel>(),
+                    serviceProvider.GetRequiredService<IThemeService>());
             });
 
             // Views

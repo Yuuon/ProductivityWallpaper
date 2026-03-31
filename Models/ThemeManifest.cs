@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace ProductivityWallpaper.Models
@@ -7,6 +8,7 @@ namespace ProductivityWallpaper.Models
     /// <summary>
     /// Root structure for theme.json — the manifest file for a theme package.
     /// Contains metadata, resource library, scheme collections, and widget styles.
+    /// Supports two-phase workflow: local editing (absolute paths) and export (relative paths).
     /// </summary>
     public partial class ThemeManifest : ObservableObject
     {
@@ -31,6 +33,12 @@ namespace ProductivityWallpaper.Models
         private string _author = string.Empty;
 
         /// <summary>
+        /// Description of the theme.
+        /// </summary>
+        [ObservableProperty]
+        private string _description = string.Empty;
+
+        /// <summary>
         /// Theme version (semver format, e.g., "1.0.0").
         /// </summary>
         [ObservableProperty]
@@ -53,6 +61,13 @@ namespace ProductivityWallpaper.Models
         /// </summary>
         [ObservableProperty]
         private DateTime _updatedAt = DateTime.UtcNow;
+
+        /// <summary>
+        /// Base path for resolving relative ExportPaths. Set during export.
+        /// Null during local editing mode.
+        /// </summary>
+        [ObservableProperty]
+        private string? _exportBasePath;
 
         // ==================== Resources ====================
 
@@ -151,5 +166,32 @@ namespace ProductivityWallpaper.Models
         /// </summary>
         [ObservableProperty]
         private ObservableCollection<AnniversaryStyleModel> _anniversaryStyles = new();
+
+        // ==================== Methods ====================
+
+        /// <summary>
+        /// Resolves the actual file path for a resource.
+        /// In local editing mode, returns the absolute SourcePath.
+        /// In export mode, combines ExportBasePath with the resource's ExportPath.
+        /// </summary>
+        public string GetResolvedPath(ResourceEntry resource)
+        {
+            // Export mode: use relative path from ExportBasePath
+            if (!string.IsNullOrEmpty(resource.ExportPath) && !string.IsNullOrEmpty(ExportBasePath))
+            {
+                return Path.Combine(ExportBasePath, resource.ExportPath);
+            }
+
+            // Local mode: use absolute SourcePath
+            return resource.SourcePath;
+        }
+
+        /// <summary>
+        /// Updates the ModifiedAt timestamp to the current UTC time.
+        /// </summary>
+        public void TouchModified()
+        {
+            UpdatedAt = DateTime.UtcNow;
+        }
     }
 }

@@ -30,9 +30,14 @@ namespace ProductivityWallpaper.Models
         [JsonIgnore]
         public string DisplayThumbnail => !string.IsNullOrEmpty(ThumbnailPath) && System.IO.File.Exists(ThumbnailPath)
             ? ThumbnailPath
-            : (Type == MediaType_Old.Interactive
-                ? "/Resources/Images/interactive_thumb.png" // 以后可以换成互动壁纸专用图标
-                : "/Resources/Images/default_thumb.png");
+            : string.Empty;
+
+        /// <summary>
+        /// Whether this media item is an interactive wallpaper type.
+        /// Used by XAML to select the appropriate fallback thumbnail icon.
+        /// </summary>
+        [JsonIgnore]
+        public bool IsInteractive => Type == MediaType_Old.Interactive;
 
         // 新增：如果是互动壁纸，这里存储配置对象
         [JsonIgnore]

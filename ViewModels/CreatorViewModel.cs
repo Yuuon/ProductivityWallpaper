@@ -3,17 +3,20 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ProductivityWallpaper.Models;
 using ProductivityWallpaper.Services;
+using ProductivityWallpaper.Views;
 
 namespace ProductivityWallpaper.ViewModels
 {
     /// <summary>
-    /// ViewModel for the Creator view, managing theme creation and scheme configuration.
+    /// ViewModel for the Creator view, managing theme creation, scheme configuration,
+    /// dirty tracking, save/export operations, and auto-save backup.
     /// </summary>
-    public partial class CreatorViewModel : ObservableObject
+    public partial class CreatorViewModel : ObservableObject, IDisposable
     {
         // --- DI Services ---
         private readonly Func<DesktopBackgroundViewModel> _desktopBackgroundVmFactory;
@@ -24,6 +27,77 @@ namespace ProductivityWallpaper.ViewModels
         private readonly Func<ShutdownViewModel> _shutdownVmFactory;
         private readonly Func<BootRestartViewModel> _bootRestartVmFactory;
         private readonly Func<ScreenWakeViewModel> _screenWakeVmFactory;
+        private readonly IThemeService _themeService;
+
+        // Cache of ViewModels per scheme to preserve state when switching pages
+        private readonly Dictionary<string, ObservableObject> _schemeViewModelCache = new();
+
+        // --- Auto-Save Timer ---
+        private System.Timers.Timer? _autoSaveTimer;
+        private const int AutoSaveIntervalMinutes = 5;
+
+        // --- Dirty State Tracking ---
+
+        /// <summary>
+        /// Whether the current theme has unsaved changes.
+        /// </summary>
+        [ObservableProperty]
+        private bool _isDirty;
+
+        /// <summary>
+        /// Whether a save operation is currently in progress.
+        /// </summary>
+        [ObservableProperty]
+        private bool _isSaving;
+
+        /// <summary>
+        /// Whether an export operation is currently in progress.
+        /// </summary>
+        [ObservableProperty]
+        private bool _isExporting;
+
+        /// <summary>
+        /// The current theme manifest being edited.
+        /// </summary>
+        [ObservableProperty]
+        private ThemeManifest? _currentTheme;
+
+        /// <summary>
+        /// Status message for save/export operations.
+        /// </summary>
+        [ObservableProperty]
+        private string _saveStatusMessage = string.Empty;
+
+        /// <summary>
+        /// Name of the loaded theme for save operations.
+        /// </summary>
+        private string? _loadedThemeName;
+
+        partial void OnIsDirtyChanged(bool value)
+        {
+            SaveStatusMessage = value ? "Unsaved changes" : "All changes saved";
+            SaveThemeCommand.NotifyCanExecuteChanged();
+        }
+
+        partial void OnIsSavingChanged(bool value)
+        {
+            SaveThemeCommand.NotifyCanExecuteChanged();
+        }
+
+        partial void OnCurrentThemeChanged(ThemeManifest? value)
+        {
+            SaveThemeCommand.NotifyCanExecuteChanged();
+            ExportThemeCommand.NotifyCanExecuteChanged();
+        }
+
+        partial void OnCurrentThemeNameChanged(string value)
+        {
+            if (CurrentTheme != null && !string.IsNullOrWhiteSpace(value) && CurrentTheme.Name != value)
+            {
+                CurrentTheme.Name = value;
+            }
+            MarkDirty();
+        }
 
         // --- Feature Types Supporting Multi-Scheme ---
         private static readonly FeatureType[] MultiSchemeFeatures = new[]
@@ -216,7 +290,7 @@ namespace ProductivityWallpaper.ViewModels
         public ObservableCollection<SchemeModel> ScreenWakeSchemes => _schemesByFeature[FeatureType.ScreenWake];
 
         // --- Constructors ---
-        public CreatorViewModel() : this(null, null, null, null, null, null, null, null)
+        public CreatorViewModel() : this(null, null, null, null, null, null, null, null, null)
         {
         }
 
@@ -228,7 +302,8 @@ namespace ProductivityWallpaper.ViewModels
             Func<AnniversaryViewModel> anniversaryVmFactory,
             Func<ShutdownViewModel> shutdownVmFactory,
             Func<BootRestartViewModel> bootRestartVmFactory,
-            Func<ScreenWakeViewModel> screenWakeVmFactory)
+            Func<ScreenWakeViewModel> screenWakeVmFactory,
+            IThemeService? themeService = null)
         {
             _desktopBackgroundVmFactory = desktopBackgroundVmFactory ?? (() => new DesktopBackgroundViewModel());
             _mouseClickVmFactory = mouseClickVmFactory ?? (() => new MouseClickViewModel());
@@ -238,12 +313,16 @@ namespace ProductivityWallpaper.ViewModels
             _shutdownVmFactory = shutdownVmFactory ?? (() => new ShutdownViewModel());
             _bootRestartVmFactory = bootRestartVmFactory ?? (() => new BootRestartViewModel());
             _screenWakeVmFactory = screenWakeVmFactory ?? (() => new ScreenWakeViewModel());
+            _themeService = themeService ?? new ThemeService();
 
             _schemesByFeature = new Dictionary<FeatureType, ObservableCollection<SchemeModel>>();
             foreach (var featureType in MultiSchemeFeatures)
             {
                 _schemesByFeature[featureType] = new ObservableCollection<SchemeModel>();
             }
+
+            // Initialize auto-save timer (5-minute interval, backup only) — not started until theme is loaded
+            InitializeAutoSaveTimer();
         }
 
         // --- Commands ---
@@ -257,15 +336,60 @@ namespace ProductivityWallpaper.ViewModels
 
             IsWelcomePage = false;
             IsCreatingPage = true;
+
+            // Initialize new theme
+            InitializeNewTheme(CurrentThemeName);
             SelectFeature("ThemePreview");
         }
 
         [RelayCommand]
-        private void BackToWelcome()
+        private async Task BackToWelcome()
+        {
+            if (IsDirty)
+            {
+                var dialog = new SaveChangesDialog();
+                if (dialog.ShowDialog() == true)
+                {
+                    switch (dialog.Result)
+                    {
+                        case SaveChangesResult.Save:
+                            await SaveThemeAsync();
+                            PerformBackNavigation();
+                            break;
+                        case SaveChangesResult.DontSave:
+                            PerformBackNavigation();
+                            break;
+                        case SaveChangesResult.Cancel:
+                            return;
+                    }
+                }
+                else
+                {
+                    // Dialog was closed (cancelled)
+                    return;
+                }
+            }
+            else
+            {
+                PerformBackNavigation();
+            }
+        }
+
+        /// <summary>
+        /// Performs the actual back navigation, cleaning up state.
+        /// </summary>
+        private void PerformBackNavigation()
         {
             IsWelcomePage = true;
             IsCreatingPage = false;
             NewThemeName = string.Empty;
+            CurrentTheme = null;
+            _loadedThemeName = null;
+            _schemeViewModelCache.Clear();
+            IsDirty = false;
+
+            // Stop auto-save timer while not editing
+            _autoSaveTimer?.Stop();
         }
 
         [RelayCommand]
@@ -390,6 +514,7 @@ namespace ProductivityWallpaper.ViewModels
             schemes.Add(newScheme);
 
             SelectScheme(newScheme);
+            MarkDirty();
         }
 
         [RelayCommand]
@@ -561,11 +686,17 @@ namespace ProductivityWallpaper.ViewModels
                 case "DesktopBackground":
                     try
                     {
-                        var desktopBgVm = _desktopBackgroundVmFactory();
-                        if (SelectedDesktopBackgroundScheme != null)
-                            desktopBgVm.SchemeName = SelectedDesktopBackgroundScheme.Name;
-                        ConfigurationContent = desktopBgVm;
-                        NavigationMonitorService.LogNavigation("DesktopBackground", desktopBgVm);
+                        var dbSchemeId = SelectedDesktopBackgroundScheme?.Id ?? "default_db";
+                        if (!_schemeViewModelCache.TryGetValue(dbSchemeId, out var dbCachedVm) || dbCachedVm is not DesktopBackgroundViewModel)
+                        {
+                            var desktopBgVm = _desktopBackgroundVmFactory();
+                            if (SelectedDesktopBackgroundScheme != null)
+                                desktopBgVm.SchemeName = SelectedDesktopBackgroundScheme.Name;
+                            _schemeViewModelCache[dbSchemeId] = desktopBgVm;
+                            dbCachedVm = desktopBgVm;
+                        }
+                        ConfigurationContent = dbCachedVm;
+                        NavigationMonitorService.LogNavigation("DesktopBackground", dbCachedVm);
                     }
                     catch (Exception ex)
                     {
@@ -577,11 +708,17 @@ namespace ProductivityWallpaper.ViewModels
                 case "MouseClick":
                     try
                     {
-                        var mouseClickVm = _mouseClickVmFactory();
-                        if (SelectedMouseClickScheme != null)
-                            mouseClickVm.SchemeName = SelectedMouseClickScheme.Name;
-                        ConfigurationContent = mouseClickVm;
-                        NavigationMonitorService.LogNavigation("MouseClick", mouseClickVm);
+                        var mcSchemeId = SelectedMouseClickScheme?.Id ?? "default_mc";
+                        if (!_schemeViewModelCache.TryGetValue(mcSchemeId, out var mcCachedVm) || mcCachedVm is not MouseClickViewModel)
+                        {
+                            var mouseClickVm = _mouseClickVmFactory();
+                            if (SelectedMouseClickScheme != null)
+                                mouseClickVm.SchemeName = SelectedMouseClickScheme.Name;
+                            _schemeViewModelCache[mcSchemeId] = mouseClickVm;
+                            mcCachedVm = mouseClickVm;
+                        }
+                        ConfigurationContent = mcCachedVm;
+                        NavigationMonitorService.LogNavigation("MouseClick", mcCachedVm);
                     }
                     catch (Exception ex)
                     {
@@ -593,9 +730,14 @@ namespace ProductivityWallpaper.ViewModels
                 case "DesktopClock":
                     try
                     {
-                        var clockVm = _desktopClockVmFactory();
-                        ConfigurationContent = clockVm;
-                        NavigationMonitorService.LogNavigation("DesktopClock", clockVm);
+                        if (!_schemeViewModelCache.TryGetValue("desktopClock", out var clockCachedVm) || clockCachedVm is not DesktopClockViewModel)
+                        {
+                            var clockVm = _desktopClockVmFactory();
+                            _schemeViewModelCache["desktopClock"] = clockVm;
+                            clockCachedVm = clockVm;
+                        }
+                        ConfigurationContent = clockCachedVm;
+                        NavigationMonitorService.LogNavigation("DesktopClock", clockCachedVm);
                     }
                     catch (Exception ex)
                     {
@@ -607,9 +749,14 @@ namespace ProductivityWallpaper.ViewModels
                 case "Pomodoro":
                     try
                     {
-                        var pomodoroVm = _pomodoroVmFactory();
-                        ConfigurationContent = pomodoroVm;
-                        NavigationMonitorService.LogNavigation("Pomodoro", pomodoroVm);
+                        if (!_schemeViewModelCache.TryGetValue("pomodoro", out var pomodoroCachedVm) || pomodoroCachedVm is not PomodoroViewModel)
+                        {
+                            var pomodoroVm = _pomodoroVmFactory();
+                            _schemeViewModelCache["pomodoro"] = pomodoroVm;
+                            pomodoroCachedVm = pomodoroVm;
+                        }
+                        ConfigurationContent = pomodoroCachedVm;
+                        NavigationMonitorService.LogNavigation("Pomodoro", pomodoroCachedVm);
                     }
                     catch (Exception ex)
                     {
@@ -621,9 +768,14 @@ namespace ProductivityWallpaper.ViewModels
                 case "Anniversary":
                     try
                     {
-                        var anniversaryVm = _anniversaryVmFactory();
-                        ConfigurationContent = anniversaryVm;
-                        NavigationMonitorService.LogNavigation("Anniversary", anniversaryVm);
+                        if (!_schemeViewModelCache.TryGetValue("anniversary", out var anniversaryCachedVm) || anniversaryCachedVm is not AnniversaryViewModel)
+                        {
+                            var anniversaryVm = _anniversaryVmFactory();
+                            _schemeViewModelCache["anniversary"] = anniversaryVm;
+                            anniversaryCachedVm = anniversaryVm;
+                        }
+                        ConfigurationContent = anniversaryCachedVm;
+                        NavigationMonitorService.LogNavigation("Anniversary", anniversaryCachedVm);
                     }
                     catch (Exception ex)
                     {
@@ -635,11 +787,17 @@ namespace ProductivityWallpaper.ViewModels
                 case "Shutdown":
                     try
                     {
-                        var shutdownVm = _shutdownVmFactory();
-                        if (SelectedShutdownScheme != null)
-                            shutdownVm.SchemeName = SelectedShutdownScheme.Name;
-                        ConfigurationContent = shutdownVm;
-                        NavigationMonitorService.LogNavigation("Shutdown", shutdownVm);
+                        var sdSchemeId = SelectedShutdownScheme?.Id ?? "default_sd";
+                        if (!_schemeViewModelCache.TryGetValue(sdSchemeId, out var sdCachedVm) || sdCachedVm is not ShutdownViewModel)
+                        {
+                            var shutdownVm = _shutdownVmFactory();
+                            if (SelectedShutdownScheme != null)
+                                shutdownVm.SchemeName = SelectedShutdownScheme.Name;
+                            _schemeViewModelCache[sdSchemeId] = shutdownVm;
+                            sdCachedVm = shutdownVm;
+                        }
+                        ConfigurationContent = sdCachedVm;
+                        NavigationMonitorService.LogNavigation("Shutdown", sdCachedVm);
                     }
                     catch (Exception ex)
                     {
@@ -651,11 +809,17 @@ namespace ProductivityWallpaper.ViewModels
                 case "BootRestart":
                     try
                     {
-                        var bootRestartVm = _bootRestartVmFactory();
-                        if (SelectedBootRestartScheme != null)
-                            bootRestartVm.SchemeName = SelectedBootRestartScheme.Name;
-                        ConfigurationContent = bootRestartVm;
-                        NavigationMonitorService.LogNavigation("BootRestart", bootRestartVm);
+                        var brSchemeId = SelectedBootRestartScheme?.Id ?? "default_br";
+                        if (!_schemeViewModelCache.TryGetValue(brSchemeId, out var brCachedVm) || brCachedVm is not BootRestartViewModel)
+                        {
+                            var bootRestartVm = _bootRestartVmFactory();
+                            if (SelectedBootRestartScheme != null)
+                                bootRestartVm.SchemeName = SelectedBootRestartScheme.Name;
+                            _schemeViewModelCache[brSchemeId] = bootRestartVm;
+                            brCachedVm = bootRestartVm;
+                        }
+                        ConfigurationContent = brCachedVm;
+                        NavigationMonitorService.LogNavigation("BootRestart", brCachedVm);
                     }
                     catch (Exception ex)
                     {
@@ -667,11 +831,17 @@ namespace ProductivityWallpaper.ViewModels
                 case "ScreenWake":
                     try
                     {
-                        var screenWakeVm = _screenWakeVmFactory();
-                        if (SelectedScreenWakeScheme != null)
-                            screenWakeVm.SchemeName = SelectedScreenWakeScheme.Name;
-                        ConfigurationContent = screenWakeVm;
-                        NavigationMonitorService.LogNavigation("ScreenWake", screenWakeVm);
+                        var swSchemeId = SelectedScreenWakeScheme?.Id ?? "default_sw";
+                        if (!_schemeViewModelCache.TryGetValue(swSchemeId, out var swCachedVm) || swCachedVm is not ScreenWakeViewModel)
+                        {
+                            var screenWakeVm = _screenWakeVmFactory();
+                            if (SelectedScreenWakeScheme != null)
+                                screenWakeVm.SchemeName = SelectedScreenWakeScheme.Name;
+                            _schemeViewModelCache[swSchemeId] = screenWakeVm;
+                            swCachedVm = screenWakeVm;
+                        }
+                        ConfigurationContent = swCachedVm;
+                        NavigationMonitorService.LogNavigation("ScreenWake", swCachedVm);
                     }
                     catch (Exception ex)
                     {
@@ -689,6 +859,154 @@ namespace ProductivityWallpaper.ViewModels
                     ConfigurationContent = null;
                     break;
             }
+        }
+
+        // ==================== Save / Export / Auto-Save ====================
+
+        /// <summary>
+        /// Saves the current theme to disk. Resets IsDirty on success.
+        /// </summary>
+        [RelayCommand(CanExecute = nameof(CanSaveTheme))]
+        private async Task SaveThemeAsync()
+        {
+            if (CurrentTheme == null || string.IsNullOrEmpty(_loadedThemeName))
+                return;
+
+            IsSaving = true;
+            SaveStatusMessage = "Saving...";
+
+            try
+            {
+                await _themeService.SaveThemeAsync(CurrentTheme, isBackup: false);
+                IsDirty = false;
+                SaveStatusMessage = "Saved";
+                Debug.WriteLine($"[CreatorViewModel] Theme saved: {_loadedThemeName}");
+            }
+            catch (Exception ex)
+            {
+                SaveStatusMessage = $"Save failed: {ex.Message}";
+                Debug.WriteLine($"[CreatorViewModel] Save failed: {ex.Message}");
+            }
+            finally
+            {
+                IsSaving = false;
+            }
+        }
+
+        private bool CanSaveTheme() => IsDirty && !IsSaving && CurrentTheme != null;
+
+        /// <summary>
+        /// Exports the current theme as a complete portable package.
+        /// </summary>
+        [RelayCommand(CanExecute = nameof(CanExportTheme))]
+        private async Task ExportThemeAsync()
+        {
+            if (CurrentTheme == null)
+                return;
+
+            // Use WinForms FolderBrowserDialog for folder selection
+            using var dialog = new System.Windows.Forms.FolderBrowserDialog
+            {
+                Description = "Select export location for theme package",
+                ShowNewFolderButton = true
+            };
+
+            if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK)
+                return;
+
+            IsExporting = true;
+            SaveStatusMessage = "Exporting...";
+
+            try
+            {
+                var progress = new Progress<string>(msg =>
+                    SaveStatusMessage = $"Exporting: {msg}");
+
+                var exportPath = await _themeService.ExportThemeAsync(
+                    CurrentTheme, dialog.SelectedPath, progress);
+
+                SaveStatusMessage = $"Exported to: {exportPath}";
+                Debug.WriteLine($"[CreatorViewModel] Theme exported to: {exportPath}");
+            }
+            catch (Exception ex)
+            {
+                SaveStatusMessage = $"Export failed: {ex.Message}";
+                Debug.WriteLine($"[CreatorViewModel] Export failed: {ex.Message}");
+            }
+            finally
+            {
+                IsExporting = false;
+            }
+        }
+
+        private bool CanExportTheme() => !IsExporting && CurrentTheme != null;
+
+        // ==================== Auto-Save Timer ====================
+
+        /// <summary>
+        /// Initializes the 5-minute auto-save timer for backup saves.
+        /// </summary>
+        private void InitializeAutoSaveTimer()
+        {
+            _autoSaveTimer = new System.Timers.Timer(TimeSpan.FromMinutes(AutoSaveIntervalMinutes).TotalMilliseconds);
+            _autoSaveTimer.Elapsed += OnAutoSaveTimerElapsed;
+            _autoSaveTimer.AutoReset = true;
+        }
+
+        private async void OnAutoSaveTimerElapsed(object? sender, System.Timers.ElapsedEventArgs e)
+        {
+            if (!IsDirty || CurrentTheme == null || IsSaving || _loadedThemeName == null)
+                return;
+
+            try
+            {
+                // Silent backup save — does NOT reset IsDirty
+                await _themeService.SaveThemeAsync(CurrentTheme, isBackup: true);
+                Debug.WriteLine("[AutoSave] Backup saved successfully");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[AutoSave] Failed: {ex.Message}");
+            }
+        }
+
+        // ==================== Theme Initialization ====================
+
+        /// <summary>
+        /// Initializes a new theme for editing.
+        /// </summary>
+        private void InitializeNewTheme(string themeName)
+        {
+            CurrentTheme = new ThemeManifest { Name = themeName };
+            _loadedThemeName = themeName;
+            _themeService.CurrentTheme = CurrentTheme;
+            IsDirty = false;
+
+            // Start auto-save timer
+            _autoSaveTimer?.Start();
+        }
+
+        // ==================== Dirty Tracking ====================
+
+        /// <summary>
+        /// Marks the current theme as having unsaved changes.
+        /// </summary>
+        private void MarkDirty()
+        {
+            if (!IsDirty)
+            {
+                IsDirty = true;
+            }
+        }
+
+        /// <summary>
+        /// Cleans up timer resources.
+        /// </summary>
+        public void Dispose()
+        {
+            _autoSaveTimer?.Stop();
+            _autoSaveTimer?.Dispose();
+            _schemeViewModelCache.Clear();
         }
     }
 }
