@@ -2,21 +2,36 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Hashing;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading;
 using System.Threading.Tasks;
 using ProductivityWallpaper.Models;
 
 namespace ProductivityWallpaper.Services
 {
     /// <summary>
-    /// Service for loading, saving, and validating theme packages.
-    /// A theme package is a folder containing theme.json and organized resource subfolders.
+    /// Service for theme package lifecycle operations.
+    /// Supports two-phase workflow:
+    /// - Local editing: resources referenced by absolute path, no file copying
+    /// - Export: creates complete portable package with copied files and relative paths
+    /// Theme data stored in %AppData%/ProductivityWallpaper/Themes/{ThemeName}/
     /// </summary>
-    public class ThemeService
+    public class ThemeService : IThemeService
     {
         private const string ManifestFileName = "theme.json";
+        private const string BackupSuffix = ".backup";
+        private const string AppFolderName = "ProductivityWallpaper";
+        private const string ThemesFolderName = "Themes";
+
         private readonly JsonSerializerOptions _jsonOptions;
+        private readonly string _themesRootPath;
+
+        /// <summary>
+        /// Gets or sets the current theme being edited.
+        /// </summary>
+        public ThemeManifest? CurrentTheme { get; set; }
 
         public ThemeService()
         {
@@ -24,16 +39,278 @@ namespace ProductivityWallpaper.Services
             {
                 WriteIndented = true,
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+                Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
             };
+
+            _themesRootPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                AppFolderName,
+                ThemesFolderName);
         }
 
+        // ==================== Theme Lifecycle ====================
+
+        /// <inheritdoc/>
+        public async Task<ThemeManifest?> LoadThemeAsync(string themeName)
+        {
+            var themeFolderPath = GetThemeFolderPath(themeName);
+            var manifestPath = Path.Combine(themeFolderPath, ManifestFileName);
+
+            if (!File.Exists(manifestPath))
+            {
+                Debug.WriteLine($"[ThemeService] Manifest not found: {manifestPath}");
+                return null;
+            }
+
+            try
+            {
+                var json = await File.ReadAllTextAsync(manifestPath);
+                var manifest = JsonSerializer.Deserialize<ThemeManifest>(json, _jsonOptions);
+
+                if (manifest == null)
+                {
+                    Debug.WriteLine($"[ThemeService] Failed to deserialize manifest: {manifestPath}");
+                    return null;
+                }
+
+                // Validate all resource paths
+                manifest.ResourceLibrary.ValidateAll();
+
+                CurrentTheme = manifest;
+                Debug.WriteLine($"[ThemeService] Loaded theme: {manifest.Name} v{manifest.Version}");
+                return manifest;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ThemeService] Error loading theme: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <inheritdoc/>
+        public async Task SaveThemeAsync(ThemeManifest theme, bool isBackup = false)
+        {
+            var themeFolderPath = GetThemeFolderPath(theme.Name);
+            Directory.CreateDirectory(themeFolderPath);
+
+            // Update timestamp
+            theme.TouchModified();
+
+            var fileName = isBackup
+                ? ManifestFileName + BackupSuffix
+                : ManifestFileName;
+
+            var manifestPath = Path.Combine(themeFolderPath, fileName);
+            var json = JsonSerializer.Serialize(theme, _jsonOptions);
+            await File.WriteAllTextAsync(manifestPath, json);
+
+            Debug.WriteLine($"[ThemeService] {(isBackup ? "Backup saved" : "Saved")} theme: {theme.Name} to {manifestPath}");
+        }
+
+        /// <inheritdoc/>
+        public async Task<ThemeManifest> CreateThemeAsync(string themeName)
+        {
+            var manifest = new ThemeManifest
+            {
+                Name = themeName,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            await SaveThemeAsync(manifest);
+            CurrentTheme = manifest;
+
+            Debug.WriteLine($"[ThemeService] Created new theme: {themeName}");
+            return manifest;
+        }
+
+        /// <inheritdoc/>
+        public bool ThemeExists(string themeName)
+        {
+            var manifestPath = Path.Combine(GetThemeFolderPath(themeName), ManifestFileName);
+            return File.Exists(manifestPath);
+        }
+
+        /// <inheritdoc/>
+        public string[] GetThemeNames()
+        {
+            if (!Directory.Exists(_themesRootPath))
+                return Array.Empty<string>();
+
+            var dirs = Directory.GetDirectories(_themesRootPath);
+            var names = new List<string>();
+            foreach (var dir in dirs)
+            {
+                var manifestPath = Path.Combine(dir, ManifestFileName);
+                if (File.Exists(manifestPath))
+                {
+                    names.Add(Path.GetFileName(dir));
+                }
+            }
+            return names.ToArray();
+        }
+
+        // ==================== Import (Reference Mode) ====================
+
+        /// <inheritdoc/>
+        public Task<ResourceEntry?> ImportResourceAsync(string filePath)
+        {
+            if (!File.Exists(filePath))
+            {
+                Debug.WriteLine($"[ThemeService] Import failed: file not found: {filePath}");
+                return Task.FromResult<ResourceEntry?>(null);
+            }
+
+            // Check for duplicate
+            if (IsDuplicate(filePath, out var existing))
+            {
+                Debug.WriteLine($"[ThemeService] Duplicate detected: {filePath} matches {existing!.Id}");
+                return Task.FromResult<ResourceEntry?>(existing);
+            }
+
+            var fileInfo = new FileInfo(filePath);
+            var extension = Path.GetExtension(filePath).ToLowerInvariant();
+            var mediaType = DetermineMediaType(extension);
+
+            var entry = new ResourceEntry
+            {
+                SourcePath = filePath,
+                Hash = ComputeHash(filePath),
+                Type = mediaType,
+                OriginalName = Path.GetFileName(filePath),
+                FileName = Path.GetFileName(filePath),
+                Format = extension,
+                FileSize = fileInfo.Length
+            };
+
+            Debug.WriteLine($"[ThemeService] Imported resource by reference: {entry.Id} ({entry.OriginalName})");
+            return Task.FromResult<ResourceEntry?>(entry);
+        }
+
+        /// <inheritdoc/>
+        public bool IsDuplicate(string filePath, out ResourceEntry? existing)
+        {
+            existing = null;
+            if (CurrentTheme == null) return false;
+
+            var hash = ComputeHash(filePath);
+            existing = CurrentTheme.ResourceLibrary.GetByHash(hash);
+            return existing != null;
+        }
+
+        /// <inheritdoc/>
+        public string ComputeHash(string filePath)
+        {
+            try
+            {
+                using var stream = File.OpenRead(filePath);
+                var crc = new Crc32();
+                var buffer = new byte[8192];
+                int bytesRead;
+                while ((bytesRead = stream.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    crc.Append(buffer.AsSpan(0, bytesRead));
+                }
+                var hashValue = crc.GetCurrentHashAsUInt32();
+                return $"crc32:{hashValue:X8}";
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ThemeService] Hash computation failed for {filePath}: {ex.Message}");
+                return string.Empty;
+            }
+        }
+
+        // ==================== Export (Bundle Mode) ====================
+
+        /// <inheritdoc/>
+        public async Task<string> ExportThemeAsync(ThemeManifest theme, string exportLocation,
+            IProgress<string>? progress = null, CancellationToken ct = default)
+        {
+            var exportPath = Path.Combine(exportLocation, SanitizeFolderName(theme.Name));
+
+            // Create folder structure
+            Directory.CreateDirectory(exportPath);
+            Directory.CreateDirectory(Path.Combine(exportPath, "images"));
+            Directory.CreateDirectory(Path.Combine(exportPath, "videos"));
+            Directory.CreateDirectory(Path.Combine(exportPath, "audio"));
+            Directory.CreateDirectory(Path.Combine(exportPath, "thumbnails"));
+
+            progress?.Report("Creating folder structure...");
+
+            // Copy all referenced files
+            foreach (var resource in theme.ResourceLibrary.GetAll())
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (string.IsNullOrEmpty(resource.SourcePath) || !File.Exists(resource.SourcePath))
+                {
+                    progress?.Report($"Skipped (missing): {resource.OriginalName}");
+                    continue;
+                }
+
+                var subfolder = ThemeResourceLibrary.GetTypeFolderName(resource.Type);
+                var destFilename = SanitizeFileName(resource.OriginalName);
+
+                // Handle name collisions
+                var destPath = Path.Combine(exportPath, subfolder, destFilename);
+                if (File.Exists(destPath))
+                {
+                    var nameWithoutExt = Path.GetFileNameWithoutExtension(destFilename);
+                    var ext = Path.GetExtension(destFilename);
+                    destFilename = $"{nameWithoutExt}_{resource.Id[..8]}{ext}";
+                    destPath = Path.Combine(exportPath, subfolder, destFilename);
+                }
+
+                // Copy file
+                await Task.Run(() => File.Copy(resource.SourcePath, destPath, overwrite: true), ct);
+                resource.ExportPath = $"{subfolder}/{destFilename}";
+
+                progress?.Report($"Exported: {resource.OriginalName}");
+            }
+
+            // Save theme.json with ExportPath values
+            theme.ExportBasePath = exportPath;
+            var manifestPath = Path.Combine(exportPath, ManifestFileName);
+            var json = JsonSerializer.Serialize(theme, _jsonOptions);
+            await File.WriteAllTextAsync(manifestPath, json, ct);
+
+            // Clear ExportBasePath on the original theme (it's still in local editing mode)
+            theme.ExportBasePath = null;
+
+            progress?.Report("Export complete!");
+            Debug.WriteLine($"[ThemeService] Exported theme to: {exportPath}");
+            return exportPath;
+        }
+
+        // ==================== Validation ====================
+
+        /// <inheritdoc/>
+        public void ValidateTheme(ThemeManifest theme)
+        {
+            theme.ResourceLibrary.ValidateAll();
+        }
+
+        // ==================== Utility ====================
+
+        /// <inheritdoc/>
+        public string GetThemeFolderPath(string themeName)
+        {
+            return Path.Combine(_themesRootPath, SanitizeFolderName(themeName));
+        }
+
+        /// <inheritdoc/>
+        public string GetBackupPath(string themeName)
+        {
+            return Path.Combine(GetThemeFolderPath(themeName), ManifestFileName + BackupSuffix);
+        }
+
+        // ==================== Legacy Compatibility ====================
+
         /// <summary>
-        /// Loads a theme from a folder containing theme.json.
+        /// Loads a theme from a specific folder path (legacy API for backward compatibility).
         /// </summary>
-        /// <param name="themeFolderPath">Path to the theme folder.</param>
-        /// <param name="validateResources">Whether to validate that all resource files exist.</param>
-        /// <returns>The loaded theme manifest, or null on failure.</returns>
         public async Task<ThemeManifest?> LoadAsync(string themeFolderPath, bool validateResources = true)
         {
             var manifestPath = Path.Combine(themeFolderPath, ManifestFileName);
@@ -57,13 +334,7 @@ namespace ProductivityWallpaper.Services
 
                 if (validateResources)
                 {
-                    if (!manifest.ResourceLibrary.ValidateAllExist(themeFolderPath, out var missing))
-                    {
-                        foreach (var m in missing)
-                        {
-                            Debug.WriteLine($"[ThemeService] Warning: Missing resource - {m}");
-                        }
-                    }
+                    manifest.ResourceLibrary.ValidateAll(themeFolderPath);
                 }
 
                 Debug.WriteLine($"[ThemeService] Loaded theme: {manifest.Name} v{manifest.Version}");
@@ -77,18 +348,16 @@ namespace ProductivityWallpaper.Services
         }
 
         /// <summary>
-        /// Saves a theme manifest to a folder. Creates subfolders if they don't exist.
+        /// Saves a theme manifest to a specific folder (legacy API for backward compatibility).
         /// </summary>
         public async Task SaveAsync(ThemeManifest manifest, string themeFolderPath)
         {
-            // Ensure folder structure exists
             Directory.CreateDirectory(themeFolderPath);
             Directory.CreateDirectory(Path.Combine(themeFolderPath, "images"));
             Directory.CreateDirectory(Path.Combine(themeFolderPath, "videos"));
             Directory.CreateDirectory(Path.Combine(themeFolderPath, "audio"));
             Directory.CreateDirectory(Path.Combine(themeFolderPath, "thumbnails"));
 
-            // Update timestamp
             manifest.UpdatedAt = DateTime.UtcNow;
 
             var manifestPath = Path.Combine(themeFolderPath, ManifestFileName);
@@ -99,7 +368,7 @@ namespace ProductivityWallpaper.Services
         }
 
         /// <summary>
-        /// Creates a new empty theme with the specified metadata.
+        /// Creates a new empty theme (legacy API).
         /// </summary>
         public ThemeManifest CreateNew(string name, string author)
         {
@@ -113,9 +382,8 @@ namespace ProductivityWallpaper.Services
         }
 
         /// <summary>
-        /// Validates a theme manifest and its resources.
+        /// Validates a theme manifest and its resources (legacy API).
         /// </summary>
-        /// <returns>True if valid; false with error messages.</returns>
         public bool Validate(ThemeManifest manifest, string themeFolderPath, out List<string> errors)
         {
             errors = new List<string>();
@@ -141,10 +409,8 @@ namespace ProductivityWallpaper.Services
         }
 
         /// <summary>
-        /// Adds a resource file to the theme package.
-        /// Copies the file to the appropriate subfolder and creates a ResourceEntry.
+        /// Adds a resource file to the theme package (legacy API — copies file immediately).
         /// </summary>
-        /// <returns>The ID of the newly added resource.</returns>
         public async Task<string> AddResourceAsync(ThemeManifest manifest, string sourceFilePath, string themeFolderPath)
         {
             var fileName = Path.GetFileName(sourceFilePath);
@@ -155,7 +421,6 @@ namespace ProductivityWallpaper.Services
 
             Directory.CreateDirectory(destFolder);
 
-            // Handle name collisions
             var destPath = Path.Combine(destFolder, fileName);
             if (File.Exists(destPath))
             {
@@ -164,7 +429,6 @@ namespace ProductivityWallpaper.Services
                 destPath = Path.Combine(destFolder, fileName);
             }
 
-            // Copy file
             using (var source = File.OpenRead(sourceFilePath))
             using (var dest = File.Create(destPath))
             {
@@ -180,42 +444,39 @@ namespace ProductivityWallpaper.Services
                 FileSize = fileInfo.Length
             };
 
-            manifest.ResourceLibrary.Resources.Add(entry);
-            manifest.ResourceLibrary.InvalidateIndex();
+            manifest.ResourceLibrary.Add(entry);
 
             Debug.WriteLine($"[ThemeService] Added resource: {entry.Id} ({fileName})");
             return entry.Id;
         }
 
         /// <summary>
-        /// Removes a resource from the theme and deletes its files.
+        /// Removes a resource from the theme and deletes its files (legacy API).
         /// </summary>
         public Task RemoveResourceAsync(ThemeManifest manifest, string resourceId, string themeFolderPath)
         {
             var entry = manifest.ResourceLibrary.GetById(resourceId);
             if (entry == null) return Task.CompletedTask;
 
-            // Delete media file
             var mediaPath = manifest.ResourceLibrary.GetMediaPath(resourceId, themeFolderPath);
             if (mediaPath != null && File.Exists(mediaPath))
             {
                 File.Delete(mediaPath);
             }
 
-            // Delete thumbnail
             var thumbPath = manifest.ResourceLibrary.GetThumbnailPath(resourceId, themeFolderPath);
             if (thumbPath != null && File.Exists(thumbPath))
             {
                 File.Delete(thumbPath);
             }
 
-            // Remove from library
-            manifest.ResourceLibrary.Resources.Remove(entry);
-            manifest.ResourceLibrary.InvalidateIndex();
+            manifest.ResourceLibrary.Remove(resourceId);
 
             Debug.WriteLine($"[ThemeService] Removed resource: {resourceId}");
             return Task.CompletedTask;
         }
+
+        // ==================== Private Helpers ====================
 
         private static MediaType DetermineMediaType(string extension)
         {
@@ -226,6 +487,20 @@ namespace ProductivityWallpaper.Services
                 ".mp3" or ".wav" or ".ogg" or ".flac" or ".aac" => MediaType.Audio,
                 _ => MediaType.Image
             };
+        }
+
+        private static string SanitizeFileName(string fileName)
+        {
+            var invalidChars = Path.GetInvalidFileNameChars();
+            var sanitized = string.Join("_", fileName.Split(invalidChars, StringSplitOptions.RemoveEmptyEntries));
+            return string.IsNullOrWhiteSpace(sanitized) ? "unnamed" : sanitized;
+        }
+
+        private static string SanitizeFolderName(string name)
+        {
+            var invalidChars = Path.GetInvalidFileNameChars();
+            var sanitized = string.Join("_", name.Split(invalidChars, StringSplitOptions.RemoveEmptyEntries));
+            return string.IsNullOrWhiteSpace(sanitized) ? "unnamed" : sanitized;
         }
     }
 }
