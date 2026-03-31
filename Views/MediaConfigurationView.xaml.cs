@@ -5,11 +5,12 @@ using System.Windows.Input;
 namespace ProductivityWallpaper.Views
 {
     /// <summary>
-    /// Interaction logic for BootRestartView.xaml
+    /// Unified view for all media configuration features (Desktop Background, Shutdown,
+    /// Boot/Restart, Screen Wake). Binds to any MediaConfigurationViewModel subclass.
     /// </summary>
-    public partial class BootRestartView : System.Windows.Controls.UserControl
+    public partial class MediaConfigurationView : System.Windows.Controls.UserControl
     {
-        public BootRestartView()
+        public MediaConfigurationView()
         {
             InitializeComponent();
         }
@@ -19,7 +20,7 @@ namespace ProductivityWallpaper.Views
         /// </summary>
         private void SchemeNameTextBox_LostFocus(object sender, RoutedEventArgs e)
         {
-            if (DataContext is ViewModels.BootRestartViewModel vm)
+            if (DataContext is ViewModels.MediaConfigurationViewModel vm)
             {
                 vm.FinishEditNameCommand.Execute(null);
             }
@@ -33,7 +34,7 @@ namespace ProductivityWallpaper.Views
         {
             if (e.Key == Key.Enter)
             {
-                if (DataContext is ViewModels.BootRestartViewModel vm)
+                if (DataContext is ViewModels.MediaConfigurationViewModel vm)
                 {
                     vm.FinishEditNameCommand.Execute(null);
                 }

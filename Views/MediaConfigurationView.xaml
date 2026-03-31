@@ -1,4 +1,4 @@
-<UserControl x:Class="ProductivityWallpaper.Views.ScreenWakeView"
+<UserControl x:Class="ProductivityWallpaper.Views.MediaConfigurationView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
@@ -7,7 +7,7 @@
              xmlns:models="clr-namespace:ProductivityWallpaper.Models"
              xmlns:converters="clr-namespace:ProductivityWallpaper.Converters"
              mc:Ignorable="d"
-             d:DataContext="{d:DesignInstance Type=vm:ScreenWakeViewModel}">
+             d:DataContext="{d:DesignInstance Type=vm:MediaConfigurationViewModel}">
     
     <UserControl.Resources>
         <!-- Boolean to Visibility Converter for inverse -->
@@ -651,7 +651,7 @@
                 <StackPanel VerticalAlignment="Top">
                     
                     <!-- Section 2: Import Header -->
-                    <TextBlock Text="Configure Screen Wake Media"
+                    <TextBlock Text="Configure Media"
                               Style="{StaticResource SubHeaderTextStyle}"
                               Margin="0,0,0,16"/>
                     
@@ -900,13 +900,14 @@
                     </Border>
                     
                     
-                    <!-- Section 4: Audio List -->
+                    <!-- Section 4: Audio List (hidden when IncludeAudio is false) -->
                     
                     <Border Background="{StaticResource BackgroundBlockBrush}"
                            BorderBrush="{StaticResource BorderLineBrush}"
                            BorderThickness="1"
                            CornerRadius="10"
-                           Padding="16">
+                           Padding="16"
+                           Visibility="{Binding IncludeAudio, Converter={StaticResource BooleanToVisibilityConverter}}">
                         
                         <StackPanel>
                             

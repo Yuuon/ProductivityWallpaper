@@ -56,15 +56,12 @@ namespace ProductivityWallpaper
             // Anniversary ViewModel
             services.AddTransient<AnniversaryViewModel>();
 
-            // Views
-            services.AddTransient<DesktopBackgroundView>();
+            // Views (unified MediaConfigurationView replaces 4 duplicate views)
+            services.AddTransient<MediaConfigurationView>();
             services.AddTransient<MouseClickView>();
             services.AddTransient<DesktopClockView>();
             services.AddTransient<PomodoroView>();
             services.AddTransient<AnniversaryView>();
-            services.AddTransient<ShutdownView>();
-            services.AddTransient<BootRestartView>();
-            services.AddTransient<ScreenWakeView>();
 
             // CreatorViewModel with factory injection
             services.AddSingleton<CreatorViewModel>(serviceProvider =>
