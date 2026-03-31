@@ -260,6 +260,15 @@
                                Padding="0,0,12,0">
                     <StackPanel Margin="16,8,4,16">
                         
+                        <!-- Theme Name in sidebar -->
+                        <TextBlock Text="{Binding CurrentThemeName}"
+                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   TextTrimming="CharacterEllipsis"
+                                   Margin="12,0,0,12"
+                                   ToolTip="{Binding CurrentThemeName}"/>
+                        
                         <!-- ===== Theme Preview (Simple Button) ===== -->
                         <Button Command="{Binding SelectFeatureCommand}"
                                 CommandParameter="ThemePreview">
@@ -798,7 +807,8 @@
                     <TextBox x:Name="ThemeNameTextBox"
                              Text="{Binding CurrentThemeName, UpdateSourceTrigger=PropertyChanged}"
                              Background="Transparent"
-                             BorderThickness="0"
+                             BorderThickness="0,0,0,1"
+                             BorderBrush="{StaticResource AccentBrush}"
                              FontSize="18"
                              FontWeight="SemiBold"
                              Foreground="{StaticResource TextPrimaryBrush}"
@@ -808,6 +818,7 @@
                              Height="32"
                              VerticalAlignment="Center"
                              VerticalContentAlignment="Center"
+                             HorizontalAlignment="Left"
                              Visibility="{Binding IsEditingThemeName, Converter={StaticResource BooleanToVisibilityConverter}}"
                              LostFocus="ThemeNameTextBox_LostFocus"
                              KeyDown="ThemeNameTextBox_KeyDown"/>
