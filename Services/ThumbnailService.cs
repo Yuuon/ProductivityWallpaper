@@ -174,10 +174,10 @@ namespace ProductivityWallpaper.Services
                     try
                     {
                         var player = new MediaPlayer();
+                        var frame = new System.Windows.Threading.DispatcherFrame();
                         player.Open(new Uri(sourcePath, UriKind.Absolute));
                         player.ScrubbingEnabled = true;
 
-                        // Wait for media to be ready
                         player.MediaOpened += (s, e) =>
                         {
                             try
@@ -190,8 +190,8 @@ namespace ProductivityWallpaper.Services
                                     player.Position = seekTime;
                                 }
 
-                                // Wait a moment for the frame to render
-                                Thread.Sleep(300);
+                                // Allow time for the frame to render
+                                Thread.Sleep(500);
 
                                 // Render frame to bitmap
                                 var width = player.NaturalVideoWidth > 0 ? player.NaturalVideoWidth : IThumbnailService.ThumbnailWidth;
@@ -232,16 +232,21 @@ namespace ProductivityWallpaper.Services
                                 tcs.TrySetResult(string.Empty);
                                 Debug.WriteLine($"[ThumbnailService] Video frame extraction failed: {ex.Message}");
                             }
+                            finally
+                            {
+                                frame.Continue = false;
+                            }
                         };
 
                         player.MediaFailed += (s, e) =>
                         {
                             tcs.TrySetResult(string.Empty);
                             Debug.WriteLine($"[ThumbnailService] Media open failed: {e.ErrorException?.Message}");
+                            frame.Continue = false;
                         };
 
-                        // Pump messages for a reasonable time
-                        System.Windows.Threading.Dispatcher.Run();
+                        // Pump messages until complete (replaces Dispatcher.Run())
+                        System.Windows.Threading.Dispatcher.PushFrame(frame);
                     }
                     catch (Exception ex)
                     {

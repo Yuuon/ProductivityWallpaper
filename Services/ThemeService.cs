@@ -259,7 +259,8 @@ namespace ProductivityWallpaper.Services
                 {
                     var nameWithoutExt = Path.GetFileNameWithoutExtension(destFilename);
                     var ext = Path.GetExtension(destFilename);
-                    destFilename = $"{nameWithoutExt}_{resource.Id[..8]}{ext}";
+                    var idSuffix = resource.Id.Length >= 8 ? resource.Id[..8] : resource.Id;
+                    destFilename = $"{nameWithoutExt}_{idSuffix}{ext}";
                     destPath = Path.Combine(exportPath, subfolder, destFilename);
                 }
 

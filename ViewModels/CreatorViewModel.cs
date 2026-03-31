@@ -4,7 +4,6 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Timers;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ProductivityWallpaper.Models;
@@ -17,7 +16,7 @@ namespace ProductivityWallpaper.ViewModels
     /// ViewModel for the Creator view, managing theme creation, scheme configuration,
     /// dirty tracking, save/export operations, and auto-save backup.
     /// </summary>
-    public partial class CreatorViewModel : ObservableObject
+    public partial class CreatorViewModel : ObservableObject, IDisposable
     {
         // --- DI Services ---
         private readonly Func<DesktopBackgroundViewModel> _desktopBackgroundVmFactory;
@@ -299,13 +298,7 @@ namespace ProductivityWallpaper.ViewModels
                 _schemesByFeature[featureType] = new ObservableCollection<SchemeModel>();
             }
 
-            // Subscribe to collection changes for dirty tracking
-            foreach (var schemes in _schemesByFeature.Values)
-            {
-                schemes.CollectionChanged += (s, e) => MarkDirty();
-            }
-
-            // Initialize auto-save timer (5-minute interval, backup only)
+            // Initialize auto-save timer (5-minute interval, backup only) — not started until theme is loaded
             InitializeAutoSaveTimer();
         }
 
@@ -893,7 +886,7 @@ namespace ProductivityWallpaper.ViewModels
 
         private async void OnAutoSaveTimerElapsed(object? sender, System.Timers.ElapsedEventArgs e)
         {
-            if (!IsDirty || CurrentTheme == null || IsSaving)
+            if (!IsDirty || CurrentTheme == null || IsSaving || _loadedThemeName == null)
                 return;
 
             try
