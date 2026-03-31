@@ -336,52 +336,64 @@ Wave 2: UI Polish
 
 ## Phase 02: Data Structure
 
-**Goal:** Establish complete data structures for theme packages and local widget settings
+**Goal:** Create comprehensive data persistence layer with reference-based resource management, manual save with dirty tracking, and export functionality
 
-**Source:** Phase-02-DataStructure.md
+**Source:** Phase-02-DataStructure.md (revised with absolute path reference mode, manual save primary)
 
-**Requirements:** DS-01, DS-02, DS-03, DS-04, DS-05, DS-06, DS-07
+**Requirements:** DS-001, DS-002, DS-003, DS-004, DS-005, DS-006, DS-007, DS-008
 
 ### Phase 02 Plans
 
-| Plan | Objective | Files | Wave | Requirements |
-|------|-----------|-------|------|--------------|
-| 02-01 | Theme Manifest and Resource Models | ThemeManifest.cs, ResourceEntry.cs, ThemeService.cs | 1 | DS-01, DS-02 |
-| 02-02 | Scheme Resource References | FeatureType.cs, SchemeModel.cs, ClickRegionModel.cs | 1 | DS-03, DS-04, DS-05 |
-| 02-03 | System Events and Widget Settings | UserWidgetSettings.cs, UserSettingsService.cs | 2 | DS-06, DS-07 |
+| Plan | Objective | Files | Wave | Requirements | Autonomous |
+|------|-----------|-------|------|--------------|------------|
+| 02-01 | Core Models (ResourceEntry, ThemeManifest, ResourceLibrary) | Models/ThemeManifest.cs, Models/ResourceEntry.cs, Models/ResourceLibrary.cs | 1 | DS-001, DS-002 | Yes |
+| 02-02 | ThemeService + Import/Export Logic | Services/IThemeService.cs, Services/ThemeService.cs | 1 | DS-003, DS-004 | Yes |
+| 02-03 | ThumbnailService (temp vs export modes) | Services/IThumbnailService.cs, Services/ThumbnailService.cs | 1 | DS-008 | Yes |
+| 02-04 | Save System UI (button, dialog, auto-save timer) | Views/CreatorView.xaml, Views/SaveChangesDialog.xaml | 2 | DS-005, DS-006, DS-007 | No |
+| 02-05 | ViewModel Integration (dirty tracking, save/export commands) | ViewModels/CreatorViewModel.cs, App.xaml.cs | 2 | DS-003, DS-004, DS-005, DS-006, DS-007 | Yes |
 
 ### Wave Structure
 
 ```
-Wave 1: Core Models (Parallel)
-├── 02-01: Theme manifest, resource library, loading services
-└── 02-02: FeatureType extension, ID-based references, ClickAction
+Wave 1: Core Services (Parallel - no dependencies)
+├── 02-01: ThemeManifest, ResourceEntry, ResourceLibrary models
+│   └── Creates: UUID-based resource reference system
+├── 02-02: ThemeService with load/save/import/export
+│   └── Creates: Two-phase resource management (absolute paths locally, relative on export)
+└── 02-03: ThumbnailService with dual-mode paths
+    └── Creates: Temp thumbnails for editing, export thumbnails for packages
 
-Wave 2: User Settings
-└── 02-03: User widget settings, anniversary events, persistence
-    Depends on: 02-01 (ThemeManifest), 02-02 (SchemeModel)
+Wave 2: UI Integration (Depends on Wave 1)
+├── 02-04: Save button, confirmation dialog, auto-save infrastructure
+│   └── Depends on: 02-01 (models), 02-02 (save/export methods)
+│   └── Checkpoint: Human verification of UI appearance
+└── 02-05: CreatorViewModel dirty tracking and commands
+    └── Depends on: 02-01, 02-02, 02-03 (services), 02-04 (dialog)
+    └── Integrates: All services into ViewModel
 ```
 
 ### Key Data Structures
 
-**Theme Package:**
-- `theme.json` manifest with metadata, resource library, schemes
-- Resources organized by type: `/images/`, `/videos/`, `/audio/`
-- Thumbnails in `/thumbnails/`
+**Theme Package (Local Editing):**
+- `theme.json` stored in `%AppData%/ProductivityWallpaper/Themes/{ThemeName}/`
+- Resources referenced by absolute path (`SourcePath: C:\Users\...\photo.jpg`)
+- Thumbnails in `%Temp%/ProductivityWallpaper/Thumbnails/`
+- Fast save - JSON only, no file copying
 
-**Scheme References:**
-- ID-based media references (not embedded objects)
-- MediaReferenceList for ordered playback
-- ClickAction for visual + audio (max 5)
+**Theme Package (Exported):**
+- Complete folder with copied files: `/images/`, `/videos/`, `/audio/`, `/thumbnails/`
+- Resources referenced by relative path (`ExportPath: images/photo.jpg`)
+- Portable, self-contained package
 
-**System Events:**
-- Extended FeatureType: SessionLock, SessionUnlock, NetworkDisconnect, NetworkReconnect, PowerLow, PowerCharging
-- Same multi-scheme support as Desktop Background
+**Save Strategy:**
+- **Manual Save (Primary):** User clicks Save button, immediate save, resets IsDirty
+- **Auto-Save (Backup):** 5-minute interval, silent, does NOT reset IsDirty
+- **Leave-Page Confirmation:** Shows if IsDirty, options [Save] [Don't Save] [Cancel]
 
-**User Settings:**
-- Separate from theme data (UserWidgetSettings)
-- Pomodoro: global defaults + per-theme override toggle
-- Anniversary: user events only (personal data)
+**Resource Management:**
+- CRC32 hash for duplicate detection during import
+- ResourceEntry.Id (UUID) for scheme references
+- ResourceLibrary provides lookup by ID and Hash
 
 ---
 
@@ -474,18 +486,24 @@ Phase 3 (Quality)
 | 01-fix | Creator View Fixes | ✅ Complete | 5 |
 | 01-fix-v2 | Critical Fixes | ✅ Complete | 3 |
 | 01-fix-v3 | Root Cause Fixes | ✅ Complete | 2 |
-| **01-fix-v4** | **Final Fixes** | 📝 **Planned** | **2** |
-| 02 | Data Structure | 📝 Planned | 3 |
+| 01-fix-v4 | Final Fixes | ✅ Complete | 2 |
+| **02-data-structure** | **Data Persistence Layer** | ✅ **Planned** | **5** |
 | 2 | System Awareness | 📋 Backlog | - |
 | 3 | Quality & Testing | 📋 Backlog | - |
 
 ## Next Step
 
-Phase 01-fix-v4 is planned with 2 executable plans (Wave 1 → Wave 2). Ready for execution.
+Phase 02-data-structure is fully planned with 5 executable plans in 2 waves. Ready for execution.
 
-Run `/gsd-execute-phase 01-fix-v4` to begin implementing Phase 01-fix-v4: Creator View Final Fixes.
+Run `/gsd-execute-phase 02-data-structure` to begin implementing Phase 02: Data Persistence Layer.
 
 **Execution order:**
-1. Execute Wave 1: `01-fix-v4-01-PLAN.md` (TemplateSelector implementation)
-2. Verify content display works for all 9 features
-3. Execute Wave 2: `01-fix-v4-02-PLAN.md` (UI polish)
+
+**Wave 1: Core Services (Parallel)**
+1. Execute `02-01-PLAN.md` - Core Models (ThemeManifest, ResourceEntry, ResourceLibrary)
+2. Execute `02-02-PLAN.md` - ThemeService (load/save/import/export)
+3. Execute `02-03-PLAN.md` - ThumbnailService (temp/export modes)
+
+**Wave 2: UI Integration**
+4. Execute `02-04-PLAN.md` - Save System UI (Save button, confirmation dialog, auto-save)
+5. Execute `02-05-PLAN.md` - ViewModel Integration (dirty tracking, commands)
