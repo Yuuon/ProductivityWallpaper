@@ -240,7 +240,16 @@ namespace ProductivityWallpaper.Views
         private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             if (e.ChangedButton == MouseButton.Left)
-                DragMove();
+            {
+                try
+                {
+                    DragMove();
+                }
+                catch (InvalidOperationException)
+                {
+                    // DragMove can throw if the left button is released during the call
+                }
+            }
         }
 
         /// <summary>
