@@ -36,15 +36,7 @@ namespace ProductivityWallpaper.ViewModels
         /// <summary>
         /// The path where theme files are stored (%AppData%/ProductivityWallpaper/Themes/).
         /// </summary>
-        public string ThemeStoragePath
-        {
-            get
-            {
-                // Get the themes root path by getting a theme folder path and removing the theme name portion
-                var samplePath = _themeService.GetThemeFolderPath("_sample_");
-                return Path.GetDirectoryName(samplePath) ?? samplePath;
-            }
-        }
+        public string ThemeStoragePath => _themeService.GetThemesRootPath();
 
         partial void OnMediaLibraryPathChanged(string value)
         {
@@ -89,9 +81,9 @@ namespace ProductivityWallpaper.ViewModels
                     UseShellExecute = true
                 });
             }
-            catch
+            catch (Exception ex)
             {
-                // Silently ignore if explorer fails to open
+                System.Diagnostics.Debug.WriteLine($"[SettingsViewModel] Failed to open theme folder: {ex.Message}");
             }
         }
 

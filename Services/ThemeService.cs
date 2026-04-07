@@ -296,6 +296,12 @@ namespace ProductivityWallpaper.Services
         // ==================== Utility ====================
 
         /// <inheritdoc/>
+        public string GetThemesRootPath()
+        {
+            return _themesRootPath;
+        }
+
+        /// <inheritdoc/>
         public string GetThemeFolderPath(string themeName)
         {
             return Path.Combine(_themesRootPath, SanitizeFolderName(themeName));
