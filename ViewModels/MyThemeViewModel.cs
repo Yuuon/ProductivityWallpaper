@@ -1,12 +1,16 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using ProductivityWallpaper.Services;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.Threading.Tasks;
 
 namespace ProductivityWallpaper.ViewModels
 {
     public partial class MyThemeViewModel : ObservableObject
     {
         private readonly MainViewModel _mainViewModel;
+        private readonly IThemeService _themeService;
         
         [ObservableProperty]
         private bool _isUsageHistorySelected = true;
@@ -32,12 +36,10 @@ namespace ProductivityWallpaper.ViewModels
         [ObservableProperty]
         private string _actionButtonText = "Browse Workshop";
         
-        public MyThemeViewModel(MainViewModel mainViewModel)
+        public MyThemeViewModel(MainViewModel mainViewModel, IThemeService themeService)
         {
             _mainViewModel = mainViewModel;
-            // ThemeItems will be loaded from local storage in the future
-            // For now, start with empty collection to show empty state
-            // Initialize with correct localized strings
+            _themeService = themeService;
             ShowUsageHistory();
         }
         
@@ -46,27 +48,64 @@ namespace ProductivityWallpaper.ViewModels
         {
             IsUsageHistorySelected = true;
             IsMyWorksSelected = false;
-            // Get localized strings from application resources
             EmptyMessage = System.Windows.Application.Current.TryFindResource("MyThemes_EmptyHistoryMessage") as string 
                 ?? "Nothing here yet\nGo find themes you like~";
             ActionButtonText = System.Windows.Application.Current.TryFindResource("MyThemes_GoToWorkshop") as string 
                 ?? "Browse Workshop";
-            // HasContent should reflect actual usage history data (currently empty)
             HasContent = false;
         }
         
         [RelayCommand]
-        private void ShowMyWorks()
+        private async Task ShowMyWorks()
         {
             IsUsageHistorySelected = false;
             IsMyWorksSelected = true;
-            // Get localized strings from application resources
             EmptyMessage = System.Windows.Application.Current.TryFindResource("MyThemes_EmptyWorksMessage") as string 
                 ?? "Nothing here yet\nGo create your own theme~";
             ActionButtonText = System.Windows.Application.Current.TryFindResource("MyThemes_GoCreate") as string 
                 ?? "Start Creating";
-            // HasContent reflects user's created themes
+
+            // Load saved themes from disk
+            await LoadSavedThemesAsync();
             HasContent = ThemeItems.Count > 0;
+        }
+
+        /// <summary>
+        /// Loads all saved themes from the themes folder into ThemeItems.
+        /// </summary>
+        private async Task LoadSavedThemesAsync()
+        {
+            ThemeItems.Clear();
+            SelectedTheme = null;
+            HasSelectedTheme = false;
+
+            try
+            {
+                var themeNames = _themeService.GetThemeNames();
+                foreach (var name in themeNames)
+                {
+                    var manifest = await _themeService.LoadThemeAsync(name);
+                    if (manifest == null) continue;
+
+                    var themeItem = new ThemeItem
+                    {
+                        Name = manifest.Name,
+                        Author = string.IsNullOrEmpty(manifest.Author) ? "Me" : manifest.Author,
+                        Type = "Custom",
+                        FileSize = 0, // Could calculate total size if needed
+                        Resolution = "",
+                        ThemeFolderName = name // Store for edit navigation
+                    };
+
+                    ThemeItems.Add(themeItem);
+                }
+
+                Debug.WriteLine($"[MyThemeViewModel] Loaded {ThemeItems.Count} saved themes");
+            }
+            catch (System.Exception ex)
+            {
+                Debug.WriteLine($"[MyThemeViewModel] Error loading themes: {ex.Message}");
+            }
         }
         
         [RelayCommand]
@@ -81,12 +120,10 @@ namespace ProductivityWallpaper.ViewModels
         {
             if (IsUsageHistorySelected)
             {
-                // Navigate to Workshop
                 _mainViewModel.NavigateToWorkshopCommand.Execute(null);
             }
             else
             {
-                // Navigate to Creator
                 _mainViewModel.NavigateToCreatorCommand.Execute(null);
             }
         }
@@ -94,13 +131,16 @@ namespace ProductivityWallpaper.ViewModels
         [RelayCommand]
         private void UseTheme()
         {
-            // Implement use theme logic
+            // TODO: Implement use theme logic (apply theme to desktop)
         }
         
         [RelayCommand]
-        private void EditTheme()
+        private async Task EditTheme()
         {
-            // Implement edit theme logic
+            if (SelectedTheme == null || string.IsNullOrEmpty(SelectedTheme.ThemeFolderName))
+                return;
+
+            await _mainViewModel.NavigateToCreatorWithThemeCommand.ExecuteAsync(SelectedTheme.ThemeFolderName);
         }
     }
 }

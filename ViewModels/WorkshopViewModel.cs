@@ -105,6 +105,12 @@ namespace ProductivityWallpaper.ViewModels
         
         [ObservableProperty]
         private ObservableCollection<TagItem> _tags = new();
+
+        /// <summary>
+        /// Folder name (sanitized theme name) used for loading/editing the theme.
+        /// </summary>
+        [ObservableProperty]
+        private string _themeFolderName = string.Empty;
     }
     
     public partial class TagItem : ObservableObject

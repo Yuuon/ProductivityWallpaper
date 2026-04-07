@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
+using System.Threading.Tasks;
 using System.Windows;
 using Application = System.Windows.Application;
 using ProductivityWallpaper.Models;
@@ -47,6 +48,18 @@ namespace ProductivityWallpaper.ViewModels
         {
             CurrentView = _serviceProvider.GetRequiredService<CreatorViewModel>();
             CurrentNavigation = NavigationItem.Creator;
+        }
+
+        /// <summary>
+        /// Navigates to the Creator view with an existing theme loaded for editing.
+        /// </summary>
+        [RelayCommand]
+        public async Task NavigateToCreatorWithTheme(string themeName)
+        {
+            var creatorVm = _serviceProvider.GetRequiredService<CreatorViewModel>();
+            CurrentView = creatorVm;
+            CurrentNavigation = NavigationItem.Creator;
+            await creatorVm.LoadExistingThemeAsync(themeName);
         }
 
         // Legacy Navigation Commands

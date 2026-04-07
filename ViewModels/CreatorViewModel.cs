@@ -889,11 +889,168 @@ namespace ProductivityWallpaper.ViewModels
             _autoSaveTimer?.Start();
         }
 
+        /// <summary>
+        /// Loads an existing saved theme into the creator for editing.
+        /// Populates scheme collections and caches from the theme manifest.
+        /// </summary>
+        public async Task LoadExistingThemeAsync(string themeName)
+        {
+            var theme = await _themeService.LoadThemeAsync(themeName);
+            if (theme == null)
+            {
+                Debug.WriteLine($"[CreatorViewModel] Failed to load theme: {themeName}");
+                return;
+            }
+
+            // Clear existing state
+            _schemeViewModelCache.Clear();
+            foreach (var featureType in MultiSchemeFeatures)
+            {
+                _schemesByFeature[featureType].Clear();
+            }
+
+            // Set the current theme
+            CurrentTheme = theme;
+            _loadedThemeName = themeName;
+            _themeService.CurrentTheme = theme;
+            CurrentThemeName = theme.Name;
+
+            // Restore scheme collections from the loaded theme
+            RestoreSchemes(FeatureType.DesktopBackground, theme.DesktopBackgroundSchemes);
+            RestoreSchemes(FeatureType.MouseClick, theme.MouseClickSchemes);
+            RestoreSchemes(FeatureType.Shutdown, theme.ShutdownSchemes);
+            RestoreSchemes(FeatureType.BootRestart, theme.BootRestartSchemes);
+            RestoreSchemes(FeatureType.ScreenWake, theme.ScreenWakeSchemes);
+
+            // Navigate to creating page
+            IsWelcomePage = false;
+            IsCreatingPage = true;
+            IsDirty = false;
+            SelectFeature("ThemePreview");
+
+            // Start auto-save timer
+            _autoSaveTimer?.Start();
+
+            Debug.WriteLine($"[CreatorViewModel] Loaded existing theme: {themeName}");
+        }
+
+        /// <summary>
+        /// Restores scheme collection from loaded theme data. For each scheme,
+        /// pre-populates the ViewModel cache with media items from ResourceLibrary.
+        /// </summary>
+        private void RestoreSchemes(FeatureType featureType, ObservableCollection<SchemeModel> schemes)
+        {
+            if (!_schemesByFeature.ContainsKey(featureType)) return;
+
+            foreach (var scheme in schemes)
+            {
+                scheme.FeatureType = featureType;
+                _schemesByFeature[featureType].Add(scheme);
+
+                // Pre-populate ViewModel cache from scheme data
+                try
+                {
+                    var vm = _featureVmFactory.Create(featureType);
+
+                    if (vm is IFeatureViewModel featureVm)
+                    {
+                        featureVm.SchemeName = scheme.Name;
+                    }
+
+                    // Restore media items from ResourceLibrary references
+                    if (vm is MediaConfigurationViewModel mediaVm && CurrentTheme != null)
+                    {
+                        foreach (var resourceId in scheme.DesktopBackgroundMedia.MediaIds)
+                        {
+                            var mediaItem = ResolveMediaItem(resourceId);
+                            if (mediaItem != null)
+                                mediaVm.ImageVideoItems.Add(mediaItem);
+                        }
+                        mediaVm.SelectedPlaybackMode = scheme.DesktopBackgroundMedia.PlaybackMode;
+
+                        foreach (var resourceId in scheme.EventMedia.MediaIds)
+                        {
+                            var mediaItem = ResolveMediaItem(resourceId);
+                            if (mediaItem != null)
+                                mediaVm.AudioItems.Add(mediaItem);
+                        }
+                        mediaVm.SelectedAudioPlaybackMode = scheme.EventMedia.PlaybackMode;
+                    }
+
+                    // Restore mouse click regions
+                    if (vm is MouseClickViewModel mouseVm)
+                    {
+                        foreach (var region in scheme.ClickRegions)
+                        {
+                            mouseVm.Regions.Add(region);
+                        }
+                    }
+
+                    // Subscribe to changes
+                    vm.PropertyChanged += OnChildViewModelPropertyChanged;
+                    if (vm is MediaConfigurationViewModel mvm)
+                    {
+                        mvm.ImageVideoItems.CollectionChanged += (_, _) => MarkDirty();
+                        mvm.AudioItems.CollectionChanged += (_, _) => MarkDirty();
+                    }
+                    if (vm is MouseClickViewModel mcvm)
+                    {
+                        mcvm.Regions.CollectionChanged += (_, _) => MarkDirty();
+                    }
+
+                    _schemeViewModelCache[scheme.Id] = vm;
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[CreatorViewModel] Failed to restore scheme {scheme.Name}: {ex.Message}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Resolves a resource ID to a MediaItemModel by looking up the ResourceLibrary.
+        /// </summary>
+        private MediaItemModel? ResolveMediaItem(string resourceId)
+        {
+            if (CurrentTheme == null) return null;
+
+            var resource = CurrentTheme.ResourceLibrary.GetById(resourceId);
+            if (resource == null)
+            {
+                Debug.WriteLine($"[CreatorViewModel] Resource not found: {resourceId}");
+                return null;
+            }
+
+            var item = new MediaItemModel(resource.SourcePath)
+            {
+                Type = resource.Type switch
+                {
+                    MediaType.Image => MediaFileType.Image,
+                    MediaType.Video => MediaFileType.Video,
+                    MediaType.Audio => MediaFileType.Audio,
+                    _ => MediaFileType.Image
+                },
+                FileSize = resource.FileSize,
+                Duration = resource.Duration,
+                DisplayMode = DisplayMode.Fill
+            };
+
+            // Set thumbnail for images
+            if (resource.Type == MediaType.Image && !string.IsNullOrEmpty(resource.SourcePath))
+            {
+                item.ThumbnailPath = resource.SourcePath;
+            }
+
+            return item;
+        }
+
         // ==================== Sync to Theme ====================
 
         /// <summary>
         /// Synchronizes all in-memory scheme data and cached ViewModel data
         /// back into CurrentTheme so it can be correctly serialized.
+        /// Registers media files as ResourceEntry objects in ResourceLibrary and
+        /// stores ResourceEntry IDs (not raw file paths) in scheme MediaReferenceList.
         /// </summary>
         private void SyncToTheme()
         {
@@ -940,14 +1097,16 @@ namespace ProductivityWallpaper.ViewModels
                     scheme.DesktopBackgroundMedia.MediaIds.Clear();
                     foreach (var item in mediaVm.ImageVideoItems)
                     {
-                        scheme.DesktopBackgroundMedia.MediaIds.Add(item.FilePath);
+                        var resourceId = RegisterOrFindResource(item);
+                        scheme.DesktopBackgroundMedia.MediaIds.Add(resourceId);
                     }
                     scheme.DesktopBackgroundMedia.PlaybackMode = mediaVm.SelectedPlaybackMode;
 
                     scheme.EventMedia.MediaIds.Clear();
                     foreach (var item in mediaVm.AudioItems)
                     {
-                        scheme.EventMedia.MediaIds.Add(item.FilePath);
+                        var resourceId = RegisterOrFindResource(item);
+                        scheme.EventMedia.MediaIds.Add(resourceId);
                     }
                     scheme.EventMedia.PlaybackMode = mediaVm.SelectedAudioPlaybackMode;
 
@@ -962,7 +1121,44 @@ namespace ProductivityWallpaper.ViewModels
                 }
             }
 
-            Debug.WriteLine("[CreatorViewModel] Theme data synced from ViewModels");
+            Debug.WriteLine($"[CreatorViewModel] Theme data synced. ResourceLibrary: {CurrentTheme.ResourceLibrary.Count} entries");
+        }
+
+        /// <summary>
+        /// Registers a media item as a ResourceEntry in the theme ResourceLibrary.
+        /// If a resource with the same SourcePath already exists, returns its ID.
+        /// </summary>
+        private string RegisterOrFindResource(MediaItemModel item)
+        {
+            if (CurrentTheme == null) return item.FilePath;
+
+            // Check if resource already exists by SourcePath
+            foreach (var existing in CurrentTheme.ResourceLibrary.GetAll())
+            {
+                if (existing.SourcePath == item.FilePath)
+                    return existing.Id;
+            }
+
+            // Create new ResourceEntry
+            var entry = new ResourceEntry
+            {
+                SourcePath = item.FilePath,
+                OriginalName = item.FileName,
+                FileName = item.FileName,
+                Format = item.Format,
+                FileSize = item.FileSize,
+                Duration = item.Duration,
+                Type = item.Type switch
+                {
+                    MediaFileType.Image => MediaType.Image,
+                    MediaFileType.Video => MediaType.Video,
+                    MediaFileType.Audio => MediaType.Audio,
+                    _ => MediaType.Image
+                }
+            };
+
+            CurrentTheme.ResourceLibrary.Add(entry);
+            return entry.Id;
         }
 
         // ==================== Dirty Tracking ====================
