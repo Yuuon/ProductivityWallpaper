@@ -93,7 +93,10 @@ namespace ProductivityWallpaper.ViewModels
         /// <summary>
         /// Returns true when the selected region has at least one imported resource (visual or audio).
         /// </summary>
-        public bool HasRegionMedia => SelectedRegion?.VisualContent != null || (SelectedRegion?.AudioContent.Count ?? 0) > 0;
+        public bool HasRegionMedia => SelectedRegion?.VisualContent != null 
+                                      || (SelectedRegion?.AudioContent.Count ?? 0) > 0
+                                      || MediaConfigViewModel.HasContent
+                                      || MediaConfigViewModel.AudioItems.Count > 0;
 
         /// <summary>
         /// Returns true when visual content can be added (none exists yet).
@@ -104,6 +107,13 @@ namespace ProductivityWallpaper.ViewModels
         /// Returns true when audio content can be added (less than 5 files).
         /// </summary>
         public bool CanAddAudio => SelectedRegion?.AudioContent.Count < 5;
+
+        /// <summary>
+        /// Media configuration ViewModel for the embedded MediaConfigurationView sub-section.
+        /// Provides the same media management UI as other feature pages.
+        /// </summary>
+        [ObservableProperty]
+        private MouseClickMediaViewModel _mediaConfigViewModel = new();
 
         // --- Constructor ---
 

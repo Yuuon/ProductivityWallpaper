@@ -45,36 +45,19 @@
         <!-- Region Item Template -->
         <DataTemplate x:Key="RegionItemTemplate" DataType="{x:Type models:ClickRegionModel}">
             <!-- Opacity starts at 0 and animates to 1 via RegionEnterAnimation on Loaded -->
-            <Grid Opacity="0" ClipToBounds="False">
+            <Grid ClipToBounds="False">
                 <Grid.Width>
                     <MultiBinding Converter="{StaticResource PercentageToPixelMultiConverter}">
                         <Binding Path="Width"/>
-                        <Binding Path="ActualWidth" RelativeSource="{RelativeSource AncestorType=Canvas}"/>
+                        <Binding Path="ActualWidth" ElementName="RegionCanvas"/>
                     </MultiBinding>
                 </Grid.Width>
                 <Grid.Height>
                     <MultiBinding Converter="{StaticResource PercentageToPixelMultiConverter}">
                         <Binding Path="Height"/>
-                        <Binding Path="ActualHeight" RelativeSource="{RelativeSource AncestorType=Canvas}"/>
+                        <Binding Path="ActualHeight" ElementName="RegionCanvas"/>
                     </MultiBinding>
                 </Grid.Height>
-                <Canvas.Left>
-                    <MultiBinding Converter="{StaticResource PercentageToPixelMultiConverter}">
-                        <Binding Path="X"/>
-                        <Binding Path="ActualWidth" RelativeSource="{RelativeSource AncestorType=Canvas}"/>
-                    </MultiBinding>
-                </Canvas.Left>
-                <Canvas.Top>
-                    <MultiBinding Converter="{StaticResource PercentageToPixelMultiConverter}">
-                        <Binding Path="Y"/>
-                        <Binding Path="ActualHeight" RelativeSource="{RelativeSource AncestorType=Canvas}"/>
-                    </MultiBinding>
-                </Canvas.Top>
-                <Grid.Triggers>
-                    <EventTrigger RoutedEvent="Loaded">
-                        <BeginStoryboard Storyboard="{StaticResource RegionEnterAnimation}"/>
-                    </EventTrigger>
-                </Grid.Triggers>
                 <Rectangle x:Name="RegionRect"
                            Fill="#3000A8FF"
                            Stroke="#8000A8FF"
@@ -116,15 +99,15 @@
                     </TextBlock.Effect>
                 </TextBlock>
                 
-                <!-- Delete Button (positioned above the rect, larger for easier clicking) -->
+                <!-- Delete Button (top-right corner inside the region) -->
                 <Button x:Name="DeleteButton"
                         Command="{Binding DataContext.DeleteRegionCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                         CommandParameter="{Binding}"
-                        Width="28"
-                        Height="28"
+                        Width="24"
+                        Height="24"
                         HorizontalAlignment="Right"
                         VerticalAlignment="Top"
-                        Margin="0,-30,-2,0"
+                        Margin="0,4,4,0"
                         Background="{StaticResource DangerBrush}"
                         BorderThickness="0"
                         Cursor="Hand"
@@ -136,8 +119,8 @@
                                 <Path Data="M6 6L14 14 M14 6L6 14"
                                       Stroke="White"
                                       StrokeThickness="2"
-                                      Width="12"
-                                      Height="12"
+                                      Width="10"
+                                      Height="10"
                                       Stretch="Uniform"
                                       HorizontalAlignment="Center"
                                       VerticalAlignment="Center"/>
@@ -233,6 +216,7 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <!-- Section 1: Editable Title Bar -->
@@ -278,20 +262,18 @@
                    Style="{StaticResource SubHeaderTextStyle}"
                    Margin="32,16,42,24"/>
 
-        <!-- Section 3: Main Content (2 columns) -->
+        <!-- Section 3: Main Content -->
         <Grid Grid.Row="2" Margin="32,0,42,24">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" MinWidth="400"/>
-                <ColumnDefinition Width="280"/>
+                <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Left Column: Region Editor -->
+            <!-- Region Editor -->
             <Border Grid.Column="0"
                     Background="{StaticResource BackgroundBlockBrush}"
                     BorderBrush="{StaticResource BorderLineBrush}"
                     BorderThickness="1"
-                    CornerRadius="10"
-                    Margin="0,0,16,0">
+                    CornerRadius="10">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -382,7 +364,10 @@
                                 
                                 <!-- Canvas for Regions -->
                                 <Canvas x:Name="RegionCanvas"
+                                        Width="1920"
+                                        Height="1080"
                                         Background="Transparent"
+                                        ClipToBounds="False"
                                         Cursor="{Binding IsAddingMode, Converter={StaticResource BooleanToCursorConverter}}"
                                         MouseLeftButtonDown="OnCanvasMouseLeftButtonDown"
                                         MouseMove="OnCanvasMouseMove"
@@ -392,9 +377,29 @@
                                                   ItemTemplate="{StaticResource RegionItemTemplate}">
                                         <ItemsControl.ItemsPanel>
                                             <ItemsPanelTemplate>
-                                                <Canvas IsItemsHost="True"/>
+                                                <Canvas IsItemsHost="True" ClipToBounds="False"/>
                                             </ItemsPanelTemplate>
                                         </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemContainerStyle>
+                                            <Style TargetType="ContentPresenter">
+                                                <Setter Property="Canvas.Left">
+                                                    <Setter.Value>
+                                                        <MultiBinding Converter="{StaticResource PercentageToPixelMultiConverter}">
+                                                            <Binding Path="X"/>
+                                                            <Binding Path="ActualWidth" ElementName="RegionCanvas"/>
+                                                        </MultiBinding>
+                                                    </Setter.Value>
+                                                </Setter>
+                                                <Setter Property="Canvas.Top">
+                                                    <Setter.Value>
+                                                        <MultiBinding Converter="{StaticResource PercentageToPixelMultiConverter}">
+                                                            <Binding Path="Y"/>
+                                                            <Binding Path="ActualHeight" ElementName="RegionCanvas"/>
+                                                        </MultiBinding>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Style>
+                                        </ItemsControl.ItemContainerStyle>
                                     </ItemsControl>
                                 </Canvas>
                             </Grid>
@@ -402,76 +407,9 @@
                     </Border>
                 </Grid>
             </Border>
-
-            <!-- Right Column: Media List -->
-            <Border Grid.Column="1"
-                    Background="{StaticResource BackgroundBlockBrush}"
-                    BorderBrush="{StaticResource BorderLineBrush}"
-                    BorderThickness="1"
-                    CornerRadius="10"
-                    Margin="16,0,0,0">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-
-                    <TextBlock Grid.Row="0"
-                               Text="Available Media"
-                               Foreground="{StaticResource TextPrimaryBrush}"
-                               FontSize="14"
-                               FontWeight="SemiBold"
-                               Margin="16,12,16,8"/>
-
-                    <ScrollViewer Grid.Row="1"
-                                  VerticalScrollBarVisibility="Auto"
-                                  Margin="12,0,12,12">
-                        <ItemsControl ItemsSource="{Binding AvailableMedia}"
-                                      ItemTemplate="{StaticResource MediaItemTemplate}">
-                            <ItemsControl.Style>
-                                <Style TargetType="ItemsControl">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding AvailableMedia.Count}" Value="0">
-                                            <Setter Property="Template">
-                                                <Setter.Value>
-                                                    <ControlTemplate>
-                                                        <StackPanel VerticalAlignment="Center"
-                                                                    HorizontalAlignment="Center"
-                                                                    Margin="20">
-                                                            <Path Data="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
-                                                                   Fill="{StaticResource TextSecondaryBrush}"
-                                                                   Width="48"
-                                                                   Height="48"
-                                                                   Stretch="Uniform"
-                                                                   Margin="0,0,0,12"
-                                                                   Opacity="0.5"/>
-                                                            
-                                                            <TextBlock Text="No media available"
-                                                                       Foreground="{StaticResource TextSecondaryBrush}"
-                                                                       FontSize="13"
-                                                                       TextAlignment="Center"/>
-                                                            
-                                                            <TextBlock Text="Import media in Desktop Background"
-                                                                       Foreground="{StaticResource TextSecondaryBrush}"
-                                                                       FontSize="11"
-                                                                       TextAlignment="Center"
-                                                                       Margin="0,4,0,0"
-                                                                       Opacity="0.7"/>
-                                                        </StackPanel>
-                                                    </ControlTemplate>
-                                                </Setter.Value>
-                                            </Setter>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </ItemsControl.Style>
-                        </ItemsControl>
-                    </ScrollViewer>
-                </Grid>
-            </Border>
         </Grid>
 
-        <!-- Section 4: Configuration Panel -->
+        <!-- Section 4: Region Configuration Panel (visible when a region is selected) -->
         <Border Grid.Row="3"
                 Background="{StaticResource BackgroundBlockBrush}"
                 BorderBrush="{StaticResource BorderLineBrush}"
@@ -486,240 +424,151 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <!-- Header with title and import buttons -->
-                <Grid Grid.Row="0" Margin="0,0,0,12">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    
-                    <TextBlock Grid.Column="0"
-                               Text="Configure Interaction"
-                               Foreground="{StaticResource TextPrimaryBrush}"
-                               FontSize="14"
-                               FontWeight="SemiBold"
-                               VerticalAlignment="Center"/>
-                    
-                    <!-- Import Buttons (same style as MediaConfigurationView) -->
-                    <StackPanel Grid.Column="1" Orientation="Horizontal">
-                        <!-- Import Visual Button -->
-                        <Button Command="{Binding ImportRegionVisualCommand}"
-                                Visibility="{Binding CanAddVisual, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                Background="{StaticResource BackgroundMainBrush}"
-                                BorderBrush="{StaticResource BorderLineBrush}"
-                                BorderThickness="1"
-                                Width="36"
-                                Height="36"
-                                Margin="0,0,8,0"
-                                ToolTip="Import Image/Video (1 only)"
-                                Cursor="Hand">
-                            <Button.Style>
-                                <Style TargetType="Button">
-                                    <Setter Property="Template">
-                                        <Setter.Value>
-                                            <ControlTemplate TargetType="Button">
-                                                <Border Background="{TemplateBinding Background}"
-                                                        BorderBrush="{TemplateBinding BorderBrush}"
-                                                        BorderThickness="{TemplateBinding BorderThickness}"
-                                                        CornerRadius="18"
-                                                        Width="{TemplateBinding Width}"
-                                                        Height="{TemplateBinding Height}">
-                                                    <ContentPresenter HorizontalAlignment="Center" 
-                                                                      VerticalAlignment="Center"/>
-                                                </Border>
-                                            </ControlTemplate>
-                                        </Setter.Value>
-                                    </Setter>
-                                    <Style.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
-                                        </Trigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                            <Path Data="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14C0 17.31 2.69 20 6 20H19C21.76 20 24 17.76 24 15C24 12.36 21.95 10.22 19.35 10.04ZM14 13V17H10V13H7L12 8L17 13H14Z"
-                                  Fill="{StaticResource IconBrush}"
-                                  Width="16"
-                                  Height="16"
-                                  Stretch="Uniform"/>
-                        </Button>
-                        
-                        <!-- Import Audio Button -->
-                        <Button Command="{Binding ImportRegionAudioCommand}"
-                                Visibility="{Binding CanAddAudio, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                Background="{StaticResource BackgroundMainBrush}"
-                                BorderBrush="{StaticResource BorderLineBrush}"
-                                BorderThickness="1"
-                                Width="36"
-                                Height="36"
-                                ToolTip="Import Audio (max 5)"
-                                Cursor="Hand">
-                            <Button.Style>
-                                <Style TargetType="Button">
-                                    <Setter Property="Template">
-                                        <Setter.Value>
-                                            <ControlTemplate TargetType="Button">
-                                                <Border Background="{TemplateBinding Background}"
-                                                        BorderBrush="{TemplateBinding BorderBrush}"
-                                                        BorderThickness="{TemplateBinding BorderThickness}"
-                                                        CornerRadius="18"
-                                                        Width="{TemplateBinding Width}"
-                                                        Height="{TemplateBinding Height}">
-                                                    <ContentPresenter HorizontalAlignment="Center" 
-                                                                      VerticalAlignment="Center"/>
-                                                </Border>
-                                            </ControlTemplate>
-                                        </Setter.Value>
-                                    </Setter>
-                                    <Style.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
-                                        </Trigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                            <Path Data="M12 3V13.55C11.41 13.21 10.73 13 10 13C8.34 13 7 14.34 7 16C7 17.66 8.34 19 10 19C11.66 19 13 17.66 13 16V5H18V3H12Z"
-                                  Fill="{StaticResource IconBrush}"
-                                  Width="16"
-                                  Height="16"
-                                  Stretch="Uniform"/>
-                        </Button>
-                    </StackPanel>
-                </Grid>
+                <TextBlock Grid.Row="0"
+                           Text="Configure Interaction"
+                           Foreground="{StaticResource TextPrimaryBrush}"
+                           FontSize="14"
+                           FontWeight="SemiBold"
+                           Margin="0,0,0,12"/>
 
-                <!-- Media Display Area (only visible when at least one resource is imported) -->
-                <StackPanel Grid.Row="1"
-                            Visibility="{Binding HasRegionMedia, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <!-- Import Buttons (original text button style with limitation descriptions) -->
+                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,12">
+                    <Button Content="+ Import Image or Video (1 only)"
+                            Command="{Binding ImportRegionVisualCommand}"
+                            Visibility="{Binding CanAddVisual, Converter={StaticResource BooleanToVisibilityConverter}}"
+                            Style="{StaticResource TextButtonStyle}"
+                            Foreground="{StaticResource AccentBrush}"
+                            Padding="0,8"
+                            Margin="0,0,16,0"/>
                     
-                    <!-- Visual Content Block -->
-                    <Border Background="{StaticResource BackgroundMainBrush}"
-                            BorderBrush="{StaticResource BorderLineBrush}"
-                            BorderThickness="1"
-                            CornerRadius="8"
-                            Padding="12"
-                            Margin="0,0,0,8"
-                            Visibility="{Binding SelectedRegion.VisualContent, Converter={StaticResource NullToVisibilityConverter}}">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            
-                            <!-- Thumbnail/Icon -->
-                            <Border Grid.Column="0"
-                                    Width="48" Height="48"
-                                    Background="{StaticResource BackgroundBlockBrush}"
-                                    CornerRadius="4"
-                                    Margin="0,0,12,0">
-                                <Grid>
-                                    <Image Source="{Binding SelectedRegion.VisualContent.ThumbnailPath}"
-                                           Stretch="Uniform"
-                                           Visibility="{Binding SelectedRegion.VisualContent.ThumbnailPath, Converter={StaticResource StringEmptyToVisibilityConverter}}"/>
-                                    <Path Data="M10 16.5l6-4.5-6-4.5v9zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"
-                                          Fill="{StaticResource IconBrush}"
-                                          Width="24" Height="24"
-                                          Stretch="Uniform"
-                                          Visibility="{Binding SelectedRegion.VisualContent.ThumbnailPath, Converter={StaticResource InverseStringEmptyToVisibilityConverter}}"
-                                          HorizontalAlignment="Center"
-                                          VerticalAlignment="Center"/>
-                                </Grid>
-                            </Border>
-                            
-                            <!-- File Info -->
-                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <Button Content="+ Import Audio (max 5)"
+                            Command="{Binding ImportRegionAudioCommand}"
+                            Visibility="{Binding CanAddAudio, Converter={StaticResource BooleanToVisibilityConverter}}"
+                            Style="{StaticResource TextButtonStyle}"
+                            Foreground="{StaticResource AccentBrush}"
+                            Padding="0,8"/>
+                </StackPanel>
+
+                <!-- Media Display Area -->
+                <Grid Grid.Row="2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Visual Content -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal">
+                        <TextBlock Text="Visual:"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontSize="13"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,8,0"
+                                   Visibility="{Binding SelectedRegion.VisualContent, Converter={StaticResource NullToVisibilityConverter}}"/>
+                        
+                        <Border Background="{StaticResource BackgroundMainBrush}"
+                                BorderBrush="{StaticResource BorderLineBrush}"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="8"
+                                Visibility="{Binding SelectedRegion.VisualContent, Converter={StaticResource NullToVisibilityConverter}}">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Data="M10 16.5l6-4.5-6-4.5v9zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"
+                                       Fill="{StaticResource TextSecondaryBrush}"
+                                       Width="16"
+                                       Height="16"
+                                       Stretch="Uniform"
+                                       Margin="0,0,8,0"/>
+                                
                                 <TextBlock Text="{Binding SelectedRegion.VisualContent.FileName}"
                                            Foreground="{StaticResource TextPrimaryBrush}"
-                                           FontSize="13"
-                                           TextTrimming="CharacterEllipsis"/>
-                                <TextBlock Text="{Binding SelectedRegion.VisualContent.Format, StringFormat='{}{0} file'}"
-                                           Foreground="{StaticResource TextSecondaryBrush}"
-                                           FontSize="11"
-                                           Margin="0,2,0,0"/>
+                                           FontSize="12"
+                                           MaxWidth="150"
+                                           TextTrimming="CharacterEllipsis"
+                                           VerticalAlignment="Center"/>
+                                
+                                <Button Command="{Binding RemoveRegionVisualCommand}"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Padding="4,0,0,0"
+                                        Cursor="Hand">
+                                    <Path Data="M6 6L14 14 M14 6L6 14"
+                                           Stroke="{StaticResource TextSecondaryBrush}"
+                                           StrokeThickness="2"
+                                           Width="12"
+                                           Height="12"
+                                           Stretch="Uniform"/>
+                                </Button>
                             </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- Audio Content -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <TextBlock Text="Audio:"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               FontSize="13"
+                               VerticalAlignment="Center"
+                               Margin="16,0,8,0"
+                               Visibility="{Binding SelectedRegion.AudioContent.Count, Converter={StaticResource CountToVisibilityConverter}}"/>
+                        
+                        <ItemsControl ItemsSource="{Binding SelectedRegion.AudioContent}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
                             
-                            <!-- Remove Button -->
-                            <Button Grid.Column="2"
-                                    Command="{Binding RemoveRegionVisualCommand}"
-                                    Background="Transparent"
-                                    BorderThickness="0"
-                                    Cursor="Hand"
-                                    VerticalAlignment="Center"
-                                    Padding="8">
-                                <Path Data="M6 6L14 14 M14 6L6 14"
-                                      Stroke="{StaticResource TextSecondaryBrush}"
-                                      StrokeThickness="2"
-                                      Width="12" Height="12"
-                                      Stretch="Uniform"/>
-                            </Button>
-                        </Grid>
-                    </Border>
-                    
-                    <!-- Audio Content List -->
-                    <ItemsControl ItemsSource="{Binding SelectedRegion.AudioContent}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate DataType="{x:Type models:MediaItemModel}">
-                                <Border Background="{StaticResource BackgroundMainBrush}"
-                                        BorderBrush="{StaticResource BorderLineBrush}"
-                                        BorderThickness="1"
-                                        CornerRadius="8"
-                                        Padding="12"
-                                        Margin="0,0,0,8">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        
-                                        <!-- Audio Icon -->
-                                        <Border Grid.Column="0"
-                                                Width="48" Height="48"
-                                                Background="{StaticResource BackgroundBlockBrush}"
-                                                CornerRadius="4"
-                                                Margin="0,0,12,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type models:MediaItemModel}">
+                                    <Border Background="{StaticResource BackgroundMainBrush}"
+                                            BorderBrush="{StaticResource BorderLineBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="6"
+                                            Padding="8"
+                                            Margin="0,0,8,0">
+                                        <StackPanel Orientation="Horizontal">
                                             <Path Data="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"
-                                                  Fill="{StaticResource IconBrush}"
-                                                  Width="24" Height="24"
-                                                  Stretch="Uniform"
-                                                  HorizontalAlignment="Center"
-                                                  VerticalAlignment="Center"/>
-                                        </Border>
-                                        
-                                        <!-- File Info -->
-                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                   Fill="{StaticResource TextSecondaryBrush}"
+                                                   Width="16"
+                                                   Height="16"
+                                                   Stretch="Uniform"
+                                                   Margin="0,0,8,0"/>
+                                            
                                             <TextBlock Text="{Binding FileName}"
                                                        Foreground="{StaticResource TextPrimaryBrush}"
-                                                       FontSize="13"
-                                                       TextTrimming="CharacterEllipsis"/>
-                                            <TextBlock Text="{Binding Format, StringFormat='{}{0} file'}"
-                                                       Foreground="{StaticResource TextSecondaryBrush}"
-                                                       FontSize="11"
-                                                       Margin="0,2,0,0"/>
+                                                       FontSize="12"
+                                                       MaxWidth="100"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       VerticalAlignment="Center"/>
+                                            
+                                            <Button Command="{Binding DataContext.RemoveRegionAudioCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}"
+                                                    Background="Transparent"
+                                                    BorderThickness="0"
+                                                    Padding="4,0,0,0"
+                                                    Cursor="Hand">
+                                                <Path Data="M6 6L14 14 M14 6L6 14"
+                                                       Stroke="{StaticResource TextSecondaryBrush}"
+                                                       StrokeThickness="2"
+                                                       Width="12"
+                                                       Height="12"
+                                                       Stretch="Uniform"/>
+                                            </Button>
                                         </StackPanel>
-                                        
-                                        <!-- Remove Button -->
-                                        <Button Grid.Column="2"
-                                                Command="{Binding DataContext.RemoveRegionAudioCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                CommandParameter="{Binding}"
-                                                Background="Transparent"
-                                                BorderThickness="0"
-                                                Cursor="Hand"
-                                                VerticalAlignment="Center"
-                                                Padding="8">
-                                            <Path Data="M6 6L14 14 M14 6L6 14"
-                                                  Stroke="{StaticResource TextSecondaryBrush}"
-                                                  StrokeThickness="2"
-                                                  Width="12" Height="12"
-                                                  Stretch="Uniform"/>
-                                        </Button>
-                                    </Grid>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Grid>
             </Grid>
+        </Border>
+
+        <!-- Section 5: Media Configuration Sub-View (same as other pages, visible when media imported) -->
+        <Border Grid.Row="4"
+                Margin="32,0,42,24"
+                Visibility="{Binding HasRegionMedia, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <ContentControl Content="{Binding MediaConfigViewModel}"/>
         </Border>
     </Grid>
 </UserControl>
