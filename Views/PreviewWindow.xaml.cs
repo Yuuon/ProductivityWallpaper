@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using ProductivityWallpaper.Models;
@@ -232,6 +233,24 @@ namespace ProductivityWallpaper.Views
         }
 
         #region Window Control Event Handlers
+
+        /// <summary>
+        /// Handles the title bar mouse down event to enable window dragging.
+        /// </summary>
+        private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ChangedButton == MouseButton.Left)
+            {
+                try
+                {
+                    DragMove();
+                }
+                catch (InvalidOperationException)
+                {
+                    // DragMove can throw if the left button is released during the call
+                }
+            }
+        }
 
         /// <summary>
         /// Handles the minimize button click.

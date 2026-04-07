@@ -7,10 +7,14 @@
     <Color x:Key="PrimaryGradientEndColor">#FF90A9</Color>
     
     <!-- Accent Colors -->
+    <Color x:Key="AccentColor">#6F7CFF</Color>
     <SolidColorBrush x:Key="Accent1Brush" Color="#6F7CFF"/>
     <SolidColorBrush x:Key="Accent2Brush" Color="#F98FAB"/>
     <SolidColorBrush x:Key="AccentBrush" Color="#6F7CFF"/>
     <SolidColorBrush x:Key="IconBrush" Color="#A4A3B6"/>
+    
+    <!-- Status Colors -->
+    <SolidColorBrush x:Key="DangerBrush" Color="#FF6B6B"/>
     
     <!-- Background Colors -->
     <SolidColorBrush x:Key="BackgroundMainBrush" Color="#0B1828"/>
