@@ -768,6 +768,7 @@ namespace ProductivityWallpaper.ViewModels
 
             try
             {
+                SyncToTheme();
                 await _themeService.SaveThemeAsync(CurrentTheme, isBackup: false);
                 IsDirty = false;
                 SaveStatusMessage = "Saved";
@@ -810,6 +811,7 @@ namespace ProductivityWallpaper.ViewModels
 
             try
             {
+                SyncToTheme();
                 var progress = new Progress<string>(msg =>
                     SaveStatusMessage = $"Exporting: {msg}");
 
@@ -851,6 +853,7 @@ namespace ProductivityWallpaper.ViewModels
 
             try
             {
+                SyncToTheme();
                 // Silent backup save — does NOT reset IsDirty
                 await _themeService.SaveThemeAsync(CurrentTheme, isBackup: true);
                 Debug.WriteLine("[AutoSave] Backup saved successfully");
@@ -875,6 +878,82 @@ namespace ProductivityWallpaper.ViewModels
 
             // Start auto-save timer
             _autoSaveTimer?.Start();
+        }
+
+        // ==================== Sync to Theme ====================
+
+        /// <summary>
+        /// Synchronizes all in-memory scheme data and cached ViewModel data
+        /// back into CurrentTheme so it can be correctly serialized.
+        /// </summary>
+        private void SyncToTheme()
+        {
+            if (CurrentTheme == null) return;
+
+            // 1. Sync scheme collections from _schemesByFeature to CurrentTheme
+            CurrentTheme.DesktopBackgroundSchemes = new ObservableCollection<SchemeModel>(
+                _schemesByFeature[FeatureType.DesktopBackground]);
+            CurrentTheme.MouseClickSchemes = new ObservableCollection<SchemeModel>(
+                _schemesByFeature[FeatureType.MouseClick]);
+            CurrentTheme.ShutdownSchemes = new ObservableCollection<SchemeModel>(
+                _schemesByFeature[FeatureType.Shutdown]);
+            CurrentTheme.BootRestartSchemes = new ObservableCollection<SchemeModel>(
+                _schemesByFeature[FeatureType.BootRestart]);
+            CurrentTheme.ScreenWakeSchemes = new ObservableCollection<SchemeModel>(
+                _schemesByFeature[FeatureType.ScreenWake]);
+
+            // 2. Sync cached ViewModel data back to their respective schemes
+            foreach (var kvp in _schemeViewModelCache)
+            {
+                var cacheKey = kvp.Key;
+                var vm = kvp.Value;
+
+                // Find the corresponding scheme by ID
+                SchemeModel? scheme = null;
+                foreach (var featureSchemes in _schemesByFeature.Values)
+                {
+                    foreach (var s in featureSchemes)
+                    {
+                        if (s.Id == cacheKey)
+                        {
+                            scheme = s;
+                            break;
+                        }
+                    }
+                    if (scheme != null) break;
+                }
+
+                if (scheme == null) continue;
+
+                // Sync MediaConfigurationViewModel data to SchemeModel
+                if (vm is MediaConfigurationViewModel mediaVm)
+                {
+                    scheme.DesktopBackgroundMedia.MediaIds.Clear();
+                    foreach (var item in mediaVm.ImageVideoItems)
+                    {
+                        scheme.DesktopBackgroundMedia.MediaIds.Add(item.FilePath);
+                    }
+                    scheme.DesktopBackgroundMedia.PlaybackMode = mediaVm.SelectedPlaybackMode;
+
+                    scheme.EventMedia.MediaIds.Clear();
+                    foreach (var item in mediaVm.AudioItems)
+                    {
+                        scheme.EventMedia.MediaIds.Add(item.FilePath);
+                    }
+                    scheme.EventMedia.PlaybackMode = mediaVm.SelectedAudioPlaybackMode;
+
+                    scheme.Name = mediaVm.SchemeName;
+                }
+
+                // Sync MouseClickViewModel data to SchemeModel
+                if (vm is MouseClickViewModel mouseVm)
+                {
+                    scheme.ClickRegions = new ObservableCollection<ClickRegionModel>(mouseVm.Regions);
+                    scheme.Name = mouseVm.SchemeName;
+                }
+            }
+
+            Debug.WriteLine("[CreatorViewModel] Theme data synced from ViewModels");
         }
 
         // ==================== Dirty Tracking ====================
