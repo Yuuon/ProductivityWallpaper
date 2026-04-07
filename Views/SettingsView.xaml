@@ -27,6 +27,10 @@
                    Foreground="{StaticResource TextPrimaryBrush}" 
                    FontSize="16" 
                    FontWeight="SemiBold"
+                   Margin="0,0,0,4"/>
+        <TextBlock Text="{DynamicResource Settings_MediaLibraryDesc}"
+                   Foreground="{StaticResource TextSecondaryBrush}"
+                   FontSize="12"
                    Margin="0,0,0,12"/>
         <Grid>
             <Grid.ColumnDefinitions>
@@ -41,6 +45,40 @@
             <Button Grid.Column="1"
                     Content="{DynamicResource Settings_Browse}"
                     Command="{Binding BrowseMediaLibraryCommand}"
+                    Style="{StaticResource SecondaryButtonStyle}"
+                    Width="80"/>
+        </Grid>
+
+        <!-- Separator -->
+        <Border Height="1" 
+                Background="{StaticResource BorderLineBrush}" 
+                Margin="0,30"/>
+
+        <!-- Theme Storage Path (read-only, shows where themes are saved) -->
+        <TextBlock Text="{DynamicResource Settings_ThemeStoragePath}"
+                   Foreground="{StaticResource TextPrimaryBrush}" 
+                   FontSize="16" 
+                   FontWeight="SemiBold"
+                   Margin="0,0,0,4"/>
+        <TextBlock Text="{DynamicResource Settings_ThemeStorageDesc}"
+                   Foreground="{StaticResource TextSecondaryBrush}"
+                   FontSize="12"
+                   TextWrapping="Wrap"
+                   Margin="0,0,0,12"/>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBox Grid.Column="0"
+                     Text="{Binding ThemeStoragePath, Mode=OneWay}"
+                     Style="{StaticResource SearchBoxStyle}"
+                     VerticalContentAlignment="Center"
+                     IsReadOnly="True"
+                     Margin="0,0,12,0"/>
+            <Button Grid.Column="1"
+                    Content="{DynamicResource Settings_Open}"
+                    Command="{Binding OpenThemeFolderCommand}"
                     Style="{StaticResource SecondaryButtonStyle}"
                     Width="80"/>
         </Grid>

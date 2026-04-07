@@ -160,6 +160,10 @@ namespace ProductivityWallpaper.Services
                 // Settings
                 { "Settings_MediaLibraryPath", "Media Library Location" },
                 { "Settings_Browse", "Browse" },
+                { "Settings_ThemeStoragePath", "Theme Storage Location" },
+                { "Settings_ThemeStorageDesc", "Theme files are automatically saved to this location. Use Export in the creator to save a portable copy elsewhere." },
+                { "Settings_MediaLibraryDesc", "Location for browsing wallpaper media files." },
+                { "Settings_Open", "Open" },
                 
                 // Legacy
                 { "Menu_Wallpaper", "Wallpaper" },
@@ -239,6 +243,10 @@ namespace ProductivityWallpaper.Services
                 // Settings
                 { "Settings_MediaLibraryPath", "本地媒体库位置" },
                 { "Settings_Browse", "浏览" },
+                { "Settings_ThemeStoragePath", "主题存储位置" },
+                { "Settings_ThemeStorageDesc", "主题文件会自动保存到此位置。在创建器中使用导出功能可以将完整副本保存到其他位置。" },
+                { "Settings_MediaLibraryDesc", "用于浏览壁纸媒体文件的位置。" },
+                { "Settings_Open", "打开" },
                 
                 // Legacy
                 { "Menu_Wallpaper", "壁纸" },
