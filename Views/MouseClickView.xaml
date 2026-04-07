@@ -44,6 +44,7 @@
         
         <!-- Region Item Template -->
         <DataTemplate x:Key="RegionItemTemplate" DataType="{x:Type models:ClickRegionModel}">
+            <!-- Opacity starts at 0 and animates to 1 via RegionEnterAnimation on Loaded -->
             <Grid Opacity="0" ClipToBounds="False">
                 <Grid.Width>
                     <MultiBinding Converter="{StaticResource PercentageToPixelMultiConverter}">
