@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -269,11 +270,21 @@ namespace ProductivityWallpaper.ViewModels
                 
                 if (isVideo || isImage)
                 {
-                    SelectedRegion.VisualContent = new MediaItemModel(filePath)
+                    var fileInfo = new FileInfo(filePath);
+                    var mediaItem = new MediaItemModel(filePath)
                     {
                         Type = isVideo ? MediaFileType.Video : MediaFileType.Image,
+                        FileSize = fileInfo.Length,
                         DisplayMode = DisplayMode.Fill
                     };
+
+                    // Set thumbnail for images
+                    if (isImage)
+                    {
+                        mediaItem.ThumbnailPath = filePath;
+                    }
+
+                    SelectedRegion.VisualContent = mediaItem;
                     OnPropertyChanged(nameof(HasRegionMedia));
                     OnPropertyChanged(nameof(CanAddVisual));
                 }
@@ -303,9 +314,12 @@ namespace ProductivityWallpaper.ViewModels
                 
                 foreach (var filePath in filesToAdd)
                 {
+                    var fileInfo = new FileInfo(filePath);
                     var mediaItem = new MediaItemModel(filePath)
                     {
-                        Type = MediaFileType.Audio
+                        Type = MediaFileType.Audio,
+                        FileSize = fileInfo.Length,
+                        OrderIndex = SelectedRegion.AudioContent.Count
                     };
                     SelectedRegion.AudioContent.Add(mediaItem);
                     
@@ -339,6 +353,35 @@ namespace ProductivityWallpaper.ViewModels
             SelectedRegion.AudioContent.Remove(audio);
             OnPropertyChanged(nameof(HasRegionMedia));
             OnPropertyChanged(nameof(CanAddAudio));
+        }
+
+        /// <summary>
+        /// Toggles mute state on a media item.
+        /// </summary>
+        [RelayCommand]
+        private void ToggleMute(MediaItemModel? item)
+        {
+            if (item != null)
+            {
+                item.IsMuted = !item.IsMuted;
+            }
+        }
+
+        /// <summary>
+        /// Opens a preview window for the given media item.
+        /// </summary>
+        [RelayCommand]
+        private void PreviewMedia(MediaItemModel? item)
+        {
+            if (item == null || !File.Exists(item.FilePath))
+                return;
+
+            var previewWindow = new Views.PreviewWindow
+            {
+                DataContext = item,
+                Title = $"Preview - {item.FileName}"
+            };
+            previewWindow.Show();
         }
 
         /// <summary>

@@ -880,6 +880,13 @@ namespace ProductivityWallpaper.ViewModels
         /// </summary>
         private void InitializeNewTheme(string themeName)
         {
+            // Clear all scheme collections and caches from any previous theme
+            _schemeViewModelCache.Clear();
+            foreach (var featureType in MultiSchemeFeatures)
+            {
+                _schemesByFeature[featureType].Clear();
+            }
+
             CurrentTheme = new ThemeManifest { Name = themeName };
             _loadedThemeName = themeName;
             _themeService.CurrentTheme = CurrentTheme;
