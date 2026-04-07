@@ -10,7 +10,7 @@ namespace ProductivityWallpaper.ViewModels
     /// ViewModel for the Pomodoro Timer configuration view.
     /// Manages timer style selection, duration settings, and Do Not Disturb mode.
     /// </summary>
-    public partial class PomodoroViewModel : ObservableObject
+    public partial class PomodoroViewModel : ObservableObject, IFeatureViewModel
     {
         // --- Observable Collections ---
         /// <summary>

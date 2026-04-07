@@ -11,7 +11,7 @@ namespace ProductivityWallpaper.ViewModels
     /// ViewModel for the Anniversary configuration view.
     /// Manages anniversary events, display styles, and event operations.
     /// </summary>
-    public partial class AnniversaryViewModel : ObservableObject
+    public partial class AnniversaryViewModel : ObservableObject, IFeatureViewModel
     {
         // --- Properties ---
 

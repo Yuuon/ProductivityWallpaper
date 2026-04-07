@@ -1,5 +1,9 @@
+using System;
+using System.Collections.Generic;
 using System.Windows;
+using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.Extensions.DependencyInjection;
+using ProductivityWallpaper.Models;
 using ProductivityWallpaper.Services;
 using ProductivityWallpaper.ViewModels;
 using ProductivityWallpaper.Views;
@@ -56,30 +60,32 @@ namespace ProductivityWallpaper
             // Anniversary ViewModel
             services.AddTransient<AnniversaryViewModel>();
 
-            // Views
-            services.AddTransient<DesktopBackgroundView>();
+            // Views (unified MediaConfigurationView replaces 4 duplicate views)
+            services.AddTransient<MediaConfigurationView>();
             services.AddTransient<MouseClickView>();
             services.AddTransient<DesktopClockView>();
             services.AddTransient<PomodoroView>();
             services.AddTransient<AnniversaryView>();
-            services.AddTransient<ShutdownView>();
-            services.AddTransient<BootRestartView>();
-            services.AddTransient<ScreenWakeView>();
 
-            // CreatorViewModel with factory injection
-            services.AddSingleton<CreatorViewModel>(serviceProvider =>
-            {
-                return new CreatorViewModel(
-                    () => serviceProvider.GetRequiredService<DesktopBackgroundViewModel>(),
-                    () => serviceProvider.GetRequiredService<MouseClickViewModel>(),
-                    () => serviceProvider.GetRequiredService<DesktopClockViewModel>(),
-                    () => serviceProvider.GetRequiredService<PomodoroViewModel>(),
-                    () => serviceProvider.GetRequiredService<AnniversaryViewModel>(),
-                    () => serviceProvider.GetRequiredService<ShutdownViewModel>(),
-                    () => serviceProvider.GetRequiredService<BootRestartViewModel>(),
-                    () => serviceProvider.GetRequiredService<ScreenWakeViewModel>(),
-                    serviceProvider.GetRequiredService<IThemeService>());
-            });
+            // Feature ViewModel Factory (registry pattern replaces 8 individual factories)
+            services.AddSingleton<IFeatureViewModelFactory>(sp =>
+                new FeatureViewModelFactory(new Dictionary<FeatureType, Func<ObservableObject>>
+                {
+                    [FeatureType.DesktopBackground] = () => sp.GetRequiredService<DesktopBackgroundViewModel>(),
+                    [FeatureType.MouseClick] = () => sp.GetRequiredService<MouseClickViewModel>(),
+                    [FeatureType.DesktopClock] = () => sp.GetRequiredService<DesktopClockViewModel>(),
+                    [FeatureType.Pomodoro] = () => sp.GetRequiredService<PomodoroViewModel>(),
+                    [FeatureType.Anniversary] = () => sp.GetRequiredService<AnniversaryViewModel>(),
+                    [FeatureType.Shutdown] = () => sp.GetRequiredService<ShutdownViewModel>(),
+                    [FeatureType.BootRestart] = () => sp.GetRequiredService<BootRestartViewModel>(),
+                    [FeatureType.ScreenWake] = () => sp.GetRequiredService<ScreenWakeViewModel>(),
+                }));
+
+            // CreatorViewModel (receives factory + theme service)
+            services.AddSingleton<CreatorViewModel>(sp =>
+                new CreatorViewModel(
+                    sp.GetRequiredService<IFeatureViewModelFactory>(),
+                    sp.GetRequiredService<IThemeService>()));
 
             // Views
             services.AddSingleton<MainWindow>();

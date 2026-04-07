@@ -19,14 +19,7 @@ namespace ProductivityWallpaper.ViewModels
     public partial class CreatorViewModel : ObservableObject, IDisposable
     {
         // --- DI Services ---
-        private readonly Func<DesktopBackgroundViewModel> _desktopBackgroundVmFactory;
-        private readonly Func<MouseClickViewModel> _mouseClickVmFactory;
-        private readonly Func<DesktopClockViewModel> _desktopClockVmFactory;
-        private readonly Func<PomodoroViewModel> _pomodoroVmFactory;
-        private readonly Func<AnniversaryViewModel> _anniversaryVmFactory;
-        private readonly Func<ShutdownViewModel> _shutdownVmFactory;
-        private readonly Func<BootRestartViewModel> _bootRestartVmFactory;
-        private readonly Func<ScreenWakeViewModel> _screenWakeVmFactory;
+        private readonly IFeatureViewModelFactory _featureVmFactory;
         private readonly IThemeService _themeService;
 
         // Cache of ViewModels per scheme to preserve state when switching pages
@@ -290,29 +283,15 @@ namespace ProductivityWallpaper.ViewModels
         public ObservableCollection<SchemeModel> ScreenWakeSchemes => _schemesByFeature[FeatureType.ScreenWake];
 
         // --- Constructors ---
-        public CreatorViewModel() : this(null, null, null, null, null, null, null, null, null)
+        public CreatorViewModel() : this(null, null)
         {
         }
 
         public CreatorViewModel(
-            Func<DesktopBackgroundViewModel> desktopBackgroundVmFactory,
-            Func<MouseClickViewModel> mouseClickVmFactory,
-            Func<DesktopClockViewModel> desktopClockVmFactory,
-            Func<PomodoroViewModel> pomodoroVmFactory,
-            Func<AnniversaryViewModel> anniversaryVmFactory,
-            Func<ShutdownViewModel> shutdownVmFactory,
-            Func<BootRestartViewModel> bootRestartVmFactory,
-            Func<ScreenWakeViewModel> screenWakeVmFactory,
+            IFeatureViewModelFactory? featureVmFactory = null,
             IThemeService? themeService = null)
         {
-            _desktopBackgroundVmFactory = desktopBackgroundVmFactory ?? (() => new DesktopBackgroundViewModel());
-            _mouseClickVmFactory = mouseClickVmFactory ?? (() => new MouseClickViewModel());
-            _desktopClockVmFactory = desktopClockVmFactory ?? (() => new DesktopClockViewModel());
-            _pomodoroVmFactory = pomodoroVmFactory ?? (() => new PomodoroViewModel());
-            _anniversaryVmFactory = anniversaryVmFactory ?? (() => new AnniversaryViewModel());
-            _shutdownVmFactory = shutdownVmFactory ?? (() => new ShutdownViewModel());
-            _bootRestartVmFactory = bootRestartVmFactory ?? (() => new BootRestartViewModel());
-            _screenWakeVmFactory = screenWakeVmFactory ?? (() => new ScreenWakeViewModel());
+            _featureVmFactory = featureVmFactory ?? CreateDefaultFactory();
             _themeService = themeService ?? new ThemeService();
 
             _schemesByFeature = new Dictionary<FeatureType, ObservableCollection<SchemeModel>>();
@@ -323,6 +302,24 @@ namespace ProductivityWallpaper.ViewModels
 
             // Initialize auto-save timer (5-minute interval, backup only) — not started until theme is loaded
             InitializeAutoSaveTimer();
+        }
+
+        /// <summary>
+        /// Creates a default factory for design-time or fallback usage.
+        /// </summary>
+        private static FeatureViewModelFactory CreateDefaultFactory()
+        {
+            return new FeatureViewModelFactory(new Dictionary<FeatureType, Func<ObservableObject>>
+            {
+                [FeatureType.DesktopBackground] = () => new DesktopBackgroundViewModel(),
+                [FeatureType.MouseClick] = () => new MouseClickViewModel(),
+                [FeatureType.DesktopClock] = () => new DesktopClockViewModel(),
+                [FeatureType.Pomodoro] = () => new PomodoroViewModel(),
+                [FeatureType.Anniversary] = () => new AnniversaryViewModel(),
+                [FeatureType.Shutdown] = () => new ShutdownViewModel(),
+                [FeatureType.BootRestart] = () => new BootRestartViewModel(),
+                [FeatureType.ScreenWake] = () => new ScreenWakeViewModel(),
+            });
         }
 
         // --- Commands ---
@@ -675,190 +672,84 @@ namespace ProductivityWallpaper.ViewModels
             ConfigurationContent = null;
             HasPreviewContent = false;
 
-            switch (featureName)
+            // ThemePreview and OpenApp have no feature VM
+            if (featureName == "ThemePreview")
             {
-                case "ThemePreview":
-                    HasPreviewContent = false;
-                    ConfigurationContent = null;
-                    NavigationMonitorService.LogNavigation("ThemePreview", null);
-                    break;
-
-                case "DesktopBackground":
-                    try
-                    {
-                        var dbSchemeId = SelectedDesktopBackgroundScheme?.Id ?? "default_db";
-                        if (!_schemeViewModelCache.TryGetValue(dbSchemeId, out var dbCachedVm) || dbCachedVm is not DesktopBackgroundViewModel)
-                        {
-                            var desktopBgVm = _desktopBackgroundVmFactory();
-                            if (SelectedDesktopBackgroundScheme != null)
-                                desktopBgVm.SchemeName = SelectedDesktopBackgroundScheme.Name;
-                            _schemeViewModelCache[dbSchemeId] = desktopBgVm;
-                            dbCachedVm = desktopBgVm;
-                        }
-                        ConfigurationContent = dbCachedVm;
-                        NavigationMonitorService.LogNavigation("DesktopBackground", dbCachedVm);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"[ERROR] Failed to create DesktopBackgroundViewModel: {ex.Message}");
-                        NavigationMonitorService.LogNavigation("DesktopBackground", null, ex);
-                    }
-                    break;
-
-                case "MouseClick":
-                    try
-                    {
-                        var mcSchemeId = SelectedMouseClickScheme?.Id ?? "default_mc";
-                        if (!_schemeViewModelCache.TryGetValue(mcSchemeId, out var mcCachedVm) || mcCachedVm is not MouseClickViewModel)
-                        {
-                            var mouseClickVm = _mouseClickVmFactory();
-                            if (SelectedMouseClickScheme != null)
-                                mouseClickVm.SchemeName = SelectedMouseClickScheme.Name;
-                            _schemeViewModelCache[mcSchemeId] = mouseClickVm;
-                            mcCachedVm = mouseClickVm;
-                        }
-                        ConfigurationContent = mcCachedVm;
-                        NavigationMonitorService.LogNavigation("MouseClick", mcCachedVm);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"[ERROR] Failed to create MouseClickViewModel: {ex.Message}");
-                        NavigationMonitorService.LogNavigation("MouseClick", null, ex);
-                    }
-                    break;
-
-                case "DesktopClock":
-                    try
-                    {
-                        if (!_schemeViewModelCache.TryGetValue("desktopClock", out var clockCachedVm) || clockCachedVm is not DesktopClockViewModel)
-                        {
-                            var clockVm = _desktopClockVmFactory();
-                            _schemeViewModelCache["desktopClock"] = clockVm;
-                            clockCachedVm = clockVm;
-                        }
-                        ConfigurationContent = clockCachedVm;
-                        NavigationMonitorService.LogNavigation("DesktopClock", clockCachedVm);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"[ERROR] Failed to create DesktopClockViewModel: {ex.Message}");
-                        NavigationMonitorService.LogNavigation("DesktopClock", null, ex);
-                    }
-                    break;
-
-                case "Pomodoro":
-                    try
-                    {
-                        if (!_schemeViewModelCache.TryGetValue("pomodoro", out var pomodoroCachedVm) || pomodoroCachedVm is not PomodoroViewModel)
-                        {
-                            var pomodoroVm = _pomodoroVmFactory();
-                            _schemeViewModelCache["pomodoro"] = pomodoroVm;
-                            pomodoroCachedVm = pomodoroVm;
-                        }
-                        ConfigurationContent = pomodoroCachedVm;
-                        NavigationMonitorService.LogNavigation("Pomodoro", pomodoroCachedVm);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"[ERROR] Failed to create PomodoroViewModel: {ex.Message}");
-                        NavigationMonitorService.LogNavigation("Pomodoro", null, ex);
-                    }
-                    break;
-
-                case "Anniversary":
-                    try
-                    {
-                        if (!_schemeViewModelCache.TryGetValue("anniversary", out var anniversaryCachedVm) || anniversaryCachedVm is not AnniversaryViewModel)
-                        {
-                            var anniversaryVm = _anniversaryVmFactory();
-                            _schemeViewModelCache["anniversary"] = anniversaryVm;
-                            anniversaryCachedVm = anniversaryVm;
-                        }
-                        ConfigurationContent = anniversaryCachedVm;
-                        NavigationMonitorService.LogNavigation("Anniversary", anniversaryCachedVm);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"[ERROR] Failed to create AnniversaryViewModel: {ex.Message}");
-                        NavigationMonitorService.LogNavigation("Anniversary", null, ex);
-                    }
-                    break;
-
-                case "Shutdown":
-                    try
-                    {
-                        var sdSchemeId = SelectedShutdownScheme?.Id ?? "default_sd";
-                        if (!_schemeViewModelCache.TryGetValue(sdSchemeId, out var sdCachedVm) || sdCachedVm is not ShutdownViewModel)
-                        {
-                            var shutdownVm = _shutdownVmFactory();
-                            if (SelectedShutdownScheme != null)
-                                shutdownVm.SchemeName = SelectedShutdownScheme.Name;
-                            _schemeViewModelCache[sdSchemeId] = shutdownVm;
-                            sdCachedVm = shutdownVm;
-                        }
-                        ConfigurationContent = sdCachedVm;
-                        NavigationMonitorService.LogNavigation("Shutdown", sdCachedVm);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"[ERROR] Failed to create ShutdownViewModel: {ex.Message}");
-                        NavigationMonitorService.LogNavigation("Shutdown", null, ex);
-                    }
-                    break;
-
-                case "BootRestart":
-                    try
-                    {
-                        var brSchemeId = SelectedBootRestartScheme?.Id ?? "default_br";
-                        if (!_schemeViewModelCache.TryGetValue(brSchemeId, out var brCachedVm) || brCachedVm is not BootRestartViewModel)
-                        {
-                            var bootRestartVm = _bootRestartVmFactory();
-                            if (SelectedBootRestartScheme != null)
-                                bootRestartVm.SchemeName = SelectedBootRestartScheme.Name;
-                            _schemeViewModelCache[brSchemeId] = bootRestartVm;
-                            brCachedVm = bootRestartVm;
-                        }
-                        ConfigurationContent = brCachedVm;
-                        NavigationMonitorService.LogNavigation("BootRestart", brCachedVm);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"[ERROR] Failed to create BootRestartViewModel: {ex.Message}");
-                        NavigationMonitorService.LogNavigation("BootRestart", null, ex);
-                    }
-                    break;
-
-                case "ScreenWake":
-                    try
-                    {
-                        var swSchemeId = SelectedScreenWakeScheme?.Id ?? "default_sw";
-                        if (!_schemeViewModelCache.TryGetValue(swSchemeId, out var swCachedVm) || swCachedVm is not ScreenWakeViewModel)
-                        {
-                            var screenWakeVm = _screenWakeVmFactory();
-                            if (SelectedScreenWakeScheme != null)
-                                screenWakeVm.SchemeName = SelectedScreenWakeScheme.Name;
-                            _schemeViewModelCache[swSchemeId] = screenWakeVm;
-                            swCachedVm = screenWakeVm;
-                        }
-                        ConfigurationContent = swCachedVm;
-                        NavigationMonitorService.LogNavigation("ScreenWake", swCachedVm);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"[ERROR] Failed to create ScreenWakeViewModel: {ex.Message}");
-                        NavigationMonitorService.LogNavigation("ScreenWake", null, ex);
-                    }
-                    break;
-
-                case "OpenApp":
-                    ConfigurationContent = null;
-                    NavigationMonitorService.LogNavigation("OpenApp", null);
-                    break;
-
-                default:
-                    ConfigurationContent = null;
-                    break;
+                NavigationMonitorService.LogNavigation("ThemePreview", null);
+                return;
             }
+            if (featureName == "OpenApp")
+            {
+                NavigationMonitorService.LogNavigation("OpenApp", null);
+                return;
+            }
+
+            // Parse the feature name to a FeatureType enum
+            if (!Enum.TryParse<FeatureType>(featureName, out var featureType))
+            {
+                Debug.WriteLine($"[Navigation] ERROR: Unknown feature name: {featureName}");
+                return;
+            }
+
+            // Determine cache key: multi-scheme features use scheme ID, single-scheme use feature name
+            var cacheKey = GetCacheKey(featureType);
+
+            try
+            {
+                // Check cache first
+                if (!_schemeViewModelCache.TryGetValue(cacheKey, out var cachedVm))
+                {
+                    // Create new VM via factory
+                    cachedVm = _featureVmFactory.Create(featureType);
+
+                    // For multi-scheme features, sync scheme name from selected scheme
+                    var selectedScheme = GetSelectedScheme(featureType);
+                    if (selectedScheme != null && cachedVm is IFeatureViewModel featureVm)
+                    {
+                        featureVm.SchemeName = selectedScheme.Name;
+                    }
+
+                    _schemeViewModelCache[cacheKey] = cachedVm;
+                }
+
+                ConfigurationContent = cachedVm;
+                NavigationMonitorService.LogNavigation(featureName, cachedVm);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ERROR] Failed to create ViewModel for {featureName}: {ex.Message}");
+                NavigationMonitorService.LogNavigation(featureName, null, ex);
+            }
+        }
+
+        /// <summary>
+        /// Determines the cache key for a feature. Multi-scheme features are keyed by scheme ID;
+        /// single-scheme features use the feature type name as a stable key.
+        /// </summary>
+        private string GetCacheKey(FeatureType featureType)
+        {
+            var selectedScheme = GetSelectedScheme(featureType);
+            if (selectedScheme != null)
+                return selectedScheme.Id;
+
+            // Single-scheme features or no scheme selected — use feature name as key
+            return featureType.ToString().ToLowerInvariant();
+        }
+
+        /// <summary>
+        /// Gets the currently selected scheme for a given feature type, or null for single-scheme features.
+        /// </summary>
+        private SchemeModel? GetSelectedScheme(FeatureType featureType)
+        {
+            return featureType switch
+            {
+                FeatureType.DesktopBackground => SelectedDesktopBackgroundScheme,
+                FeatureType.MouseClick => SelectedMouseClickScheme,
+                FeatureType.Shutdown => SelectedShutdownScheme,
+                FeatureType.BootRestart => SelectedBootRestartScheme,
+                FeatureType.ScreenWake => SelectedScreenWakeScheme,
+                _ => null
+            };
         }
 
         // ==================== Save / Export / Auto-Save ====================
