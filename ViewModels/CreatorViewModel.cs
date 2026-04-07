@@ -155,7 +155,8 @@ namespace ProductivityWallpaper.ViewModels
         }
 
         /// <summary>
-        /// Central handler for feature expansion. Collapses others, sets state, loads content.
+        /// Central handler for feature expansion. Collapses others and ensures default scheme exists.
+        /// Does NOT load content — content is only loaded when a scheme is explicitly selected.
         /// </summary>
         private void HandleFeatureExpanded(FeatureType expandedFeature)
         {
@@ -176,14 +177,6 @@ namespace ProductivityWallpaper.ViewModels
 
             // Auto-create default scheme if needed
             EnsureDefaultScheme(expandedFeature);
-
-            // Set current state (this also clears stale selections via OnCurrentStateChanged)
-            if (Enum.TryParse<CreatorViewState>(expandedFeature.ToString(), out var state))
-            {
-                CurrentState = state;
-            }
-
-            LoadFeatureContent(expandedFeature.ToString());
         }
 
         // --- Selected Schemes for Each Feature ---
@@ -709,6 +702,22 @@ namespace ProductivityWallpaper.ViewModels
                         featureVm.SchemeName = selectedScheme.Name;
                     }
 
+                    // Subscribe to property changes for dirty tracking
+                    cachedVm.PropertyChanged += OnChildViewModelPropertyChanged;
+
+                    // For media VMs, subscribe to collection changes
+                    if (cachedVm is MediaConfigurationViewModel mediaVm)
+                    {
+                        mediaVm.ImageVideoItems.CollectionChanged += (_, _) => MarkDirty();
+                        mediaVm.AudioItems.CollectionChanged += (_, _) => MarkDirty();
+                    }
+
+                    // For mouse click VMs, subscribe to region collection changes
+                    if (cachedVm is MouseClickViewModel mouseVm)
+                    {
+                        mouseVm.Regions.CollectionChanged += (_, _) => MarkDirty();
+                    }
+
                     _schemeViewModelCache[cacheKey] = cachedVm;
                 }
 
@@ -970,12 +979,32 @@ namespace ProductivityWallpaper.ViewModels
         }
 
         /// <summary>
+        /// Handles property changes on child ViewModels to propagate dirty state.
+        /// </summary>
+        private void OnChildViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            // Track meaningful property changes that indicate user edits
+            if (e.PropertyName is "SchemeName" or "SelectedPlaybackMode" or "SelectedAudioPlaybackMode"
+                or "IsActive" or "BackgroundMedia" or "SelectedRegion")
+            {
+                MarkDirty();
+            }
+        }
+
+        /// <summary>
         /// Cleans up timer resources.
         /// </summary>
         public void Dispose()
         {
             _autoSaveTimer?.Stop();
             _autoSaveTimer?.Dispose();
+
+            // Unsubscribe from child VM events
+            foreach (var vm in _schemeViewModelCache.Values)
+            {
+                vm.PropertyChanged -= OnChildViewModelPropertyChanged;
+            }
+
             _schemeViewModelCache.Clear();
         }
     }

@@ -18,9 +18,10 @@ namespace ProductivityWallpaper.ViewModels
         // --- Constants ---
         private const long MaxFileSizeBytes = 500L * 1024 * 1024; // 500MB
         private const string ImageVideoFilter =
-            "Media files|*.jpg;*.jpeg;*.png;*.webp;*.bmp;*.heic;*.svg;*.gif;*.apng;*.mp4;*.mov;*.webm|" +
+            "All media files|*.jpg;*.jpeg;*.png;*.webp;*.bmp;*.heic;*.svg;*.gif;*.apng;*.mp4;*.mov;*.webm;*.mp3;*.wav;*.ogg;*.flac;*.aac;*.wma;*.m4a|" +
             "Image files|*.jpg;*.jpeg;*.png;*.webp;*.bmp;*.heic;*.svg;*.gif;*.apng|" +
             "Video files|*.mp4;*.mov;*.webm|" +
+            "Audio files|*.mp3;*.wav;*.ogg;*.flac;*.aac;*.wma;*.m4a|" +
             "All files|*.*";
         private const string AudioFilter =
             "Audio files|*.mp3;*.wav;*.ogg;*.flac;*.aac;*.wma;*.m4a|" +

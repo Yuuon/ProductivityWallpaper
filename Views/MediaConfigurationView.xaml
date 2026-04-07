@@ -658,7 +658,7 @@
                     
                     <!-- Section 3: Supported Formats Info -->
                     <StackPanel Margin="0,0,0,24">
-                        <TextBlock Text="Supported formats: JPG, PNG, WebP, BMP, HEIC, SVG, GIF, APNG, MP4, MOV, WebM"
+                        <TextBlock Text="Supported formats: JPG, PNG, WebP, BMP, HEIC, SVG, GIF, APNG, MP4, MOV, WebM, MP3, WAV, OGG, FLAC, AAC, WMA, M4A"
                                   Foreground="{StaticResource TextSecondaryBrush}"
                                   FontSize="13"
                                   Margin="0,0,0,4"/>
@@ -701,7 +701,7 @@
                                                           HorizontalAlignment="Center"
                                                           Margin="0,0,0,24"/>
                                                     
-                                                    <TextBlock Text="Click to Import Images / Videos"
+                                                    <TextBlock Text="Click to Import Media"
                                                               Foreground="{StaticResource TextPrimaryBrush}"
                                                               FontSize="16"
                                                               FontWeight="SemiBold"
