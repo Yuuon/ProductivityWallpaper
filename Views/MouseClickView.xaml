@@ -579,11 +579,13 @@
         </Style>
     </UserControl.Resources>
 
+    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
@@ -631,7 +633,7 @@
                    Margin="32,16,42,24"/>
 
         <!-- Section 3: Main Content (Two columns: Region Editor + Available Media) -->
-        <Grid Grid.Row="2" Margin="32,0,42,24">
+        <Grid Grid.Row="2" Margin="32,0,42,24" MinHeight="480">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="260"/>
@@ -836,7 +838,6 @@
                 BorderThickness="1"
                 CornerRadius="10"
                 Margin="32,0,42,24"
-                MaxHeight="400"
                 Visibility="{Binding HasSelectedRegion, Converter={StaticResource BooleanToVisibilityConverter}}">
             <ScrollViewer VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Disabled">
@@ -1091,4 +1092,5 @@
             </ScrollViewer>
         </Border>
     </Grid>
+    </ScrollViewer>
 </UserControl>
