@@ -427,7 +427,7 @@
                                VerticalAlignment="Center">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
-                                <Setter Property="Visibility" Value="Visible"/>
+                                <Setter Property="Visibility" Value="Collapsed"/>
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding AvailableMedia.Count}" Value="0">
                                         <Setter Property="Visibility" Value="Visible"/>
