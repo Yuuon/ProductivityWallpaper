@@ -32,6 +32,7 @@ namespace ProductivityWallpaper.ViewModels
         /// </summary>
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(HasSelectedRegion))]
+        [NotifyPropertyChangedFor(nameof(HasRegionMedia))]
         [NotifyPropertyChangedFor(nameof(CanAddAudio))]
         [NotifyPropertyChangedFor(nameof(CanAddVisual))]
         private ClickRegionModel? _selectedRegion;
@@ -88,6 +89,11 @@ namespace ProductivityWallpaper.ViewModels
         /// Returns true when a region is selected.
         /// </summary>
         public bool HasSelectedRegion => SelectedRegion != null;
+
+        /// <summary>
+        /// Returns true when the selected region has at least one imported resource (visual or audio).
+        /// </summary>
+        public bool HasRegionMedia => SelectedRegion?.VisualContent != null || (SelectedRegion?.AudioContent.Count ?? 0) > 0;
 
         /// <summary>
         /// Returns true when visual content can be added (none exists yet).
@@ -268,6 +274,8 @@ namespace ProductivityWallpaper.ViewModels
                         Type = isVideo ? MediaFileType.Video : MediaFileType.Image,
                         DisplayMode = DisplayMode.Fill
                     };
+                    OnPropertyChanged(nameof(HasRegionMedia));
+                    OnPropertyChanged(nameof(CanAddVisual));
                 }
             }
         }
@@ -303,6 +311,8 @@ namespace ProductivityWallpaper.ViewModels
                     
                     if (SelectedRegion.AudioContent.Count >= 5) break;
                 }
+                OnPropertyChanged(nameof(HasRegionMedia));
+                OnPropertyChanged(nameof(CanAddAudio));
             }
         }
 
@@ -314,6 +324,8 @@ namespace ProductivityWallpaper.ViewModels
         {
             if (SelectedRegion == null) return;
             SelectedRegion.VisualContent = null;
+            OnPropertyChanged(nameof(HasRegionMedia));
+            OnPropertyChanged(nameof(CanAddVisual));
         }
 
         /// <summary>
@@ -325,6 +337,8 @@ namespace ProductivityWallpaper.ViewModels
         {
             if (SelectedRegion == null || audio == null) return;
             SelectedRegion.AudioContent.Remove(audio);
+            OnPropertyChanged(nameof(HasRegionMedia));
+            OnPropertyChanged(nameof(CanAddAudio));
         }
 
         /// <summary>

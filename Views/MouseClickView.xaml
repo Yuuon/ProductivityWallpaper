@@ -44,7 +44,7 @@
         
         <!-- Region Item Template -->
         <DataTemplate x:Key="RegionItemTemplate" DataType="{x:Type models:ClickRegionModel}">
-            <Grid Opacity="0">
+            <Grid Opacity="0" ClipToBounds="False">
                 <Grid.Width>
                     <MultiBinding Converter="{StaticResource PercentageToPixelMultiConverter}">
                         <Binding Path="Width"/>
@@ -75,18 +75,20 @@
                     </EventTrigger>
                 </Grid.Triggers>
                 <Rectangle x:Name="RegionRect"
-                           Fill="#40FFFFFF"
-                           Stroke="#80FFFFFF"
-                           StrokeThickness="1"
+                           Fill="#3000A8FF"
+                           Stroke="#8000A8FF"
+                           StrokeThickness="2"
+                           StrokeDashArray="4 2"
                            RadiusX="4"
                            RadiusY="4">
                     <Rectangle.Style>
                         <Style TargetType="Rectangle">
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                                    <Setter Property="Fill" Value="#60FFFFFF"/>
+                                    <Setter Property="Fill" Value="#5000A8FF"/>
                                     <Setter Property="Stroke" Value="{StaticResource AccentBrush}"/>
                                     <Setter Property="StrokeThickness" Value="2"/>
+                                    <Setter Property="StrokeDashArray" Value="1 0"/>
                                     <Setter Property="Effect">
                                         <Setter.Value>
                                             <DropShadowEffect ShadowDepth="0" 
@@ -113,15 +115,15 @@
                     </TextBlock.Effect>
                 </TextBlock>
                 
-                <!-- Delete Button -->
+                <!-- Delete Button (positioned above the rect, larger for easier clicking) -->
                 <Button x:Name="DeleteButton"
                         Command="{Binding DataContext.DeleteRegionCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                         CommandParameter="{Binding}"
-                        Width="20"
-                        Height="20"
+                        Width="28"
+                        Height="28"
                         HorizontalAlignment="Right"
                         VerticalAlignment="Top"
-                        Margin="0,-10,-10,0"
+                        Margin="0,-30,-2,0"
                         Background="{StaticResource DangerBrush}"
                         BorderThickness="0"
                         Cursor="Hand"
@@ -129,7 +131,7 @@
                     <Button.Template>
                         <ControlTemplate TargetType="Button">
                             <Grid>
-                                <Ellipse Fill="{TemplateBinding Background}" Stroke="White" StrokeThickness="1"/>
+                                <Ellipse x:Name="ButtonBg" Fill="{TemplateBinding Background}" Stroke="White" StrokeThickness="1.5"/>
                                 <Path Data="M6 6L14 14 M14 6L6 14"
                                       Stroke="White"
                                       StrokeThickness="2"
@@ -139,6 +141,11 @@
                                       HorizontalAlignment="Center"
                                       VerticalAlignment="Center"/>
                             </Grid>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="ButtonBg" Property="Fill" Value="#FF3333"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
                         </ControlTemplate>
                     </Button.Template>
                 </Button>
@@ -478,153 +485,239 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <TextBlock Grid.Row="0"
-                           Text="Configure Interaction"
-                           Foreground="{StaticResource TextPrimaryBrush}"
-                           FontSize="14"
-                           FontWeight="SemiBold"
-                           Margin="0,0,0,12"/>
-
-                <!-- Import Buttons -->
-                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,12">
-                    <Button Content="+ Import Image or Video (1 only)"
-                            Command="{Binding ImportRegionVisualCommand}"
-                            Visibility="{Binding CanAddVisual, Converter={StaticResource BooleanToVisibilityConverter}}"
-                            Style="{StaticResource TextButtonStyle}"
-                            Foreground="{StaticResource AccentBrush}"
-                            Padding="0,8"
-                            Margin="0,0,16,0"/>
-                    
-                    <Button Content="+ Import Audio (max 5)"
-                            Command="{Binding ImportRegionAudioCommand}"
-                            Visibility="{Binding CanAddAudio, Converter={StaticResource BooleanToVisibilityConverter}}"
-                            Style="{StaticResource TextButtonStyle}"
-                            Foreground="{StaticResource AccentBrush}"
-                            Padding="0,8"/>
-                </StackPanel>
-
-                <!-- Media Display Area -->
-                <Grid Grid.Row="2">
+                <!-- Header with title and import buttons -->
+                <Grid Grid.Row="0" Margin="0,0,0,12">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-
-                    <!-- Visual Content -->
-                    <StackPanel Grid.Column="0" Orientation="Horizontal">
-                        <TextBlock Text="Visual:"
-                                   Foreground="{StaticResource TextSecondaryBrush}"
-                                   FontSize="13"
-                                   VerticalAlignment="Center"
-                                   Margin="0,0,8,0"
-                                   Visibility="{Binding SelectedRegion.VisualContent, Converter={StaticResource NullToVisibilityConverter}}"/>
-                        
-                        <Border Background="{StaticResource BackgroundMainBrush}"
+                    
+                    <TextBlock Grid.Column="0"
+                               Text="Configure Interaction"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               FontSize="14"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center"/>
+                    
+                    <!-- Import Buttons (same style as MediaConfigurationView) -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <!-- Import Visual Button -->
+                        <Button Command="{Binding ImportRegionVisualCommand}"
+                                Visibility="{Binding CanAddVisual, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                Background="{StaticResource BackgroundMainBrush}"
                                 BorderBrush="{StaticResource BorderLineBrush}"
                                 BorderThickness="1"
-                                CornerRadius="6"
-                                Padding="8"
-                                Visibility="{Binding SelectedRegion.VisualContent, Converter={StaticResource NullToVisibilityConverter}}">
-                            <StackPanel Orientation="Horizontal">
-                                <Path Data="M10 16.5l6-4.5-6-4.5v9zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"
-                                       Fill="{StaticResource TextSecondaryBrush}"
-                                       Width="16"
-                                       Height="16"
-                                       Stretch="Uniform"
-                                       Margin="0,0,8,0">
-                                    <Path.Style>
-                                        <Style TargetType="Path">
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding SelectedRegion.VisualContent.Type}" Value="{x:Static models:MediaFileType.Image}">
-                                                    <Setter Property="Data" Value="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Path.Style>
-                                </Path>
-                                
-                                <TextBlock Text="{Binding SelectedRegion.VisualContent.FileName}"
-                                           Foreground="{StaticResource TextPrimaryBrush}"
-                                           FontSize="12"
-                                           MaxWidth="150"
-                                           TextTrimming="CharacterEllipsis"
-                                           VerticalAlignment="Center"/>
-                                
-                                <Button Command="{Binding RemoveRegionVisualCommand}"
-                                        Background="Transparent"
-                                        BorderThickness="0"
-                                        Padding="4,0,0,0"
-                                        Cursor="Hand">
-                                    <Path Data="M6 6L14 14 M14 6L6 14"
-                                           Stroke="{StaticResource TextSecondaryBrush}"
-                                           StrokeThickness="2"
-                                           Width="12"
-                                           Height="12"
-                                           Stretch="Uniform"/>
-                                </Button>
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-
-                    <!-- Audio Content -->
-                    <StackPanel Grid.Column="1" Orientation="Horizontal">
-                        <TextBlock Text="Audio:"
-                               Foreground="{StaticResource TextSecondaryBrush}"
-                               FontSize="13"
-                               VerticalAlignment="Center"
-                               Margin="16,0,8,0"
-                               Visibility="{Binding SelectedRegion.AudioContent.Count, Converter={StaticResource CountToVisibilityConverter}}"/>
+                                Width="36"
+                                Height="36"
+                                Margin="0,0,8,0"
+                                ToolTip="Import Image/Video (1 only)"
+                                Cursor="Hand">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border Background="{TemplateBinding Background}"
+                                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                                        CornerRadius="18"
+                                                        Width="{TemplateBinding Width}"
+                                                        Height="{TemplateBinding Height}">
+                                                    <ContentPresenter HorizontalAlignment="Center" 
+                                                                      VerticalAlignment="Center"/>
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                            <Path Data="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14C0 17.31 2.69 20 6 20H19C21.76 20 24 17.76 24 15C24 12.36 21.95 10.22 19.35 10.04ZM14 13V17H10V13H7L12 8L17 13H14Z"
+                                  Fill="{StaticResource IconBrush}"
+                                  Width="16"
+                                  Height="16"
+                                  Stretch="Uniform"/>
+                        </Button>
                         
-                        <ItemsControl ItemsSource="{Binding SelectedRegion.AudioContent}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <StackPanel Orientation="Horizontal"/>
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate DataType="{x:Type models:MediaItemModel}">
-                                    <Border Background="{StaticResource BackgroundMainBrush}"
-                                            BorderBrush="{StaticResource BorderLineBrush}"
-                                            BorderThickness="1"
-                                            CornerRadius="6"
-                                            Padding="8"
-                                            Margin="0,0,8,0">
-                                        <StackPanel Orientation="Horizontal">
-                                            <Path Data="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"
-                                                   Fill="{StaticResource TextSecondaryBrush}"
-                                                   Width="16"
-                                                   Height="16"
-                                                   Stretch="Uniform"
-                                                   Margin="0,0,8,0"/>
-                                            
-                                            <TextBlock Text="{Binding FileName}"
-                                                       Foreground="{StaticResource TextPrimaryBrush}"
-                                                       FontSize="12"
-                                                       MaxWidth="100"
-                                                       TextTrimming="CharacterEllipsis"
-                                                       VerticalAlignment="Center"/>
-                                            
-                                            <Button Command="{Binding DataContext.RemoveRegionAudioCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    CommandParameter="{Binding}"
-                                                    Background="Transparent"
-                                                    BorderThickness="0"
-                                                    Padding="4,0,0,0"
-                                                    Cursor="Hand">
-                                                <Path Data="M6 6L14 14 M14 6L6 14"
-                                                       Stroke="{StaticResource TextSecondaryBrush}"
-                                                       StrokeThickness="2"
-                                                       Width="12"
-                                                       Height="12"
-                                                       Stretch="Uniform"/>
-                                            </Button>
-                                        </StackPanel>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                        <!-- Import Audio Button -->
+                        <Button Command="{Binding ImportRegionAudioCommand}"
+                                Visibility="{Binding CanAddAudio, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                Background="{StaticResource BackgroundMainBrush}"
+                                BorderBrush="{StaticResource BorderLineBrush}"
+                                BorderThickness="1"
+                                Width="36"
+                                Height="36"
+                                ToolTip="Import Audio (max 5)"
+                                Cursor="Hand">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border Background="{TemplateBinding Background}"
+                                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                                        CornerRadius="18"
+                                                        Width="{TemplateBinding Width}"
+                                                        Height="{TemplateBinding Height}">
+                                                    <ContentPresenter HorizontalAlignment="Center" 
+                                                                      VerticalAlignment="Center"/>
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                            <Path Data="M12 3V13.55C11.41 13.21 10.73 13 10 13C8.34 13 7 14.34 7 16C7 17.66 8.34 19 10 19C11.66 19 13 17.66 13 16V5H18V3H12Z"
+                                  Fill="{StaticResource IconBrush}"
+                                  Width="16"
+                                  Height="16"
+                                  Stretch="Uniform"/>
+                        </Button>
                     </StackPanel>
                 </Grid>
+
+                <!-- Media Display Area (only visible when at least one resource is imported) -->
+                <StackPanel Grid.Row="1"
+                            Visibility="{Binding HasRegionMedia, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    
+                    <!-- Visual Content Block -->
+                    <Border Background="{StaticResource BackgroundMainBrush}"
+                            BorderBrush="{StaticResource BorderLineBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="12"
+                            Margin="0,0,0,8"
+                            Visibility="{Binding SelectedRegion.VisualContent, Converter={StaticResource NullToVisibilityConverter}}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            
+                            <!-- Thumbnail/Icon -->
+                            <Border Grid.Column="0"
+                                    Width="48" Height="48"
+                                    Background="{StaticResource BackgroundBlockBrush}"
+                                    CornerRadius="4"
+                                    Margin="0,0,12,0">
+                                <Grid>
+                                    <Image Source="{Binding SelectedRegion.VisualContent.ThumbnailPath}"
+                                           Stretch="Uniform"
+                                           Visibility="{Binding SelectedRegion.VisualContent.ThumbnailPath, Converter={StaticResource StringEmptyToVisibilityConverter}}"/>
+                                    <Path Data="M10 16.5l6-4.5-6-4.5v9zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"
+                                          Fill="{StaticResource IconBrush}"
+                                          Width="24" Height="24"
+                                          Stretch="Uniform"
+                                          Visibility="{Binding SelectedRegion.VisualContent.ThumbnailPath, Converter={StaticResource InverseStringEmptyToVisibilityConverter}}"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"/>
+                                </Grid>
+                            </Border>
+                            
+                            <!-- File Info -->
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding SelectedRegion.VisualContent.FileName}"
+                                           Foreground="{StaticResource TextPrimaryBrush}"
+                                           FontSize="13"
+                                           TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Text="{Binding SelectedRegion.VisualContent.Format, StringFormat='{}{0} file'}"
+                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                           FontSize="11"
+                                           Margin="0,2,0,0"/>
+                            </StackPanel>
+                            
+                            <!-- Remove Button -->
+                            <Button Grid.Column="2"
+                                    Command="{Binding RemoveRegionVisualCommand}"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Cursor="Hand"
+                                    VerticalAlignment="Center"
+                                    Padding="8">
+                                <Path Data="M6 6L14 14 M14 6L6 14"
+                                      Stroke="{StaticResource TextSecondaryBrush}"
+                                      StrokeThickness="2"
+                                      Width="12" Height="12"
+                                      Stretch="Uniform"/>
+                            </Button>
+                        </Grid>
+                    </Border>
+                    
+                    <!-- Audio Content List -->
+                    <ItemsControl ItemsSource="{Binding SelectedRegion.AudioContent}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type models:MediaItemModel}">
+                                <Border Background="{StaticResource BackgroundMainBrush}"
+                                        BorderBrush="{StaticResource BorderLineBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        Padding="12"
+                                        Margin="0,0,0,8">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        
+                                        <!-- Audio Icon -->
+                                        <Border Grid.Column="0"
+                                                Width="48" Height="48"
+                                                Background="{StaticResource BackgroundBlockBrush}"
+                                                CornerRadius="4"
+                                                Margin="0,0,12,0">
+                                            <Path Data="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"
+                                                  Fill="{StaticResource IconBrush}"
+                                                  Width="24" Height="24"
+                                                  Stretch="Uniform"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"/>
+                                        </Border>
+                                        
+                                        <!-- File Info -->
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding FileName}"
+                                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                                       FontSize="13"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Text="{Binding Format, StringFormat='{}{0} file'}"
+                                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                                       FontSize="11"
+                                                       Margin="0,2,0,0"/>
+                                        </StackPanel>
+                                        
+                                        <!-- Remove Button -->
+                                        <Button Grid.Column="2"
+                                                Command="{Binding DataContext.RemoveRegionAudioCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding}"
+                                                Background="Transparent"
+                                                BorderThickness="0"
+                                                Cursor="Hand"
+                                                VerticalAlignment="Center"
+                                                Padding="8">
+                                            <Path Data="M6 6L14 14 M14 6L6 14"
+                                                  Stroke="{StaticResource TextSecondaryBrush}"
+                                                  StrokeThickness="2"
+                                                  Width="12" Height="12"
+                                                  Stretch="Uniform"/>
+                                        </Button>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
             </Grid>
         </Border>
     </Grid>
