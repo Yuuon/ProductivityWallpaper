@@ -23,28 +23,8 @@
         <converters:PercentageToPixelConverter x:Key="PercentageToPixelConverter"/>
         <converters:PercentageToPixelMultiConverter x:Key="PercentageToPixelMultiConverter"/>
 
-        <!-- Region Enter/Exit Animations -->
-        <Storyboard x:Key="RegionEnterAnimation">
-            <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                             From="0" To="1" Duration="0:0:0.2">
-                <DoubleAnimation.EasingFunction>
-                    <QuadraticEase EasingMode="EaseOut"/>
-                </DoubleAnimation.EasingFunction>
-            </DoubleAnimation>
-        </Storyboard>
-        
-        <Storyboard x:Key="RegionExitAnimation">
-            <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                             From="1" To="0" Duration="0:0:0.2">
-                <DoubleAnimation.EasingFunction>
-                    <QuadraticEase EasingMode="EaseIn"/>
-                </DoubleAnimation.EasingFunction>
-            </DoubleAnimation>
-        </Storyboard>
-        
         <!-- Region Item Template -->
         <DataTemplate x:Key="RegionItemTemplate" DataType="{x:Type models:ClickRegionModel}">
-            <!-- Opacity starts at 0 and animates to 1 via RegionEnterAnimation on Loaded -->
             <Grid ClipToBounds="False">
                 <Grid.Width>
                     <MultiBinding Converter="{StaticResource PercentageToPixelMultiConverter}">
