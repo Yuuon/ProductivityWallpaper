@@ -23,70 +23,36 @@
         <converters:PercentageToPixelConverter x:Key="PercentageToPixelConverter"/>
         <converters:PercentageToPixelMultiConverter x:Key="PercentageToPixelMultiConverter"/>
 
-        <!-- Region Enter/Exit Animations -->
-        <Storyboard x:Key="RegionEnterAnimation">
-            <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                             From="0" To="1" Duration="0:0:0.2">
-                <DoubleAnimation.EasingFunction>
-                    <QuadraticEase EasingMode="EaseOut"/>
-                </DoubleAnimation.EasingFunction>
-            </DoubleAnimation>
-        </Storyboard>
-        
-        <Storyboard x:Key="RegionExitAnimation">
-            <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                             From="1" To="0" Duration="0:0:0.2">
-                <DoubleAnimation.EasingFunction>
-                    <QuadraticEase EasingMode="EaseIn"/>
-                </DoubleAnimation.EasingFunction>
-            </DoubleAnimation>
-        </Storyboard>
-        
         <!-- Region Item Template -->
         <DataTemplate x:Key="RegionItemTemplate" DataType="{x:Type models:ClickRegionModel}">
-            <Grid Opacity="0">
+            <Grid ClipToBounds="False">
                 <Grid.Width>
                     <MultiBinding Converter="{StaticResource PercentageToPixelMultiConverter}">
                         <Binding Path="Width"/>
-                        <Binding Path="ActualWidth" RelativeSource="{RelativeSource AncestorType=Canvas}"/>
+                        <Binding Path="ActualWidth" ElementName="RegionCanvas"/>
                     </MultiBinding>
                 </Grid.Width>
                 <Grid.Height>
                     <MultiBinding Converter="{StaticResource PercentageToPixelMultiConverter}">
                         <Binding Path="Height"/>
-                        <Binding Path="ActualHeight" RelativeSource="{RelativeSource AncestorType=Canvas}"/>
+                        <Binding Path="ActualHeight" ElementName="RegionCanvas"/>
                     </MultiBinding>
                 </Grid.Height>
-                <Canvas.Left>
-                    <MultiBinding Converter="{StaticResource PercentageToPixelMultiConverter}">
-                        <Binding Path="X"/>
-                        <Binding Path="ActualWidth" RelativeSource="{RelativeSource AncestorType=Canvas}"/>
-                    </MultiBinding>
-                </Canvas.Left>
-                <Canvas.Top>
-                    <MultiBinding Converter="{StaticResource PercentageToPixelMultiConverter}">
-                        <Binding Path="Y"/>
-                        <Binding Path="ActualHeight" RelativeSource="{RelativeSource AncestorType=Canvas}"/>
-                    </MultiBinding>
-                </Canvas.Top>
-                <Grid.Triggers>
-                    <EventTrigger RoutedEvent="Loaded">
-                        <BeginStoryboard Storyboard="{StaticResource RegionEnterAnimation}"/>
-                    </EventTrigger>
-                </Grid.Triggers>
                 <Rectangle x:Name="RegionRect"
-                           Fill="#40FFFFFF"
-                           Stroke="#80FFFFFF"
-                           StrokeThickness="1"
+                           Fill="#3000A8FF"
+                           Stroke="#8000A8FF"
+                           StrokeThickness="2"
+                           StrokeDashArray="4 2"
                            RadiusX="4"
                            RadiusY="4">
                     <Rectangle.Style>
                         <Style TargetType="Rectangle">
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                                    <Setter Property="Fill" Value="#60FFFFFF"/>
+                                    <Setter Property="Fill" Value="#5000A8FF"/>
                                     <Setter Property="Stroke" Value="{StaticResource AccentBrush}"/>
                                     <Setter Property="StrokeThickness" Value="2"/>
+                                    <Setter Property="StrokeDashArray" Value="1 0"/>
                                     <Setter Property="Effect">
                                         <Setter.Value>
                                             <DropShadowEffect ShadowDepth="0" 
@@ -113,15 +79,15 @@
                     </TextBlock.Effect>
                 </TextBlock>
                 
-                <!-- Delete Button -->
+                <!-- Delete Button (top-right corner inside the region) -->
                 <Button x:Name="DeleteButton"
                         Command="{Binding DataContext.DeleteRegionCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                         CommandParameter="{Binding}"
-                        Width="20"
-                        Height="20"
+                        Width="24"
+                        Height="24"
                         HorizontalAlignment="Right"
                         VerticalAlignment="Top"
-                        Margin="0,-10,-10,0"
+                        Margin="0,4,4,0"
                         Background="{StaticResource DangerBrush}"
                         BorderThickness="0"
                         Cursor="Hand"
@@ -129,16 +95,21 @@
                     <Button.Template>
                         <ControlTemplate TargetType="Button">
                             <Grid>
-                                <Ellipse Fill="{TemplateBinding Background}" Stroke="White" StrokeThickness="1"/>
+                                <Ellipse x:Name="ButtonBg" Fill="{TemplateBinding Background}" Stroke="White" StrokeThickness="1.5"/>
                                 <Path Data="M6 6L14 14 M14 6L6 14"
                                       Stroke="White"
                                       StrokeThickness="2"
-                                      Width="12"
-                                      Height="12"
+                                      Width="10"
+                                      Height="10"
                                       Stretch="Uniform"
                                       HorizontalAlignment="Center"
                                       VerticalAlignment="Center"/>
                             </Grid>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="ButtonBg" Property="Fill" Value="#FF3333"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
                         </ControlTemplate>
                     </Button.Template>
                 </Button>
@@ -270,20 +241,19 @@
                    Style="{StaticResource SubHeaderTextStyle}"
                    Margin="32,16,42,24"/>
 
-        <!-- Section 3: Main Content (2 columns) -->
+        <!-- Section 3: Main Content (Two columns: Region Editor + Available Media) -->
         <Grid Grid.Row="2" Margin="32,0,42,24">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" MinWidth="400"/>
-                <ColumnDefinition Width="280"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="260"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Left Column: Region Editor -->
+            <!-- Region Editor -->
             <Border Grid.Column="0"
                     Background="{StaticResource BackgroundBlockBrush}"
                     BorderBrush="{StaticResource BorderLineBrush}"
                     BorderThickness="1"
-                    CornerRadius="10"
-                    Margin="0,0,16,0">
+                    CornerRadius="10">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -374,7 +344,10 @@
                                 
                                 <!-- Canvas for Regions -->
                                 <Canvas x:Name="RegionCanvas"
+                                        Width="1920"
+                                        Height="1080"
                                         Background="Transparent"
+                                        ClipToBounds="False"
                                         Cursor="{Binding IsAddingMode, Converter={StaticResource BooleanToCursorConverter}}"
                                         MouseLeftButtonDown="OnCanvasMouseLeftButtonDown"
                                         MouseMove="OnCanvasMouseMove"
@@ -384,9 +357,29 @@
                                                   ItemTemplate="{StaticResource RegionItemTemplate}">
                                         <ItemsControl.ItemsPanel>
                                             <ItemsPanelTemplate>
-                                                <Canvas IsItemsHost="True"/>
+                                                <Canvas IsItemsHost="True" ClipToBounds="False"/>
                                             </ItemsPanelTemplate>
                                         </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemContainerStyle>
+                                            <Style TargetType="ContentPresenter">
+                                                <Setter Property="Canvas.Left">
+                                                    <Setter.Value>
+                                                        <MultiBinding Converter="{StaticResource PercentageToPixelMultiConverter}">
+                                                            <Binding Path="X"/>
+                                                            <Binding Path="ActualWidth" ElementName="RegionCanvas"/>
+                                                        </MultiBinding>
+                                                    </Setter.Value>
+                                                </Setter>
+                                                <Setter Property="Canvas.Top">
+                                                    <Setter.Value>
+                                                        <MultiBinding Converter="{StaticResource PercentageToPixelMultiConverter}">
+                                                            <Binding Path="Y"/>
+                                                            <Binding Path="ActualHeight" ElementName="RegionCanvas"/>
+                                                        </MultiBinding>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Style>
+                                        </ItemsControl.ItemContainerStyle>
                                     </ItemsControl>
                                 </Canvas>
                             </Grid>
@@ -395,7 +388,7 @@
                 </Grid>
             </Border>
 
-            <!-- Right Column: Media List -->
+            <!-- Right Panel: Available Wallpaper Media -->
             <Border Grid.Column="1"
                     Background="{StaticResource BackgroundBlockBrush}"
                     BorderBrush="{StaticResource BorderLineBrush}"
@@ -408,62 +401,46 @@
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
+                    <!-- Header -->
                     <TextBlock Grid.Row="0"
-                               Text="Available Media"
+                               Text="Available Wallpapers"
                                Foreground="{StaticResource TextPrimaryBrush}"
                                FontSize="14"
                                FontWeight="SemiBold"
-                               Margin="16,12,16,8"/>
+                               Margin="16,12"/>
 
+                    <!-- Media List -->
                     <ScrollViewer Grid.Row="1"
                                   VerticalScrollBarVisibility="Auto"
-                                  Margin="12,0,12,12">
+                                  Margin="8,0,8,8">
                         <ItemsControl ItemsSource="{Binding AvailableMedia}"
-                                      ItemTemplate="{StaticResource MediaItemTemplate}">
-                            <ItemsControl.Style>
-                                <Style TargetType="ItemsControl">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding AvailableMedia.Count}" Value="0">
-                                            <Setter Property="Template">
-                                                <Setter.Value>
-                                                    <ControlTemplate>
-                                                        <StackPanel VerticalAlignment="Center"
-                                                                    HorizontalAlignment="Center"
-                                                                    Margin="20">
-                                                            <Path Data="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
-                                                                   Fill="{StaticResource TextSecondaryBrush}"
-                                                                   Width="48"
-                                                                   Height="48"
-                                                                   Stretch="Uniform"
-                                                                   Margin="0,0,0,12"
-                                                                   Opacity="0.5"/>
-                                                            
-                                                            <TextBlock Text="No media available"
-                                                                       Foreground="{StaticResource TextSecondaryBrush}"
-                                                                       FontSize="13"
-                                                                       TextAlignment="Center"/>
-                                                            
-                                                            <TextBlock Text="Import media in Desktop Background"
-                                                                       Foreground="{StaticResource TextSecondaryBrush}"
-                                                                       FontSize="11"
-                                                                       TextAlignment="Center"
-                                                                       Margin="0,4,0,0"
-                                                                       Opacity="0.7"/>
-                                                        </StackPanel>
-                                                    </ControlTemplate>
-                                                </Setter.Value>
-                                            </Setter>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </ItemsControl.Style>
-                        </ItemsControl>
+                                      ItemTemplate="{StaticResource MediaItemTemplate}"/>
                     </ScrollViewer>
+
+                    <!-- Empty State (shown when no items) -->
+                    <TextBlock Grid.Row="1"
+                               Text="No wallpaper media available.&#x0a;Import media in Desktop Background first."
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               FontSize="12"
+                               TextAlignment="Center"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding AvailableMedia.Count}" Value="0">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                 </Grid>
             </Border>
         </Grid>
 
-        <!-- Section 4: Configuration Panel -->
+        <!-- Section 4: Region Configuration Panel (visible when a region is selected) -->
         <Border Grid.Row="3"
                 Background="{StaticResource BackgroundBlockBrush}"
                 BorderBrush="{StaticResource BorderLineBrush}"
@@ -485,7 +462,7 @@
                            FontWeight="SemiBold"
                            Margin="0,0,0,12"/>
 
-                <!-- Import Buttons -->
+                <!-- Import Buttons (original text button style with limitation descriptions) -->
                 <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,12">
                     <Button Content="+ Import Image or Video (1 only)"
                             Command="{Binding ImportRegionVisualCommand}"
@@ -531,17 +508,7 @@
                                        Width="16"
                                        Height="16"
                                        Stretch="Uniform"
-                                       Margin="0,0,8,0">
-                                    <Path.Style>
-                                        <Style TargetType="Path">
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding SelectedRegion.VisualContent.Type}" Value="{x:Static models:MediaFileType.Image}">
-                                                    <Setter Property="Data" Value="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Path.Style>
-                                </Path>
+                                       Margin="0,0,8,0"/>
                                 
                                 <TextBlock Text="{Binding SelectedRegion.VisualContent.FileName}"
                                            Foreground="{StaticResource TextPrimaryBrush}"

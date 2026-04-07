@@ -658,7 +658,7 @@
                     
                     <!-- Section 3: Supported Formats Info -->
                     <StackPanel Margin="0,0,0,24">
-                        <TextBlock Text="Supported formats: JPG, PNG, WebP, BMP, HEIC, SVG, GIF, APNG, MP4, MOV, WebM"
+                        <TextBlock Text="Supported formats: JPG, PNG, WebP, BMP, HEIC, SVG, GIF, APNG, MP4, MOV, WebM, MP3, WAV, OGG, FLAC, AAC, WMA, M4A"
                                   Foreground="{StaticResource TextSecondaryBrush}"
                                   FontSize="13"
                                   Margin="0,0,0,4"/>
@@ -674,68 +674,109 @@
                     </StackPanel>
                     
                     
-                    <!-- Section 4: Upload Area -->
-                    <Border Background="{StaticResource BackgroundBlockBrush}"
-                           BorderBrush="{StaticResource BorderLineBrush}"
-                           BorderThickness="1"
-                           CornerRadius="10"
-                           Padding="48"
-                           MinHeight="280">
-                        <Border.Style>
-                            <Style TargetType="Border">
-                                <Setter Property="BorderBrush" Value="{StaticResource BorderLineBrush}"/>
-                                <Setter Property="BorderThickness" Value="1"/>
-                                <Style.Triggers>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
-                                    </Trigger>
-                                </Style.Triggers>
+                    <!-- Section 4: Image/Video Upload Area -->
+                    <Button Command="{Binding ImportMediaCommand}"
+                            Cursor="Hand"
+                            Margin="0,0,0,16">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="UploadBorder"
+                                                    Background="{StaticResource BackgroundBlockBrush}"
+                                                    BorderBrush="{StaticResource BorderLineBrush}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="10"
+                                                    Padding="48"
+                                                    MinHeight="280">
+                                                <StackPanel HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center">
+                                                    <!-- Upload Icon -->
+                                                    <Path Data="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14C0 17.31 2.69 20 6 20H19C21.76 20 24 17.76 24 15C24 12.36 21.95 10.22 19.35 10.04ZM14 13V17H10V13H7L12 8L17 13H14Z"
+                                                          Fill="{StaticResource IconBrush}"
+                                                          Width="64"
+                                                          Height="64"
+                                                          Stretch="Uniform"
+                                                          HorizontalAlignment="Center"
+                                                          Margin="0,0,0,24"/>
+                                                    
+                                                    <TextBlock Text="Click to Import Media"
+                                                              Foreground="{StaticResource TextPrimaryBrush}"
+                                                              FontSize="16"
+                                                              FontWeight="SemiBold"
+                                                              TextAlignment="Center"
+                                                              Margin="0,0,0,8"/>
+                                                    
+                                                    <TextBlock Text="or drag and drop files here"
+                                                              Foreground="{StaticResource TextSecondaryBrush}"
+                                                              FontSize="13"
+                                                              TextAlignment="Center"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="UploadBorder" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
                             </Style>
-                        </Border.Style>
-                        
-                        <Button Command="{Binding ImportMediaCommand}"
-                                Background="Transparent"
-                                BorderThickness="0"
-                                HorizontalAlignment="Stretch"
-                                VerticalAlignment="Stretch">
-                            <Button.Style>
-                                <Style TargetType="Button">
-                                    <Setter Property="Template">
-                                        <Setter.Value>
-                                            <ControlTemplate TargetType="Button">
-                                                <ContentPresenter HorizontalAlignment="Center" 
-                                                                  VerticalAlignment="Center"/>
-                                            </ControlTemplate>
-                                        </Setter.Value>
-                                    </Setter>
-                                </Style>
-                            </Button.Style>
-                            
-                            <StackPanel HorizontalAlignment="Center"
-                                       VerticalAlignment="Center">
-                                <!-- Upload Icon -->
-                                <Path Data="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14C0 17.31 2.69 20 6 20H19C21.76 20 24 17.76 24 15C24 12.36 21.95 10.22 19.35 10.04ZM14 13V17H10V13H7L12 8L17 13H14Z"
-                                      Fill="{StaticResource IconBrush}"
-                                      Width="64"
-                                      Height="64"
-                                      Stretch="Uniform"
-                                      HorizontalAlignment="Center"
-                                      Margin="0,0,0,24"/>
-                                
-                                <TextBlock Text="Click to Import"
-                                          Foreground="{StaticResource TextPrimaryBrush}"
-                                          FontSize="16"
-                                          FontWeight="SemiBold"
-                                          TextAlignment="Center"
-                                          Margin="0,0,0,8"/>
-                                
-                                <TextBlock Text="or drag and drop files here"
-                                          Foreground="{StaticResource TextSecondaryBrush}"
-                                          FontSize="13"
-                                          TextAlignment="Center"/>
-                            </StackPanel>
-                        </Button>
-                    </Border>
+                        </Button.Style>
+                    </Button>
+                    
+                    <!-- Section 5: Audio Upload Area (visible when IncludeAudio is true) -->
+                    <Button Command="{Binding ImportAudioCommand}"
+                            Cursor="Hand"
+                            Visibility="{Binding IncludeAudio, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="AudioUploadBorder"
+                                                    Background="{StaticResource BackgroundBlockBrush}"
+                                                    BorderBrush="{StaticResource BorderLineBrush}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="10"
+                                                    Padding="32"
+                                                    MinHeight="160">
+                                                <StackPanel HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center">
+                                                    <!-- Audio Icon -->
+                                                    <Path Data="M12 3V13.55C11.41 13.21 10.73 13 10 13C8.34 13 7 14.34 7 16C7 17.66 8.34 19 10 19C11.66 19 13 17.66 13 16V5H18V3H12Z"
+                                                          Fill="{StaticResource IconBrush}"
+                                                          Width="48"
+                                                          Height="48"
+                                                          Stretch="Uniform"
+                                                          HorizontalAlignment="Center"
+                                                          Margin="0,0,0,16"/>
+                                                    
+                                                    <TextBlock Text="Click to Import Audio"
+                                                              Foreground="{StaticResource TextPrimaryBrush}"
+                                                              FontSize="16"
+                                                              FontWeight="SemiBold"
+                                                              TextAlignment="Center"
+                                                              Margin="0,0,0,8"/>
+                                                    
+                                                    <TextBlock Text="MP3, WAV, OGG, FLAC, AAC, WMA, M4A"
+                                                              Foreground="{StaticResource TextSecondaryBrush}"
+                                                              FontSize="13"
+                                                              TextAlignment="Center"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="AudioUploadBorder" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </Button.Style>
+                    </Button>
                 </StackPanel>
             </ScrollViewer>
         </Border>
@@ -766,14 +807,15 @@
                                    Orientation="Horizontal"
                                    HorizontalAlignment="Right">
                             
-                             <!-- Continue Import Button -->
+                             <!-- Continue Import Button (Image/Video) -->
                              <Button Command="{Binding ImportMediaCommand}"
                                      Background="{StaticResource BackgroundBlockBrush}"
                                      BorderBrush="{StaticResource BorderLineBrush}"
                                      BorderThickness="1"
                                      Width="36"
                                      Height="36"
-                                     Margin="0,0,8,0">
+                                     Margin="0,0,8,0"
+                                     ToolTip="Import Image/Video">
                                  <Button.Style>
                                      <Style TargetType="Button">
                                          <Setter Property="Template">
@@ -802,6 +844,48 @@
                                  <Path Data="M12 5V19M5 12H19"
                                        Stroke="{StaticResource IconBrush}"
                                        StrokeThickness="2"
+                                       Width="16"
+                                       Height="16"
+                                       Stretch="Uniform"/>
+                             </Button>
+                             
+                             <!-- Import Audio Button (only visible when IncludeAudio) -->
+                             <Button Command="{Binding ImportAudioCommand}"
+                                     Background="{StaticResource BackgroundBlockBrush}"
+                                     BorderBrush="{StaticResource BorderLineBrush}"
+                                     BorderThickness="1"
+                                     Width="36"
+                                     Height="36"
+                                     Margin="0,0,8,0"
+                                     ToolTip="Import Audio"
+                                     Visibility="{Binding IncludeAudio, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                 <Button.Style>
+                                     <Style TargetType="Button">
+                                         <Setter Property="Template">
+                                             <Setter.Value>
+                                                 <ControlTemplate TargetType="Button">
+                                                     <Border Background="{TemplateBinding Background}"
+                                                             BorderBrush="{TemplateBinding BorderBrush}"
+                                                             BorderThickness="{TemplateBinding BorderThickness}"
+                                                             CornerRadius="18"
+                                                             Width="{TemplateBinding Width}"
+                                                             Height="{TemplateBinding Height}">
+                                                        <ContentPresenter HorizontalAlignment="Center" 
+                                                                          VerticalAlignment="Center"/>
+                                                    </Border>
+                                                 </ControlTemplate>
+                                             </Setter.Value>
+                                         </Setter>
+                                         <Style.Triggers>
+                                             <Trigger Property="IsMouseOver" Value="True">
+                                                 <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+                                             </Trigger>
+                                         </Style.Triggers>
+                                     </Style>
+                                 </Button.Style>
+                                 
+                                 <Path Data="M12 3V13.55C11.41 13.21 10.73 13 10 13C8.34 13 7 14.34 7 16C7 17.66 8.34 19 10 19C11.66 19 13 17.66 13 16V5H18V3H12Z"
+                                       Fill="{StaticResource IconBrush}"
                                        Width="16"
                                        Height="16"
                                        Stretch="Uniform"/>

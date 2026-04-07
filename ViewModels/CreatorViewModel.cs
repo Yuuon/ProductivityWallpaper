@@ -155,7 +155,8 @@ namespace ProductivityWallpaper.ViewModels
         }
 
         /// <summary>
-        /// Central handler for feature expansion. Collapses others, sets state, loads content.
+        /// Central handler for feature expansion. Collapses others and ensures default scheme exists.
+        /// Does NOT load content — content is only loaded when a scheme is explicitly selected.
         /// </summary>
         private void HandleFeatureExpanded(FeatureType expandedFeature)
         {
@@ -176,14 +177,6 @@ namespace ProductivityWallpaper.ViewModels
 
             // Auto-create default scheme if needed
             EnsureDefaultScheme(expandedFeature);
-
-            // Set current state (this also clears stale selections via OnCurrentStateChanged)
-            if (Enum.TryParse<CreatorViewState>(expandedFeature.ToString(), out var state))
-            {
-                CurrentState = state;
-            }
-
-            LoadFeatureContent(expandedFeature.ToString());
         }
 
         // --- Selected Schemes for Each Feature ---
@@ -709,6 +702,22 @@ namespace ProductivityWallpaper.ViewModels
                         featureVm.SchemeName = selectedScheme.Name;
                     }
 
+                    // Subscribe to property changes for dirty tracking
+                    cachedVm.PropertyChanged += OnChildViewModelPropertyChanged;
+
+                    // For media VMs, subscribe to collection changes
+                    if (cachedVm is MediaConfigurationViewModel mediaVm)
+                    {
+                        mediaVm.ImageVideoItems.CollectionChanged += (_, _) => MarkDirty();
+                        mediaVm.AudioItems.CollectionChanged += (_, _) => MarkDirty();
+                    }
+
+                    // For mouse click VMs, subscribe to region collection changes
+                    if (cachedVm is MouseClickViewModel mouseVm)
+                    {
+                        mouseVm.Regions.CollectionChanged += (_, _) => MarkDirty();
+                    }
+
                     _schemeViewModelCache[cacheKey] = cachedVm;
                 }
 
@@ -768,6 +777,7 @@ namespace ProductivityWallpaper.ViewModels
 
             try
             {
+                SyncToTheme();
                 await _themeService.SaveThemeAsync(CurrentTheme, isBackup: false);
                 IsDirty = false;
                 SaveStatusMessage = "Saved";
@@ -810,6 +820,7 @@ namespace ProductivityWallpaper.ViewModels
 
             try
             {
+                SyncToTheme();
                 var progress = new Progress<string>(msg =>
                     SaveStatusMessage = $"Exporting: {msg}");
 
@@ -851,6 +862,7 @@ namespace ProductivityWallpaper.ViewModels
 
             try
             {
+                SyncToTheme();
                 // Silent backup save — does NOT reset IsDirty
                 await _themeService.SaveThemeAsync(CurrentTheme, isBackup: true);
                 Debug.WriteLine("[AutoSave] Backup saved successfully");
@@ -877,6 +889,278 @@ namespace ProductivityWallpaper.ViewModels
             _autoSaveTimer?.Start();
         }
 
+        /// <summary>
+        /// Loads an existing saved theme into the creator for editing.
+        /// Populates scheme collections and caches from the theme manifest.
+        /// </summary>
+        public async Task LoadExistingThemeAsync(string themeName)
+        {
+            var theme = await _themeService.LoadThemeAsync(themeName);
+            if (theme == null)
+            {
+                Debug.WriteLine($"[CreatorViewModel] Failed to load theme: {themeName}");
+                return;
+            }
+
+            // Clear existing state
+            _schemeViewModelCache.Clear();
+            foreach (var featureType in MultiSchemeFeatures)
+            {
+                _schemesByFeature[featureType].Clear();
+            }
+
+            // Set the current theme
+            CurrentTheme = theme;
+            _loadedThemeName = themeName;
+            _themeService.CurrentTheme = theme;
+            CurrentThemeName = theme.Name;
+
+            // Restore scheme collections from the loaded theme
+            RestoreSchemes(FeatureType.DesktopBackground, theme.DesktopBackgroundSchemes);
+            RestoreSchemes(FeatureType.MouseClick, theme.MouseClickSchemes);
+            RestoreSchemes(FeatureType.Shutdown, theme.ShutdownSchemes);
+            RestoreSchemes(FeatureType.BootRestart, theme.BootRestartSchemes);
+            RestoreSchemes(FeatureType.ScreenWake, theme.ScreenWakeSchemes);
+
+            // Navigate to creating page
+            IsWelcomePage = false;
+            IsCreatingPage = true;
+            IsDirty = false;
+            SelectFeature("ThemePreview");
+
+            // Start auto-save timer
+            _autoSaveTimer?.Start();
+
+            Debug.WriteLine($"[CreatorViewModel] Loaded existing theme: {themeName}");
+        }
+
+        /// <summary>
+        /// Restores scheme collection from loaded theme data. For each scheme,
+        /// pre-populates the ViewModel cache with media items from ResourceLibrary.
+        /// </summary>
+        private void RestoreSchemes(FeatureType featureType, ObservableCollection<SchemeModel> schemes)
+        {
+            if (!_schemesByFeature.ContainsKey(featureType)) return;
+
+            foreach (var scheme in schemes)
+            {
+                scheme.FeatureType = featureType;
+                _schemesByFeature[featureType].Add(scheme);
+
+                // Pre-populate ViewModel cache from scheme data
+                try
+                {
+                    var vm = _featureVmFactory.Create(featureType);
+
+                    if (vm is IFeatureViewModel featureVm)
+                    {
+                        featureVm.SchemeName = scheme.Name;
+                    }
+
+                    // Restore media items from ResourceLibrary references
+                    if (vm is MediaConfigurationViewModel mediaVm && CurrentTheme != null)
+                    {
+                        foreach (var resourceId in scheme.DesktopBackgroundMedia.MediaIds)
+                        {
+                            var mediaItem = ResolveMediaItem(resourceId);
+                            if (mediaItem != null)
+                                mediaVm.ImageVideoItems.Add(mediaItem);
+                        }
+                        mediaVm.SelectedPlaybackMode = scheme.DesktopBackgroundMedia.PlaybackMode;
+
+                        foreach (var resourceId in scheme.EventMedia.MediaIds)
+                        {
+                            var mediaItem = ResolveMediaItem(resourceId);
+                            if (mediaItem != null)
+                                mediaVm.AudioItems.Add(mediaItem);
+                        }
+                        mediaVm.SelectedAudioPlaybackMode = scheme.EventMedia.PlaybackMode;
+                    }
+
+                    // Restore mouse click regions
+                    if (vm is MouseClickViewModel mouseVm)
+                    {
+                        foreach (var region in scheme.ClickRegions)
+                        {
+                            mouseVm.Regions.Add(region);
+                        }
+                    }
+
+                    // Subscribe to changes
+                    vm.PropertyChanged += OnChildViewModelPropertyChanged;
+                    if (vm is MediaConfigurationViewModel mvm)
+                    {
+                        mvm.ImageVideoItems.CollectionChanged += (_, _) => MarkDirty();
+                        mvm.AudioItems.CollectionChanged += (_, _) => MarkDirty();
+                    }
+                    if (vm is MouseClickViewModel mcvm)
+                    {
+                        mcvm.Regions.CollectionChanged += (_, _) => MarkDirty();
+                    }
+
+                    _schemeViewModelCache[scheme.Id] = vm;
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[CreatorViewModel] Failed to restore scheme {scheme.Name}: {ex.Message}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Resolves a resource ID to a MediaItemModel by looking up the ResourceLibrary.
+        /// </summary>
+        private MediaItemModel? ResolveMediaItem(string resourceId)
+        {
+            if (CurrentTheme == null) return null;
+
+            var resource = CurrentTheme.ResourceLibrary.GetById(resourceId);
+            if (resource == null)
+            {
+                Debug.WriteLine($"[CreatorViewModel] Resource not found: {resourceId}");
+                return null;
+            }
+
+            var item = new MediaItemModel(resource.SourcePath)
+            {
+                Type = resource.Type switch
+                {
+                    MediaType.Image => MediaFileType.Image,
+                    MediaType.Video => MediaFileType.Video,
+                    MediaType.Audio => MediaFileType.Audio,
+                    _ => MediaFileType.Image
+                },
+                FileSize = resource.FileSize,
+                Duration = resource.Duration,
+                DisplayMode = DisplayMode.Fill
+            };
+
+            // Set thumbnail for images
+            if (resource.Type == MediaType.Image && !string.IsNullOrEmpty(resource.SourcePath))
+            {
+                item.ThumbnailPath = resource.SourcePath;
+            }
+
+            return item;
+        }
+
+        // ==================== Sync to Theme ====================
+
+        /// <summary>
+        /// Synchronizes all in-memory scheme data and cached ViewModel data
+        /// back into CurrentTheme so it can be correctly serialized.
+        /// Registers media files as ResourceEntry objects in ResourceLibrary and
+        /// stores ResourceEntry IDs (not raw file paths) in scheme MediaReferenceList.
+        /// </summary>
+        private void SyncToTheme()
+        {
+            if (CurrentTheme == null) return;
+
+            // 1. Sync scheme collections from _schemesByFeature to CurrentTheme
+            CurrentTheme.DesktopBackgroundSchemes = new ObservableCollection<SchemeModel>(
+                _schemesByFeature[FeatureType.DesktopBackground]);
+            CurrentTheme.MouseClickSchemes = new ObservableCollection<SchemeModel>(
+                _schemesByFeature[FeatureType.MouseClick]);
+            CurrentTheme.ShutdownSchemes = new ObservableCollection<SchemeModel>(
+                _schemesByFeature[FeatureType.Shutdown]);
+            CurrentTheme.BootRestartSchemes = new ObservableCollection<SchemeModel>(
+                _schemesByFeature[FeatureType.BootRestart]);
+            CurrentTheme.ScreenWakeSchemes = new ObservableCollection<SchemeModel>(
+                _schemesByFeature[FeatureType.ScreenWake]);
+
+            // 2. Sync cached ViewModel data back to their respective schemes
+            foreach (var kvp in _schemeViewModelCache)
+            {
+                var cacheKey = kvp.Key;
+                var vm = kvp.Value;
+
+                // Find the corresponding scheme by ID
+                SchemeModel? scheme = null;
+                foreach (var featureSchemes in _schemesByFeature.Values)
+                {
+                    foreach (var s in featureSchemes)
+                    {
+                        if (s.Id == cacheKey)
+                        {
+                            scheme = s;
+                            break;
+                        }
+                    }
+                    if (scheme != null) break;
+                }
+
+                if (scheme == null) continue;
+
+                // Sync MediaConfigurationViewModel data to SchemeModel
+                if (vm is MediaConfigurationViewModel mediaVm)
+                {
+                    scheme.DesktopBackgroundMedia.MediaIds.Clear();
+                    foreach (var item in mediaVm.ImageVideoItems)
+                    {
+                        var resourceId = RegisterOrFindResource(item);
+                        scheme.DesktopBackgroundMedia.MediaIds.Add(resourceId);
+                    }
+                    scheme.DesktopBackgroundMedia.PlaybackMode = mediaVm.SelectedPlaybackMode;
+
+                    scheme.EventMedia.MediaIds.Clear();
+                    foreach (var item in mediaVm.AudioItems)
+                    {
+                        var resourceId = RegisterOrFindResource(item);
+                        scheme.EventMedia.MediaIds.Add(resourceId);
+                    }
+                    scheme.EventMedia.PlaybackMode = mediaVm.SelectedAudioPlaybackMode;
+
+                    scheme.Name = mediaVm.SchemeName;
+                }
+
+                // Sync MouseClickViewModel data to SchemeModel
+                if (vm is MouseClickViewModel mouseVm)
+                {
+                    scheme.ClickRegions = new ObservableCollection<ClickRegionModel>(mouseVm.Regions);
+                    scheme.Name = mouseVm.SchemeName;
+                }
+            }
+
+            Debug.WriteLine($"[CreatorViewModel] Theme data synced. ResourceLibrary: {CurrentTheme.ResourceLibrary.Count} entries");
+        }
+
+        /// <summary>
+        /// Registers a media item as a ResourceEntry in the theme ResourceLibrary.
+        /// If a resource with the same SourcePath already exists, returns its ID.
+        /// </summary>
+        private string RegisterOrFindResource(MediaItemModel item)
+        {
+            if (CurrentTheme == null) return item.FilePath;
+
+            // Check if resource already exists by SourcePath
+            foreach (var existing in CurrentTheme.ResourceLibrary.GetAll())
+            {
+                if (existing.SourcePath == item.FilePath)
+                    return existing.Id;
+            }
+
+            // Create new ResourceEntry
+            var entry = new ResourceEntry
+            {
+                SourcePath = item.FilePath,
+                OriginalName = item.FileName,
+                FileName = item.FileName,
+                Format = item.Format,
+                FileSize = item.FileSize,
+                Duration = item.Duration,
+                Type = item.Type switch
+                {
+                    MediaFileType.Image => MediaType.Image,
+                    MediaFileType.Video => MediaType.Video,
+                    MediaFileType.Audio => MediaType.Audio,
+                    _ => MediaType.Image
+                }
+            };
+
+            CurrentTheme.ResourceLibrary.Add(entry);
+            return entry.Id;
+        }
+
         // ==================== Dirty Tracking ====================
 
         /// <summary>
@@ -891,12 +1175,32 @@ namespace ProductivityWallpaper.ViewModels
         }
 
         /// <summary>
+        /// Handles property changes on child ViewModels to propagate dirty state.
+        /// </summary>
+        private void OnChildViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            // Track meaningful property changes that indicate user edits
+            if (e.PropertyName is "SchemeName" or "SelectedPlaybackMode" or "SelectedAudioPlaybackMode"
+                or "IsActive" or "BackgroundMedia" or "SelectedRegion")
+            {
+                MarkDirty();
+            }
+        }
+
+        /// <summary>
         /// Cleans up timer resources.
         /// </summary>
         public void Dispose()
         {
             _autoSaveTimer?.Stop();
             _autoSaveTimer?.Dispose();
+
+            // Unsubscribe from child VM events
+            foreach (var vm in _schemeViewModelCache.Values)
+            {
+                vm.PropertyChanged -= OnChildViewModelPropertyChanged;
+            }
+
             _schemeViewModelCache.Clear();
         }
     }

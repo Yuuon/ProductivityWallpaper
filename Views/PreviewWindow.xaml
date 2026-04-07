@@ -13,10 +13,15 @@
         MinWidth="400"
         MinHeight="300"
         WindowStyle="None"
+        AllowsTransparency="True"
         ResizeMode="CanResizeWithGrip"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource BackgroundMainBrush}"
         d:DataContext="{d:DesignInstance Type=models:MediaItemModel}">
+    
+    <WindowChrome.WindowChrome>
+        <WindowChrome GlassFrameThickness="0" CornerRadius="0" CaptionHeight="32"/>
+    </WindowChrome.WindowChrome>
     
     <Window.Resources>
         <!-- Boolean to Visibility Converter -->
@@ -136,7 +141,8 @@
                 <!-- Minimize Button -->
                 
                 <Button Style="{StaticResource WindowButtonStyle}"
-                        Click="MinimizeButton_Click">
+                        Click="MinimizeButton_Click"
+                        WindowChrome.IsHitTestVisibleInChrome="True">
                     
                     <Path Data="M0 6H10"
                           Stroke="{StaticResource IconBrush}"
@@ -153,7 +159,8 @@
                 
                 <Button x:Name="MaximizeButton"
                         Style="{StaticResource WindowButtonStyle}"
-                        Click="MaximizeButton_Click">
+                        Click="MaximizeButton_Click"
+                        WindowChrome.IsHitTestVisibleInChrome="True">
                     
                     <Path x:Name="MaximizeIcon"
                           Data="M0 0H10V10H0V0ZM1 1V9H9V1H1Z"
@@ -170,7 +177,8 @@
                 <!-- Close Button -->
                 
                 <Button Style="{StaticResource WindowCloseButtonStyle}"
-                        Click="CloseButton_Click">
+                        Click="CloseButton_Click"
+                        WindowChrome.IsHitTestVisibleInChrome="True">
                     
                     <Path Data="M0 0L10 10M10 0L0 10"
                           Stroke="{StaticResource IconBrush}"
