@@ -12,6 +12,8 @@
         Width="800"
         MinWidth="400"
         MinHeight="300"
+        WindowStyle="None"
+        ResizeMode="CanResizeWithGrip"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource BackgroundMainBrush}"
         d:DataContext="{d:DesignInstance Type=models:MediaItemModel}">
@@ -104,7 +106,8 @@
         
         <Grid Grid.Row="0" 
               Background="{StaticResource BackgroundBlockBrush}"
-              Height="32">
+              Height="32"
+              MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
             
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>

@@ -11,6 +11,17 @@
              Background="{StaticResource BackgroundMainBrush}">
 
     <UserControl.Resources>
+        <!-- Converters (must be defined before DataTemplates that reference them) -->
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+        <converters:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter"/>
+        <converters:StringEmptyToVisibilityConverter x:Key="StringEmptyToVisibilityConverter"/>
+        <converters:InverseStringEmptyToVisibilityConverter x:Key="InverseStringEmptyToVisibilityConverter"/>
+        <converters:BooleanToCursorConverter x:Key="BooleanToCursorConverter"/>
+        <converters:DisplayModeToStretchConverter x:Key="DisplayModeToStretchConverter"/>
+        <converters:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
+        <converters:InverseNullToVisibilityConverter x:Key="InverseNullToVisibilityConverter"/>
+        <converters:PercentageToPixelConverter x:Key="PercentageToPixelConverter"/>
+
         <!-- Region Enter/Exit Animations -->
         <Storyboard x:Key="RegionEnterAnimation">
             <DoubleAnimation Storyboard.TargetProperty="Opacity"
@@ -185,17 +196,6 @@
                 </Grid>
             </Border>
         </DataTemplate>
-
-        <!-- Converters need to be defined in App.xaml or here -->
-        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
-        <converters:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter"/>
-        <converters:StringEmptyToVisibilityConverter x:Key="StringEmptyToVisibilityConverter"/>
-        <converters:InverseStringEmptyToVisibilityConverter x:Key="InverseStringEmptyToVisibilityConverter"/>
-        <converters:BooleanToCursorConverter x:Key="BooleanToCursorConverter"/>
-        <converters:DisplayModeToStretchConverter x:Key="DisplayModeToStretchConverter"/>
-        <converters:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
-        <converters:InverseNullToVisibilityConverter x:Key="InverseNullToVisibilityConverter"/>
-        <converters:PercentageToPixelConverter x:Key="PercentageToPixelConverter"/>
     </UserControl.Resources>
 
     <Grid>
