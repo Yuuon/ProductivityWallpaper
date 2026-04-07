@@ -21,6 +21,7 @@
         <converters:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
         <converters:InverseNullToVisibilityConverter x:Key="InverseNullToVisibilityConverter"/>
         <converters:PercentageToPixelConverter x:Key="PercentageToPixelConverter"/>
+        <converters:PercentageToPixelMultiConverter x:Key="PercentageToPixelMultiConverter"/>
 
         <!-- Region Enter/Exit Animations -->
         <Storyboard x:Key="RegionEnterAnimation">
@@ -43,11 +44,31 @@
         
         <!-- Region Item Template -->
         <DataTemplate x:Key="RegionItemTemplate" DataType="{x:Type models:ClickRegionModel}">
-            <Grid Width="{Binding Width, Converter={StaticResource PercentageToPixelConverter}, ConverterParameter={Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Canvas}}}"
-                  Height="{Binding Height, Converter={StaticResource PercentageToPixelConverter}, ConverterParameter={Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Canvas}}}"
-                  Canvas.Left="{Binding X, Converter={StaticResource PercentageToPixelConverter}, ConverterParameter={Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Canvas}}}"
-                  Canvas.Top="{Binding Y, Converter={StaticResource PercentageToPixelConverter}, ConverterParameter={Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Canvas}}}"
-                  Opacity="0">
+            <Grid Opacity="0">
+                <Grid.Width>
+                    <MultiBinding Converter="{StaticResource PercentageToPixelMultiConverter}">
+                        <Binding Path="Width"/>
+                        <Binding Path="ActualWidth" RelativeSource="{RelativeSource AncestorType=Canvas}"/>
+                    </MultiBinding>
+                </Grid.Width>
+                <Grid.Height>
+                    <MultiBinding Converter="{StaticResource PercentageToPixelMultiConverter}">
+                        <Binding Path="Height"/>
+                        <Binding Path="ActualHeight" RelativeSource="{RelativeSource AncestorType=Canvas}"/>
+                    </MultiBinding>
+                </Grid.Height>
+                <Canvas.Left>
+                    <MultiBinding Converter="{StaticResource PercentageToPixelMultiConverter}">
+                        <Binding Path="X"/>
+                        <Binding Path="ActualWidth" RelativeSource="{RelativeSource AncestorType=Canvas}"/>
+                    </MultiBinding>
+                </Canvas.Left>
+                <Canvas.Top>
+                    <MultiBinding Converter="{StaticResource PercentageToPixelMultiConverter}">
+                        <Binding Path="Y"/>
+                        <Binding Path="ActualHeight" RelativeSource="{RelativeSource AncestorType=Canvas}"/>
+                    </MultiBinding>
+                </Canvas.Top>
                 <Grid.Triggers>
                     <EventTrigger RoutedEvent="Loaded">
                         <BeginStoryboard Storyboard="{StaticResource RegionEnterAnimation}"/>

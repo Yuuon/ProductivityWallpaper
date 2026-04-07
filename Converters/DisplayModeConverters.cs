@@ -102,4 +102,29 @@ namespace ProductivityWallpaper.Converters
             throw new NotImplementedException();
         }
     }
+
+    /// <summary>
+    /// Converts a percentage value to a pixel value using a MultiBinding.
+    /// values[0]: percentage (0–100) from the model (X, Y, Width, or Height)
+    /// values[1]: total size in pixels from the Canvas (ActualWidth or ActualHeight)
+    /// </summary>
+    public class PercentageToPixelMultiConverter : IMultiValueConverter
+    {
+        public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (values.Length == 2
+                && values[0] is double percentage
+                && values[1] is double totalSize
+                && totalSize > 0)
+            {
+                return percentage / 100.0 * totalSize;
+            }
+            return 0.0;
+        }
+
+        public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
 }
