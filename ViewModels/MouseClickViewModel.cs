@@ -271,6 +271,8 @@ namespace ProductivityWallpaper.ViewModels
                 if (isVideo || isImage)
                 {
                     var fileInfo = new FileInfo(filePath);
+                    if (!fileInfo.Exists) return;
+
                     var mediaItem = new MediaItemModel(filePath)
                     {
                         Type = isVideo ? MediaFileType.Video : MediaFileType.Image,
@@ -315,6 +317,8 @@ namespace ProductivityWallpaper.ViewModels
                 foreach (var filePath in filesToAdd)
                 {
                     var fileInfo = new FileInfo(filePath);
+                    if (!fileInfo.Exists) continue;
+
                     var mediaItem = new MediaItemModel(filePath)
                     {
                         Type = MediaFileType.Audio,
