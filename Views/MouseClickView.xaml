@@ -196,7 +196,6 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <!-- Section 1: Editable Title Bar -->
@@ -242,10 +241,11 @@
                    Style="{StaticResource SubHeaderTextStyle}"
                    Margin="32,16,42,24"/>
 
-        <!-- Section 3: Main Content -->
+        <!-- Section 3: Main Content (Two columns: Region Editor + Available Media) -->
         <Grid Grid.Row="2" Margin="32,0,42,24">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="260"/>
             </Grid.ColumnDefinitions>
 
             <!-- Region Editor -->
@@ -385,6 +385,57 @@
                             </Grid>
                         </Viewbox>
                     </Border>
+                </Grid>
+            </Border>
+
+            <!-- Right Panel: Available Wallpaper Media -->
+            <Border Grid.Column="1"
+                    Background="{StaticResource BackgroundBlockBrush}"
+                    BorderBrush="{StaticResource BorderLineBrush}"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    Margin="16,0,0,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Header -->
+                    <TextBlock Grid.Row="0"
+                               Text="Available Wallpapers"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               FontSize="14"
+                               FontWeight="SemiBold"
+                               Margin="16,12"/>
+
+                    <!-- Media List -->
+                    <ScrollViewer Grid.Row="1"
+                                  VerticalScrollBarVisibility="Auto"
+                                  Margin="8,0,8,8">
+                        <ItemsControl ItemsSource="{Binding AvailableMedia}"
+                                      ItemTemplate="{StaticResource MediaItemTemplate}"/>
+                    </ScrollViewer>
+
+                    <!-- Empty State (shown when no items) -->
+                    <TextBlock Grid.Row="1"
+                               Text="No wallpaper media available.&#x0a;Import media in Desktop Background first."
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               FontSize="12"
+                               TextAlignment="Center"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Visible"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding AvailableMedia.Count}" Value="0">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                 </Grid>
             </Border>
         </Grid>
@@ -542,13 +593,6 @@
                     </StackPanel>
                 </Grid>
             </Grid>
-        </Border>
-
-        <!-- Section 5: Media Configuration Sub-View (same as other pages, visible when media imported) -->
-        <Border Grid.Row="4"
-                Margin="32,0,42,24"
-                Visibility="{Binding HasRegionMedia, Converter={StaticResource BooleanToVisibilityConverter}}">
-            <ContentControl Content="{Binding MediaConfigViewModel}"/>
         </Border>
     </Grid>
 </UserControl>

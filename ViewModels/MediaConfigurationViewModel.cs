@@ -69,9 +69,9 @@ namespace ProductivityWallpaper.ViewModels
         private bool _isActive;
 
         /// <summary>
-        /// Whether the scheme has any image/video content.
+        /// Whether the scheme has any content (image/video or audio).
         /// </summary>
-        public bool HasContent => ImageVideoItems.Count > 0;
+        public bool HasContent => ImageVideoItems.Count > 0 || AudioItems.Count > 0;
 
         // --- Constructor ---
 
@@ -267,6 +267,7 @@ namespace ProductivityWallpaper.ViewModels
                 item.Duration = GetAudioDuration(filePath);
 
                 AudioItems.Add(item);
+                OnPropertyChanged(nameof(HasContent));
             }
             catch (Exception ex)
             {

@@ -75,11 +75,6 @@
                 <views:MediaConfigurationView/>
             </DataTemplate>
             
-            <!-- MouseClickMediaViewModel also uses the unified MediaConfigurationView -->
-            <DataTemplate DataType="{x:Type vm:MouseClickMediaViewModel}">
-                <views:MediaConfigurationView/>
-            </DataTemplate>
-            
             <!-- Non-media feature VMs keep their own views -->
             <DataTemplate DataType="{x:Type vm:MouseClickViewModel}">
                 <views:MouseClickView/>
