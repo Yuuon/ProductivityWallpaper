@@ -513,6 +513,19 @@ namespace ProductivityWallpaper.ViewModels
         }
 
         /// <summary>
+        /// Gets the current theme folder path for thumbnail storage.
+        /// </summary>
+        private static string? GetCurrentThemeFolderPath()
+        {
+            var themeService = App.Current.Services.GetService<IThemeService>();
+            if (themeService?.CurrentTheme != null && !string.IsNullOrEmpty(themeService.CurrentTheme.Name))
+            {
+                return themeService.GetThemeFolderPath(themeService.CurrentTheme.Name);
+            }
+            return null;
+        }
+
+        /// <summary>
         /// Generates an animated GIF thumbnail for a video item asynchronously.
         /// Stores the thumbnail in the current theme's thumbnails/ folder for persistence.
         /// </summary>
@@ -523,12 +536,12 @@ namespace ProductivityWallpaper.ViewModels
                 var thumbnailService = App.Current.Services.GetService<IThumbnailService>();
                 if (thumbnailService == null) return;
 
-                // Get the current theme folder path for persistent thumbnail storage
-                var themeService = App.Current.Services.GetService<IThemeService>();
-                string? themeFolderPath = null;
-                if (themeService?.CurrentTheme != null && !string.IsNullOrEmpty(themeService.CurrentTheme.Name))
+                var themeFolderPath = GetCurrentThemeFolderPath();
+                if (string.IsNullOrEmpty(themeFolderPath))
                 {
-                    themeFolderPath = themeService.GetThemeFolderPath(themeService.CurrentTheme.Name);
+                    System.Diagnostics.Debug.WriteLine(
+                        "[MouseClickViewModel] No theme folder — cannot generate video thumbnail");
+                    return;
                 }
 
                 var thumbPath = await thumbnailService.GenerateVideoGifThumbnailAsync(

@@ -1103,13 +1103,14 @@ namespace ProductivityWallpaper.ViewModels
                 var thumbnailService = App.Current.Services.GetService<IThumbnailService>();
                 if (thumbnailService == null) return;
 
-                // Get the current theme folder path for persistent thumbnail storage
                 var themeService = App.Current.Services.GetService<IThemeService>();
-                string? themeFolderPath = null;
-                if (themeService?.CurrentTheme != null && !string.IsNullOrEmpty(themeService.CurrentTheme.Name))
+                if (themeService?.CurrentTheme == null || string.IsNullOrEmpty(themeService.CurrentTheme.Name))
                 {
-                    themeFolderPath = themeService.GetThemeFolderPath(themeService.CurrentTheme.Name);
+                    Debug.WriteLine("[CreatorViewModel] No theme folder — cannot regenerate video thumbnail");
+                    return;
                 }
+
+                var themeFolderPath = themeService.GetThemeFolderPath(themeService.CurrentTheme.Name);
 
                 var thumbPath = await thumbnailService.GenerateVideoGifThumbnailAsync(
                     item.FilePath, resource.Id, themeFolderPath);

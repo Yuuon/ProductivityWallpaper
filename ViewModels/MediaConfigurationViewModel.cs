@@ -373,6 +373,20 @@ namespace ProductivityWallpaper.ViewModels
         }
 
         /// <summary>
+        /// Gets the current theme folder path for thumbnail storage.
+        /// Returns null if no theme is loaded.
+        /// </summary>
+        private static string? GetCurrentThemeFolderPath()
+        {
+            var themeService = App.Current.Services.GetService<IThemeService>();
+            if (themeService?.CurrentTheme != null && !string.IsNullOrEmpty(themeService.CurrentTheme.Name))
+            {
+                return themeService.GetThemeFolderPath(themeService.CurrentTheme.Name);
+            }
+            return null;
+        }
+
+        /// <summary>
         /// Generates an animated GIF thumbnail for a video item asynchronously.
         /// Updates the item's ThumbnailPath when complete.
         /// Stores the thumbnail in the current theme's thumbnails/ folder for persistence.
@@ -384,12 +398,12 @@ namespace ProductivityWallpaper.ViewModels
                 var thumbnailService = App.Current.Services.GetService<IThumbnailService>();
                 if (thumbnailService == null) return;
 
-                // Get the current theme folder path for persistent thumbnail storage
-                var themeService = App.Current.Services.GetService<IThemeService>();
-                string? themeFolderPath = null;
-                if (themeService?.CurrentTheme != null && !string.IsNullOrEmpty(themeService.CurrentTheme.Name))
+                var themeFolderPath = GetCurrentThemeFolderPath();
+                if (string.IsNullOrEmpty(themeFolderPath))
                 {
-                    themeFolderPath = themeService.GetThemeFolderPath(themeService.CurrentTheme.Name);
+                    System.Diagnostics.Debug.WriteLine(
+                        "[MediaConfigurationViewModel] No theme folder — cannot generate video thumbnail");
+                    return;
                 }
 
                 var thumbPath = await thumbnailService.GenerateVideoGifThumbnailAsync(
@@ -397,7 +411,6 @@ namespace ProductivityWallpaper.ViewModels
 
                 if (!string.IsNullOrEmpty(thumbPath))
                 {
-                    // Update on UI thread
                     System.Windows.Application.Current?.Dispatcher.Invoke(() =>
                     {
                         item.ThumbnailPath = thumbPath;
@@ -422,24 +435,16 @@ namespace ProductivityWallpaper.ViewModels
                 var thumbnailService = App.Current.Services.GetService<IThumbnailService>();
                 if (thumbnailService == null) return;
 
-                // Get the current theme folder path for persistent thumbnail storage
-                var themeService = App.Current.Services.GetService<IThemeService>();
-                string? themeFolderPath = null;
-                if (themeService?.CurrentTheme != null && !string.IsNullOrEmpty(themeService.CurrentTheme.Name))
+                var themeFolderPath = GetCurrentThemeFolderPath();
+                if (string.IsNullOrEmpty(themeFolderPath))
                 {
-                    themeFolderPath = themeService.GetThemeFolderPath(themeService.CurrentTheme.Name);
-                }
-
-                // Use theme folder or temp folder for thumbnail storage
-                string? exportFolder = null;
-                if (!string.IsNullOrEmpty(themeFolderPath))
-                {
-                    exportFolder = themeFolderPath;
+                    System.Diagnostics.Debug.WriteLine(
+                        "[MediaConfigurationViewModel] No theme folder — cannot generate image thumbnail");
+                    return;
                 }
 
                 var thumbPath = await thumbnailService.GenerateThumbnailAsync(
-                    item.FilePath, item.Id, Models.MediaType.Image,
-                    forExport: exportFolder != null, exportFolder: exportFolder);
+                    item.FilePath, item.Id, Models.MediaType.Image, themeFolderPath);
 
                 if (!string.IsNullOrEmpty(thumbPath))
                 {
