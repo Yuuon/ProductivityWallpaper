@@ -47,6 +47,12 @@ namespace ProductivityWallpaper.Models
         [ObservableProperty]
         private ObservableCollection<MediaItemModel> _audioContent = new();
 
+        /// <summary>
+        /// Playback mode for audio files in this region (Sequential or Random).
+        /// </summary>
+        [ObservableProperty]
+        private PlaybackMode _audioPlaybackMode = PlaybackMode.Sequential;
+
         // --- Validation ---
 
         /// <summary>
