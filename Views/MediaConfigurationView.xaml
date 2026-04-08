@@ -988,7 +988,12 @@
                                      ItemContainerStyle="{StaticResource MediaListViewItemStyle}"
                                      ItemTemplate="{StaticResource MediaItemTemplate}"
                                      ItemsSource="{Binding ImageVideoItems}"
-                                     MaxHeight="300">
+                                     MaxHeight="300"
+                                     AllowDrop="True"
+                                     PreviewMouseMove="OnListViewPreviewMouseMove"
+                                     PreviewMouseLeftButtonDown="OnListViewPreviewMouseLeftButtonDown"
+                                     DragOver="OnListViewDragOver"
+                                     Drop="OnListViewDrop">
                             </ListView>
                         </StackPanel>
                     </Border>
@@ -1064,7 +1069,12 @@
                                      ItemContainerStyle="{StaticResource MediaListViewItemStyle}"
                                      ItemTemplate="{StaticResource AudioItemTemplate}"
                                      ItemsSource="{Binding AudioItems}"
-                                     MaxHeight="200">
+                                     MaxHeight="200"
+                                     AllowDrop="True"
+                                     PreviewMouseMove="OnListViewPreviewMouseMove"
+                                     PreviewMouseLeftButtonDown="OnListViewPreviewMouseLeftButtonDown"
+                                     DragOver="OnListViewDragOver"
+                                     Drop="OnListViewDrop">
                             
                             </ListView>
                         

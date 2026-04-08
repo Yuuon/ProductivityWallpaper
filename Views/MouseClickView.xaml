@@ -1210,7 +1210,12 @@
                              ItemContainerStyle="{StaticResource RegionMediaListViewItemStyle}"
                              ItemTemplate="{StaticResource RegionAudioItemTemplate}"
                              ItemsSource="{Binding SelectedRegion.AudioContent}"
-                             MaxHeight="250"/>
+                             MaxHeight="250"
+                             AllowDrop="True"
+                             PreviewMouseMove="OnAudioListViewPreviewMouseMove"
+                             PreviewMouseLeftButtonDown="OnAudioListViewPreviewMouseLeftButtonDown"
+                             DragOver="OnAudioListViewDragOver"
+                             Drop="OnAudioListViewDrop"/>
                 </StackPanel>
             </Border>
 

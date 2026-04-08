@@ -3,10 +3,15 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
-using Rectangle = System.Windows.Shapes.Rectangle;
-using Point = System.Windows.Point;
 using Color = System.Windows.Media.Color;
 using Colors = System.Windows.Media.Colors;
+using DataObject = System.Windows.DataObject;
+using DragDropEffects = System.Windows.DragDropEffects;
+using DragEventArgs = System.Windows.DragEventArgs;
+using ListView = System.Windows.Controls.ListView;
+using ListViewItem = System.Windows.Controls.ListViewItem;
+using Point = System.Windows.Point;
+using Rectangle = System.Windows.Shapes.Rectangle;
 using ProductivityWallpaper.Models;
 using ProductivityWallpaper.ViewModels;
 
@@ -271,6 +276,112 @@ namespace ProductivityWallpaper.Views
                 mediaElement.Position = TimeSpan.FromMilliseconds(1);
                 mediaElement.Play();
             }
+        }
+
+        #endregion
+
+        #region Audio ListView Drag-and-Drop Reorder
+
+        private Point _audioDragStartPoint;
+        private bool _isAudioDragStartPending;
+
+        /// <summary>
+        /// Records the mouse position when a potential drag starts on the audio list.
+        /// </summary>
+        private void OnAudioListViewPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            _audioDragStartPoint = e.GetPosition(null);
+            _isAudioDragStartPending = true;
+        }
+
+        /// <summary>
+        /// Starts a drag operation if mouse has moved enough distance.
+        /// </summary>
+        private void OnAudioListViewPreviewMouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            if (!_isAudioDragStartPending || e.LeftButton != MouseButtonState.Pressed)
+            {
+                _isAudioDragStartPending = false;
+                return;
+            }
+
+            var currentPos = e.GetPosition(null);
+            var diff = _audioDragStartPoint - currentPos;
+
+            if (Math.Abs(diff.X) > SystemParameters.MinimumHorizontalDragDistance ||
+                Math.Abs(diff.Y) > SystemParameters.MinimumVerticalDragDistance)
+            {
+                _isAudioDragStartPending = false;
+
+                if (sender is not ListView listView) return;
+
+                var sourceItem = FindAncestorMediaItem(e.OriginalSource as DependencyObject, listView);
+                if (sourceItem == null) return;
+
+                var data = new DataObject("MediaItemModel", sourceItem);
+                DragDrop.DoDragDrop(listView, data, DragDropEffects.Move);
+            }
+        }
+
+        /// <summary>
+        /// Allows the drop and shows move cursor.
+        /// </summary>
+        private void OnAudioListViewDragOver(object sender, DragEventArgs e)
+        {
+            if (!e.Data.GetDataPresent("MediaItemModel"))
+            {
+                e.Effects = DragDropEffects.None;
+            }
+            else
+            {
+                e.Effects = DragDropEffects.Move;
+            }
+            e.Handled = true;
+        }
+
+        /// <summary>
+        /// Handles the drop by reordering items in the audio collection.
+        /// </summary>
+        private void OnAudioListViewDrop(object sender, DragEventArgs e)
+        {
+            if (!e.Data.GetDataPresent("MediaItemModel")) return;
+            if (sender is not ListView listView) return;
+            if (listView.ItemsSource is not System.Collections.ObjectModel.ObservableCollection<MediaItemModel> collection) return;
+
+            var droppedItem = e.Data.GetData("MediaItemModel") as MediaItemModel;
+            if (droppedItem == null) return;
+
+            var targetItem = FindAncestorMediaItem(e.OriginalSource as DependencyObject, listView);
+            if (targetItem == null || targetItem == droppedItem) return;
+
+            var oldIndex = collection.IndexOf(droppedItem);
+            var newIndex = collection.IndexOf(targetItem);
+
+            if (oldIndex < 0 || newIndex < 0 || oldIndex == newIndex) return;
+
+            collection.Move(oldIndex, newIndex);
+
+            // Re-index all items
+            for (int i = 0; i < collection.Count; i++)
+            {
+                collection[i].OrderIndex = i;
+            }
+        }
+
+        /// <summary>
+        /// Finds the MediaItemModel data context of the visual tree ancestor that is a ListViewItem.
+        /// </summary>
+        private static MediaItemModel? FindAncestorMediaItem(DependencyObject? element, ListView listView)
+        {
+            while (element != null && element != listView)
+            {
+                if (element is ListViewItem lvi)
+                {
+                    return lvi.DataContext as MediaItemModel;
+                }
+                element = VisualTreeHelper.GetParent(element);
+            }
+            return null;
         }
 
         #endregion
