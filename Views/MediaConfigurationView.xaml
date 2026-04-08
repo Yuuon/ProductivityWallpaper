@@ -191,19 +191,21 @@
                             </Image.Style>
                         </Image>
                         
-                        <!-- Video Thumbnail -->
+                        <!-- Video Thumbnail (animated GIF via MediaElement) -->
                         <Grid Visibility="{Binding Type, Converter={StaticResource MediaTypeIsVideoConverter}}">
-                            <Image Source="{Binding ThumbnailPath}" Stretch="UniformToFill">
-                                <Image.Style>
-                                    <Style TargetType="Image">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding ThumbnailPath}" Value="">
-                                                <Setter Property="Source" Value="{StaticResource DefaultThumbImage}"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Image.Style>
-                            </Image>
+                            <!-- Animated GIF thumbnail via MediaElement -->
+                            <MediaElement Source="{Binding ThumbnailPath}"
+                                          LoadedBehavior="Manual"
+                                          UnloadedBehavior="Stop"
+                                          Stretch="UniformToFill"
+                                          IsMuted="True"
+                                          MediaOpened="OnThumbnailMediaOpened"
+                                          MediaEnded="OnThumbnailMediaEnded"
+                                          Visibility="{Binding ThumbnailPath, Converter={StaticResource InverseStringEmptyToVisibilityConverter}}"/>
+                            <!-- Fallback when no thumbnail exists -->
+                            <Image Source="{StaticResource DefaultThumbImage}" 
+                                   Stretch="Uniform"
+                                   Visibility="{Binding ThumbnailPath, Converter={StaticResource StringEmptyToVisibilityConverter}}"/>
                         </Grid>
                         
                         <!-- Preview Button Overlay (bottom-right of thumbnail) -->
@@ -986,7 +988,12 @@
                                      ItemContainerStyle="{StaticResource MediaListViewItemStyle}"
                                      ItemTemplate="{StaticResource MediaItemTemplate}"
                                      ItemsSource="{Binding ImageVideoItems}"
-                                     MaxHeight="300">
+                                     MaxHeight="300"
+                                     AllowDrop="True"
+                                     PreviewMouseMove="OnListViewPreviewMouseMove"
+                                     PreviewMouseLeftButtonDown="OnListViewPreviewMouseLeftButtonDown"
+                                     DragOver="OnListViewDragOver"
+                                     Drop="OnListViewDrop">
                             </ListView>
                         </StackPanel>
                     </Border>
@@ -1062,7 +1069,12 @@
                                      ItemContainerStyle="{StaticResource MediaListViewItemStyle}"
                                      ItemTemplate="{StaticResource AudioItemTemplate}"
                                      ItemsSource="{Binding AudioItems}"
-                                     MaxHeight="200">
+                                     MaxHeight="200"
+                                     AllowDrop="True"
+                                     PreviewMouseMove="OnListViewPreviewMouseMove"
+                                     PreviewMouseLeftButtonDown="OnListViewPreviewMouseLeftButtonDown"
+                                     DragOver="OnListViewDragOver"
+                                     Drop="OnListViewDrop">
                             
                             </ListView>
                         

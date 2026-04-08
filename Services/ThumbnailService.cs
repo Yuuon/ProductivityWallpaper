@@ -1,29 +1,36 @@
 using System;
 using System.Diagnostics;
+using System.Drawing;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using FFMpegCore;
 using ProductivityWallpaper.Models;
 
 namespace ProductivityWallpaper.Services
 {
     /// <summary>
     /// Generates and manages thumbnails for media resources.
-    /// Supports temp mode (local editing) and export mode (theme packages).
-    /// Uses WPF imaging for image thumbnails and MediaPlayer for video frame extraction.
+    /// All thumbnails are stored in the theme's thumbnails/ subfolder — never in %Temp%.
+    /// Uses FFMpegCore NuGet package for animated GIF generation from video files.
+    /// Falls back to WPF MediaPlayer frame extraction only when FFmpeg is unavailable.
     /// </summary>
     public class ThumbnailService : IThumbnailService
     {
-        private const string TempFolderName = "ProductivityWallpaper";
-        private const string ThumbnailsFolderName = "Thumbnails";
-        private const string ThumbnailSuffix = "_thumb.jpg";
+        private const string ThumbnailsFolderName = "thumbnails";
+        private const string JpegThumbnailSuffix = "_thumb.jpg";
+        private const string GifThumbnailSuffix = "_thumb.gif";
+        private const int GifMaxDurationSeconds = 5;
+        private bool? _ffmpegAvailable;
+
+        // ==================== Public API ====================
 
         /// <inheritdoc/>
-        public async Task<string> GenerateThumbnailAsync(ResourceEntry resource, bool forExport = false,
-            string? exportFolder = null, CancellationToken ct = default)
+        public async Task<string> GenerateThumbnailAsync(ResourceEntry resource, string themeFolderPath,
+            CancellationToken ct = default)
         {
             var sourcePath = !string.IsNullOrEmpty(resource.SourcePath)
                 ? resource.SourcePath
@@ -36,7 +43,7 @@ namespace ProductivityWallpaper.Services
             }
 
             var thumbPath = await GenerateThumbnailAsync(sourcePath, resource.Id, resource.Type,
-                forExport, exportFolder, ct);
+                themeFolderPath, ct);
 
             // Update resource thumbnail path
             if (!string.IsNullOrEmpty(thumbPath))
@@ -50,7 +57,7 @@ namespace ProductivityWallpaper.Services
 
         /// <inheritdoc/>
         public async Task<string> GenerateThumbnailAsync(string sourcePath, string resourceId, MediaType resourceType,
-            bool forExport = false, string? exportFolder = null, CancellationToken ct = default)
+            string themeFolderPath, CancellationToken ct = default)
         {
             if (!File.Exists(sourcePath))
             {
@@ -58,19 +65,18 @@ namespace ProductivityWallpaper.Services
                 return string.Empty;
             }
 
-            var outputPath = GetThumbnailPath(resourceId, forExport, exportFolder);
-
-            // Ensure directory exists
-            var dir = Path.GetDirectoryName(outputPath);
-            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
-                Directory.CreateDirectory(dir);
+            // Ensure thumbnails directory exists in theme folder
+            var thumbnailsDir = Path.Combine(themeFolderPath, ThumbnailsFolderName);
+            if (!Directory.Exists(thumbnailsDir))
+                Directory.CreateDirectory(thumbnailsDir);
 
             try
             {
                 return resourceType switch
                 {
-                    MediaType.Image => await GenerateImageThumbnailAsync(sourcePath, outputPath, ct),
-                    MediaType.Video => await GenerateVideoThumbnailAsync(sourcePath, outputPath, ct),
+                    MediaType.Image => await GenerateImageThumbnailAsync(sourcePath,
+                        GetThumbnailPath(resourceId, themeFolderPath, isVideo: false), ct),
+                    MediaType.Video => await GenerateVideoGifThumbnailAsync(sourcePath, resourceId, themeFolderPath, ct),
                     MediaType.Audio => string.Empty, // Audio has no thumbnail
                     _ => string.Empty
                 };
@@ -83,44 +89,150 @@ namespace ProductivityWallpaper.Services
         }
 
         /// <inheritdoc/>
-        public string GetThumbnailPath(string resourceId, bool forExport = false, string? exportFolder = null)
+        public string GetThumbnailPath(string resourceId, string themeFolderPath, bool isVideo = false)
         {
-            var filename = $"{resourceId}{ThumbnailSuffix}";
-
-            if (forExport && !string.IsNullOrEmpty(exportFolder))
-            {
-                return Path.Combine(exportFolder, "thumbnails", filename);
-            }
-
-            return Path.Combine(Path.GetTempPath(), TempFolderName, ThumbnailsFolderName, filename);
+            var suffix = isVideo ? GifThumbnailSuffix : JpegThumbnailSuffix;
+            var filename = $"{resourceId}{suffix}";
+            return Path.Combine(themeFolderPath, ThumbnailsFolderName, filename);
         }
 
         /// <inheritdoc/>
-        public bool ThumbnailExists(string resourceId, bool forExport = false, string? exportFolder = null)
+        public string GetGifThumbnailPath(string resourceId, string themeFolderPath)
         {
-            var path = GetThumbnailPath(resourceId, forExport, exportFolder);
+            return GetThumbnailPath(resourceId, themeFolderPath, isVideo: true);
+        }
+
+        /// <inheritdoc/>
+        public bool ThumbnailExists(string resourceId, string themeFolderPath, bool isVideo = false)
+        {
+            var path = GetThumbnailPath(resourceId, themeFolderPath, isVideo);
             return File.Exists(path);
         }
 
         /// <inheritdoc/>
-        public void DeleteThumbnail(string resourceId, bool forExport = false, string? exportFolder = null)
+        public void DeleteThumbnail(string resourceId, string themeFolderPath)
         {
-            var path = GetThumbnailPath(resourceId, forExport, exportFolder);
-            if (File.Exists(path))
+            // Try deleting both JPEG and GIF variants
+            var jpegPath = GetThumbnailPath(resourceId, themeFolderPath, isVideo: false);
+            TryDeleteFile(jpegPath);
+
+            var gifPath = GetThumbnailPath(resourceId, themeFolderPath, isVideo: true);
+            TryDeleteFile(gifPath);
+        }
+
+        /// <inheritdoc/>
+        public bool IsFFmpegAvailable()
+        {
+            if (_ffmpegAvailable.HasValue)
+                return _ffmpegAvailable.Value;
+
+            try
             {
+                // Use FFMpegCore's built-in binary detection
+                var ffmpegPath = GlobalFFOptions.GetFFMpegBinaryPath();
+                _ffmpegAvailable = !string.IsNullOrEmpty(ffmpegPath) && File.Exists(ffmpegPath);
+            }
+            catch
+            {
+                // Fallback: try to run ffmpeg directly
                 try
                 {
-                    File.Delete(path);
-                    Debug.WriteLine($"[ThumbnailService] Deleted thumbnail: {path}");
+                    using var process = new Process();
+                    process.StartInfo = new ProcessStartInfo
+                    {
+                        FileName = "ffmpeg",
+                        Arguments = "-version",
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        CreateNoWindow = true
+                    };
+                    process.Start();
+                    process.WaitForExit(5000);
+                    _ffmpegAvailable = process.ExitCode == 0;
                 }
-                catch (Exception ex)
+                catch
                 {
-                    Debug.WriteLine($"[ThumbnailService] Error deleting thumbnail: {ex.Message}");
+                    _ffmpegAvailable = false;
                 }
+            }
+
+            Debug.WriteLine($"[ThumbnailService] FFmpeg available: {_ffmpegAvailable.Value}");
+            return _ffmpegAvailable.Value;
+        }
+
+        /// <inheritdoc/>
+        public async Task<string> GenerateVideoGifThumbnailAsync(string sourcePath, string resourceId,
+            string themeFolderPath, CancellationToken ct = default)
+        {
+            if (!File.Exists(sourcePath))
+            {
+                Debug.WriteLine($"[ThumbnailService] Source file not found: {sourcePath}");
+                return string.Empty;
+            }
+
+            var outputPath = GetGifThumbnailPath(resourceId, themeFolderPath);
+
+            // Ensure directory exists
+            var dir = Path.GetDirectoryName(outputPath);
+            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                Directory.CreateDirectory(dir);
+
+            // If GIF already exists, return it
+            if (File.Exists(outputPath))
+            {
+                Debug.WriteLine($"[ThumbnailService] GIF thumbnail already exists: {outputPath}");
+                return outputPath;
+            }
+
+            if (!IsFFmpegAvailable())
+            {
+                Debug.WriteLine("[ThumbnailService] FFmpeg not available — cannot generate GIF thumbnail. " +
+                    "Please install FFmpeg and ensure it is on the system PATH.");
+                return string.Empty;
+            }
+
+            try
+            {
+                return await GenerateGifViaFFMpegCoreAsync(sourcePath, outputPath, ct);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ThumbnailService] GIF generation failed: {ex.Message}");
+                // Clean up partial file if it exists
+                TryDeleteFile(outputPath);
+                return string.Empty;
             }
         }
 
         // ==================== Private Generation Methods ====================
+
+        /// <summary>
+        /// Generates an animated GIF from a video using FFMpegCore NuGet package.
+        /// Creates a looping GIF from the first 5 seconds at thumbnail width, maintaining aspect ratio.
+        /// </summary>
+        private static async Task<string> GenerateGifViaFFMpegCoreAsync(string sourcePath, string outputPath, CancellationToken ct)
+        {
+            // Use FFMpegCore's built-in GifSnapshot API:
+            // - size: thumbnail width, auto height (maintains aspect ratio with -1)
+            // - captureTime: start from beginning
+            // - duration: max 5 seconds
+            var size = new System.Drawing.Size(IThumbnailService.ThumbnailWidth, -1);
+            var captureTime = TimeSpan.Zero;
+            var duration = TimeSpan.FromSeconds(GifMaxDurationSeconds);
+
+            var success = await FFMpeg.GifSnapshotAsync(
+                sourcePath, outputPath, size, captureTime, duration, streamIndex: null, ct);
+
+            if (success && File.Exists(outputPath))
+            {
+                Debug.WriteLine($"[ThumbnailService] Generated GIF thumbnail via FFMpegCore: {outputPath}");
+                return outputPath;
+            }
+
+            Debug.WriteLine("[ThumbnailService] FFMpegCore GifSnapshot returned false or file not created");
+            return string.Empty;
+        }
 
         /// <summary>
         /// Generates a thumbnail from an image file using WPF imaging.
@@ -155,124 +267,21 @@ namespace ProductivityWallpaper.Services
             }, ct);
         }
 
-        /// <summary>
-        /// Generates a thumbnail from a video file by extracting a frame using WPF MediaPlayer.
-        /// Must run on the UI thread (STA) for WPF media operations.
-        /// </summary>
-        private async Task<string> GenerateVideoThumbnailAsync(string sourcePath, string outputPath, CancellationToken ct)
+        // ==================== Utility ====================
+
+        private static void TryDeleteFile(string path)
         {
-            // Video thumbnail extraction requires STA thread with dispatcher
-            // Use a simple approach: try to load as image first (some video containers have embedded thumbnails)
-            // If that fails, create a placeholder
+            if (string.IsNullOrEmpty(path) || !File.Exists(path))
+                return;
+
             try
             {
-                var tcs = new TaskCompletionSource<string>();
-
-                // Create STA thread for WPF media operations
-                var thread = new Thread(() =>
-                {
-                    try
-                    {
-                        var player = new MediaPlayer();
-                        var frame = new System.Windows.Threading.DispatcherFrame();
-                        player.Open(new Uri(sourcePath, UriKind.Absolute));
-                        player.ScrubbingEnabled = true;
-
-                        player.MediaOpened += (s, e) =>
-                        {
-                            try
-                            {
-                                // Seek to 1 second or 10% of duration
-                                if (player.NaturalDuration.HasTimeSpan)
-                                {
-                                    var seekTime = TimeSpan.FromSeconds(
-                                        Math.Min(1, player.NaturalDuration.TimeSpan.TotalSeconds * 0.1));
-                                    player.Position = seekTime;
-                                }
-
-                                // Allow time for the frame to render
-                                Thread.Sleep(500);
-
-                                // Render frame to bitmap
-                                var width = player.NaturalVideoWidth > 0 ? player.NaturalVideoWidth : IThumbnailService.ThumbnailWidth;
-                                var height = player.NaturalVideoHeight > 0 ? player.NaturalVideoHeight : IThumbnailService.ThumbnailHeight;
-
-                                // Scale to thumbnail size
-                                var scale = Math.Min(
-                                    (double)IThumbnailService.ThumbnailWidth / width,
-                                    (double)IThumbnailService.ThumbnailHeight / height);
-                                var renderWidth = (int)(width * scale);
-                                var renderHeight = (int)(height * scale);
-
-                                var visual = new DrawingVisual();
-                                using (var context = visual.RenderOpen())
-                                {
-                                    context.DrawVideo(player, new Rect(0, 0, renderWidth, renderHeight));
-                                }
-
-                                var bitmap = new RenderTargetBitmap(
-                                    renderWidth, renderHeight, 96, 96, PixelFormats.Pbgra32);
-                                bitmap.Render(visual);
-
-                                var encoder = new JpegBitmapEncoder
-                                {
-                                    QualityLevel = IThumbnailService.ThumbnailQuality
-                                };
-                                encoder.Frames.Add(BitmapFrame.Create(bitmap));
-
-                                using var stream = File.Create(outputPath);
-                                encoder.Save(stream);
-
-                                player.Close();
-                                tcs.TrySetResult(outputPath);
-                            }
-                            catch (Exception ex)
-                            {
-                                player.Close();
-                                tcs.TrySetResult(string.Empty);
-                                Debug.WriteLine($"[ThumbnailService] Video frame extraction failed: {ex.Message}");
-                            }
-                            finally
-                            {
-                                frame.Continue = false;
-                            }
-                        };
-
-                        player.MediaFailed += (s, e) =>
-                        {
-                            tcs.TrySetResult(string.Empty);
-                            Debug.WriteLine($"[ThumbnailService] Media open failed: {e.ErrorException?.Message}");
-                            frame.Continue = false;
-                        };
-
-                        // Pump messages until complete (replaces Dispatcher.Run())
-                        System.Windows.Threading.Dispatcher.PushFrame(frame);
-                    }
-                    catch (Exception ex)
-                    {
-                        tcs.TrySetResult(string.Empty);
-                        Debug.WriteLine($"[ThumbnailService] STA thread error: {ex.Message}");
-                    }
-                });
-
-                thread.SetApartmentState(ApartmentState.STA);
-                thread.IsBackground = true;
-                thread.Start();
-
-                // Wait with timeout
-                var result = await Task.WhenAny(tcs.Task, Task.Delay(TimeSpan.FromSeconds(10), ct));
-                if (result == tcs.Task)
-                {
-                    return tcs.Task.Result;
-                }
-
-                Debug.WriteLine("[ThumbnailService] Video thumbnail generation timed out");
-                return string.Empty;
+                File.Delete(path);
+                Debug.WriteLine($"[ThumbnailService] Deleted thumbnail: {path}");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ThumbnailService] Video thumbnail error: {ex.Message}");
-                return string.Empty;
+                Debug.WriteLine($"[ThumbnailService] Error deleting thumbnail: {ex.Message}");
             }
         }
     }

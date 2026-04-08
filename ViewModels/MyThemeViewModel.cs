@@ -1,8 +1,12 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using ProductivityWallpaper.Models;
 using ProductivityWallpaper.Services;
+using System;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace ProductivityWallpaper.ViewModels
@@ -52,6 +56,7 @@ namespace ProductivityWallpaper.ViewModels
                 ?? "Nothing here yet\nGo find themes you like~";
             ActionButtonText = System.Windows.Application.Current.TryFindResource("MyThemes_GoToWorkshop") as string 
                 ?? "Browse Workshop";
+            StopAllSlideshows();
             HasContent = false;
         }
         
@@ -72,9 +77,11 @@ namespace ProductivityWallpaper.ViewModels
 
         /// <summary>
         /// Loads all saved themes from the themes folder into ThemeItems.
+        /// Collects image/video resource source paths as thumbnails for slideshow display.
         /// </summary>
         private async Task LoadSavedThemesAsync()
         {
+            StopAllSlideshows();
             ThemeItems.Clear();
             SelectedTheme = null;
             HasSelectedTheme = false;
@@ -92,19 +99,80 @@ namespace ProductivityWallpaper.ViewModels
                         Name = manifest.Name,
                         Author = string.IsNullOrEmpty(manifest.Author) ? "Me" : manifest.Author,
                         Type = "Custom",
-                        FileSize = 0, // Could calculate total size if needed
+                        FileSize = 0,
                         Resolution = "",
-                        ThemeFolderName = name // Store for edit navigation
+                        ThemeFolderName = name
                     };
+
+                    // Collect thumbnail paths from theme resources (images and videos)
+                    CollectThumbnailPaths(themeItem, manifest);
 
                     ThemeItems.Add(themeItem);
                 }
 
                 Debug.WriteLine($"[MyThemeViewModel] Loaded {ThemeItems.Count} saved themes");
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 Debug.WriteLine($"[MyThemeViewModel] Error loading themes: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Collects existing thumbnail or source paths from theme resources for slideshow display.
+        /// Prioritizes image source paths (they are their own thumbnails) and video resource source paths.
+        /// Starts the slideshow timer if multiple thumbnails are found.
+        /// </summary>
+        private static void CollectThumbnailPaths(ThemeItem themeItem, ThemeManifest manifest)
+        {
+            var resources = manifest.ResourceLibrary?.Resources;
+            if (resources == null || resources.Count == 0) return;
+
+            foreach (var resource in resources)
+            {
+                if (resource.Type == MediaType.Audio) continue;
+
+                string? path = null;
+
+                // Prefer generated thumbnail path (stored in theme folder) for both images and videos.
+                // Fall back to source path for images.
+                if (!string.IsNullOrEmpty(resource.ThumbnailPath) && File.Exists(resource.ThumbnailPath))
+                {
+                    path = resource.ThumbnailPath;
+                }
+                else if (resource.Type == MediaType.Image && !string.IsNullOrEmpty(resource.SourcePath) 
+                    && File.Exists(resource.SourcePath))
+                {
+                    path = resource.SourcePath;
+                }
+
+                if (!string.IsNullOrEmpty(path))
+                {
+                    themeItem.ThumbnailPaths.Add(path);
+                }
+            }
+
+            // Set initial thumbnail
+            if (themeItem.ThumbnailPaths.Count > 0)
+            {
+                themeItem.Thumbnail = themeItem.ThumbnailPaths[0];
+            }
+
+            // Start slideshow if multiple thumbnails available
+            if (themeItem.ThumbnailPaths.Count > 1)
+            {
+                themeItem.StartSlideshow();
+            }
+        }
+
+        /// <summary>
+        /// Stops all active slideshow timers to prevent resource leaks.
+        /// </summary>
+        private void StopAllSlideshows()
+        {
+            foreach (var item in ThemeItems)
+            {
+                item.StopSlideshow();
             }
         }
         

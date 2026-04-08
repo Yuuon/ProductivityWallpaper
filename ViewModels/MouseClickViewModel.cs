@@ -2,6 +2,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -151,11 +152,12 @@ namespace ProductivityWallpaper.ViewModels
 
         /// <summary>
         /// Loads available media from Desktop Background scheme.
+        /// Called by CreatorViewModel.PopulateAvailableMedia() and LoadFeatureContent().
         /// </summary>
         private void LoadAvailableMedia()
         {
-            // TODO: Load from Desktop Background scheme when integration is available
-            // For now, initialize empty collection
+            // AvailableMedia is populated by CreatorViewModel when this VM is loaded.
+            // Initialize with empty collection as a placeholder.
             AvailableMedia = new ObservableCollection<MediaItemModel>();
         }
 
@@ -286,6 +288,12 @@ namespace ProductivityWallpaper.ViewModels
                         mediaItem.ThumbnailPath = filePath;
                     }
 
+                    // Generate animated GIF thumbnail for videos
+                    if (isVideo)
+                    {
+                        _ = GenerateVideoThumbnailAsync(mediaItem);
+                    }
+
                     SelectedRegion.VisualContent = mediaItem;
                     OnPropertyChanged(nameof(HasRegionMedia));
                     OnPropertyChanged(nameof(CanAddVisual));
@@ -336,11 +344,19 @@ namespace ProductivityWallpaper.ViewModels
 
         /// <summary>
         /// Removes the visual content from the selected region.
+        /// Also deletes the associated thumbnail file.
         /// </summary>
         [RelayCommand]
         private void RemoveRegionVisual()
         {
             if (SelectedRegion == null) return;
+            
+            // Delete thumbnail file if it exists
+            if (SelectedRegion.VisualContent != null)
+            {
+                DeleteThumbnailFile(SelectedRegion.VisualContent);
+            }
+            
             SelectedRegion.VisualContent = null;
             OnPropertyChanged(nameof(HasRegionMedia));
             OnPropertyChanged(nameof(CanAddVisual));
@@ -357,6 +373,31 @@ namespace ProductivityWallpaper.ViewModels
             SelectedRegion.AudioContent.Remove(audio);
             OnPropertyChanged(nameof(HasRegionMedia));
             OnPropertyChanged(nameof(CanAddAudio));
+        }
+
+        /// <summary>
+        /// Deletes the thumbnail file associated with a media item.
+        /// Only deletes if the thumbnail path is different from the source file path.
+        /// </summary>
+        private static void DeleteThumbnailFile(MediaItemModel item)
+        {
+            if (string.IsNullOrEmpty(item.ThumbnailPath)) return;
+            if (item.ThumbnailPath == item.FilePath) return;
+
+            try
+            {
+                if (File.Exists(item.ThumbnailPath))
+                {
+                    File.Delete(item.ThumbnailPath);
+                    System.Diagnostics.Debug.WriteLine(
+                        $"[MouseClickViewModel] Deleted thumbnail: {item.ThumbnailPath}");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[MouseClickViewModel] Error deleting thumbnail: {ex.Message}");
+            }
         }
 
         /// <summary>
@@ -469,6 +510,56 @@ namespace ProductivityWallpaper.ViewModels
                 }
             }
             return maxNumber + 1;
+        }
+
+        /// <summary>
+        /// Gets the current theme folder path for thumbnail storage.
+        /// </summary>
+        private static string? GetCurrentThemeFolderPath()
+        {
+            var themeService = App.Current.Services.GetService<IThemeService>();
+            if (themeService?.CurrentTheme != null && !string.IsNullOrEmpty(themeService.CurrentTheme.Name))
+            {
+                return themeService.GetThemeFolderPath(themeService.CurrentTheme.Name);
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Generates an animated GIF thumbnail for a video item asynchronously.
+        /// Stores the thumbnail in the current theme's thumbnails/ folder for persistence.
+        /// </summary>
+        private static async Task GenerateVideoThumbnailAsync(MediaItemModel item)
+        {
+            try
+            {
+                var thumbnailService = App.Current.Services.GetService<IThumbnailService>();
+                if (thumbnailService == null) return;
+
+                var themeFolderPath = GetCurrentThemeFolderPath();
+                if (string.IsNullOrEmpty(themeFolderPath))
+                {
+                    System.Diagnostics.Debug.WriteLine(
+                        "[MouseClickViewModel] No theme folder — cannot generate video thumbnail");
+                    return;
+                }
+
+                var thumbPath = await thumbnailService.GenerateVideoGifThumbnailAsync(
+                    item.FilePath, item.Id, themeFolderPath);
+
+                if (!string.IsNullOrEmpty(thumbPath))
+                {
+                    System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                    {
+                        item.ThumbnailPath = thumbPath;
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[MouseClickViewModel] Video thumbnail generation failed: {ex.Message}");
+            }
         }
     }
 }

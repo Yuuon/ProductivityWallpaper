@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.DependencyInjection;
 using ProductivityWallpaper.Models;
 using ProductivityWallpaper.Services;
 using ProductivityWallpaper.Views;
@@ -722,6 +723,13 @@ namespace ProductivityWallpaper.ViewModels
                 }
 
                 ConfigurationContent = cachedVm;
+
+                // For MouseClick VMs, populate available wallpapers from Desktop Background schemes
+                if (cachedVm is MouseClickViewModel mcVm)
+                {
+                    PopulateAvailableMedia(mcVm);
+                }
+
                 NavigationMonitorService.LogNavigation(featureName, cachedVm);
             }
             catch (Exception ex)
@@ -929,6 +937,15 @@ namespace ProductivityWallpaper.ViewModels
             RestoreSchemes(FeatureType.BootRestart, theme.BootRestartSchemes);
             RestoreSchemes(FeatureType.ScreenWake, theme.ScreenWakeSchemes);
 
+            // Populate available media for all MouseClick VMs from Desktop Background schemes
+            foreach (var kvp in _schemeViewModelCache)
+            {
+                if (kvp.Value is MouseClickViewModel mcVm)
+                {
+                    PopulateAvailableMedia(mcVm);
+                }
+            }
+
             // Navigate to creating page
             IsWelcomePage = false;
             IsCreatingPage = true;
@@ -967,19 +984,27 @@ namespace ProductivityWallpaper.ViewModels
                     // Restore media items from ResourceLibrary references
                     if (vm is MediaConfigurationViewModel mediaVm && CurrentTheme != null)
                     {
+                        var imageVideoIndex = 0;
                         foreach (var resourceId in scheme.DesktopBackgroundMedia.MediaIds)
                         {
-                            var mediaItem = ResolveMediaItem(resourceId);
+                            var mediaItem = ResolveMediaItem(resourceId, imageVideoIndex);
                             if (mediaItem != null)
+                            {
                                 mediaVm.ImageVideoItems.Add(mediaItem);
+                                imageVideoIndex++;
+                            }
                         }
                         mediaVm.SelectedPlaybackMode = scheme.DesktopBackgroundMedia.PlaybackMode;
 
+                        var audioIndex = 0;
                         foreach (var resourceId in scheme.EventMedia.MediaIds)
                         {
-                            var mediaItem = ResolveMediaItem(resourceId);
+                            var mediaItem = ResolveMediaItem(resourceId, audioIndex);
                             if (mediaItem != null)
+                            {
                                 mediaVm.AudioItems.Add(mediaItem);
+                                audioIndex++;
+                            }
                         }
                         mediaVm.SelectedAudioPlaybackMode = scheme.EventMedia.PlaybackMode;
                     }
@@ -1016,8 +1041,9 @@ namespace ProductivityWallpaper.ViewModels
 
         /// <summary>
         /// Resolves a resource ID to a MediaItemModel by looking up the ResourceLibrary.
+        /// Restores thumbnail paths and generates missing video thumbnails.
         /// </summary>
-        private MediaItemModel? ResolveMediaItem(string resourceId)
+        private MediaItemModel? ResolveMediaItem(string resourceId, int orderIndex = 0)
         {
             if (CurrentTheme == null) return null;
 
@@ -1039,16 +1065,70 @@ namespace ProductivityWallpaper.ViewModels
                 },
                 FileSize = resource.FileSize,
                 Duration = resource.Duration,
-                DisplayMode = DisplayMode.Fill
+                DisplayMode = DisplayMode.Fill,
+                OrderIndex = orderIndex
             };
 
-            // Set thumbnail for images
+            // Restore thumbnail for images (use source path directly)
             if (resource.Type == MediaType.Image && !string.IsNullOrEmpty(resource.SourcePath))
             {
                 item.ThumbnailPath = resource.SourcePath;
             }
 
+            // Restore thumbnail for videos from persisted path, or regenerate if missing
+            if (resource.Type == MediaType.Video)
+            {
+                if (!string.IsNullOrEmpty(resource.ThumbnailPath) && System.IO.File.Exists(resource.ThumbnailPath))
+                {
+                    item.ThumbnailPath = resource.ThumbnailPath;
+                }
+                else
+                {
+                    // Fire-and-forget thumbnail regeneration for videos with missing thumbnails
+                    _ = RegenerateVideoThumbnailAsync(item, resource);
+                }
+            }
+
             return item;
+        }
+
+        /// <summary>
+        /// Regenerates a video thumbnail and updates both the MediaItemModel and ResourceEntry.
+        /// Stores the thumbnail in the current theme's thumbnails/ folder for persistence.
+        /// </summary>
+        private static async Task RegenerateVideoThumbnailAsync(MediaItemModel item, ResourceEntry resource)
+        {
+            try
+            {
+                var thumbnailService = App.Current.Services.GetService<IThumbnailService>();
+                if (thumbnailService == null) return;
+
+                var themeService = App.Current.Services.GetService<IThemeService>();
+                if (themeService?.CurrentTheme == null || string.IsNullOrEmpty(themeService.CurrentTheme.Name))
+                {
+                    Debug.WriteLine("[CreatorViewModel] No theme folder — cannot regenerate video thumbnail");
+                    return;
+                }
+
+                var themeFolderPath = themeService.GetThemeFolderPath(themeService.CurrentTheme.Name);
+
+                var thumbPath = await thumbnailService.GenerateVideoGifThumbnailAsync(
+                    item.FilePath, resource.Id, themeFolderPath);
+
+                if (!string.IsNullOrEmpty(thumbPath))
+                {
+                    System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                    {
+                        item.ThumbnailPath = thumbPath;
+                        resource.ThumbnailPath = thumbPath;
+                        resource.ThumbnailFileName = System.IO.Path.GetFileName(thumbPath);
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[CreatorViewModel] Video thumbnail regeneration failed: {ex.Message}");
+            }
         }
 
         // ==================== Sync to Theme ====================
@@ -1133,7 +1213,7 @@ namespace ProductivityWallpaper.ViewModels
 
         /// <summary>
         /// Registers a media item as a ResourceEntry in the theme ResourceLibrary.
-        /// If a resource with the same SourcePath already exists, returns its ID.
+        /// If a resource with the same SourcePath already exists, updates its thumbnail and returns its ID.
         /// </summary>
         private string RegisterOrFindResource(MediaItemModel item)
         {
@@ -1143,7 +1223,15 @@ namespace ProductivityWallpaper.ViewModels
             foreach (var existing in CurrentTheme.ResourceLibrary.GetAll())
             {
                 if (existing.SourcePath == item.FilePath)
+                {
+                    // Update thumbnail path if it was generated after initial registration
+                    if (!string.IsNullOrEmpty(item.ThumbnailPath) && item.ThumbnailPath != item.FilePath)
+                    {
+                        existing.ThumbnailPath = item.ThumbnailPath;
+                        existing.ThumbnailFileName = System.IO.Path.GetFileName(item.ThumbnailPath);
+                    }
                     return existing.Id;
+                }
             }
 
             // Create new ResourceEntry
@@ -1164,8 +1252,45 @@ namespace ProductivityWallpaper.ViewModels
                 }
             };
 
+            // Persist thumbnail path (for videos, this points to the generated GIF/JPEG in temp folder)
+            if (!string.IsNullOrEmpty(item.ThumbnailPath) && item.ThumbnailPath != item.FilePath)
+            {
+                entry.ThumbnailPath = item.ThumbnailPath;
+                entry.ThumbnailFileName = System.IO.Path.GetFileName(item.ThumbnailPath);
+            }
+
             CurrentTheme.ResourceLibrary.Add(entry);
             return entry.Id;
+        }
+
+        // ==================== Available Media for MouseClick ====================
+
+        /// <summary>
+        /// Populates the MouseClickViewModel's AvailableMedia collection with image/video items
+        /// from all Desktop Background scheme caches. This allows users to select a desktop
+        /// wallpaper as the canvas background when configuring click regions.
+        /// </summary>
+        private void PopulateAvailableMedia(MouseClickViewModel mouseVm)
+        {
+            mouseVm.AvailableMedia.Clear();
+
+            // Gather image/video items from all Desktop Background scheme VMs
+            foreach (var scheme in _schemesByFeature[FeatureType.DesktopBackground])
+            {
+                if (_schemeViewModelCache.TryGetValue(scheme.Id, out var vm) && vm is MediaConfigurationViewModel mediaVm)
+                {
+                    foreach (var item in mediaVm.ImageVideoItems)
+                    {
+                        // Avoid duplicates (same file path)
+                        if (!mouseVm.AvailableMedia.Any(a => a.FilePath == item.FilePath))
+                        {
+                            mouseVm.AvailableMedia.Add(item);
+                        }
+                    }
+                }
+            }
+
+            Debug.WriteLine($"[CreatorViewModel] Populated {mouseVm.AvailableMedia.Count} available media for MouseClick");
         }
 
         // ==================== Dirty Tracking ====================
