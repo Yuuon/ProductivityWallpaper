@@ -2,6 +2,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -286,6 +287,12 @@ namespace ProductivityWallpaper.ViewModels
                         mediaItem.ThumbnailPath = filePath;
                     }
 
+                    // Generate animated GIF thumbnail for videos
+                    if (isVideo)
+                    {
+                        _ = GenerateVideoThumbnailAsync(mediaItem);
+                    }
+
                     SelectedRegion.VisualContent = mediaItem;
                     OnPropertyChanged(nameof(HasRegionMedia));
                     OnPropertyChanged(nameof(CanAddVisual));
@@ -469,6 +476,34 @@ namespace ProductivityWallpaper.ViewModels
                 }
             }
             return maxNumber + 1;
+        }
+
+        /// <summary>
+        /// Generates an animated GIF thumbnail for a video item asynchronously.
+        /// </summary>
+        private static async Task GenerateVideoThumbnailAsync(MediaItemModel item)
+        {
+            try
+            {
+                var thumbnailService = App.Current.Services.GetService<IThumbnailService>();
+                if (thumbnailService == null) return;
+
+                var thumbPath = await thumbnailService.GenerateVideoGifThumbnailAsync(
+                    item.FilePath, item.Id);
+
+                if (!string.IsNullOrEmpty(thumbPath))
+                {
+                    System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                    {
+                        item.ThumbnailPath = thumbPath;
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[MouseClickViewModel] Video thumbnail generation failed: {ex.Message}");
+            }
         }
     }
 }

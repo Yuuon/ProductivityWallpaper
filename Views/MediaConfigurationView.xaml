@@ -191,19 +191,20 @@
                             </Image.Style>
                         </Image>
                         
-                        <!-- Video Thumbnail -->
+                        <!-- Video Thumbnail (animated GIF or static fallback) -->
                         <Grid Visibility="{Binding Type, Converter={StaticResource MediaTypeIsVideoConverter}}">
-                            <Image Source="{Binding ThumbnailPath}" Stretch="UniformToFill">
-                                <Image.Style>
-                                    <Style TargetType="Image">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding ThumbnailPath}" Value="">
-                                                <Setter Property="Source" Value="{StaticResource DefaultThumbImage}"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Image.Style>
-                            </Image>
+                            <!-- Animated GIF thumbnail via MediaElement -->
+                            <MediaElement Source="{Binding ThumbnailPath}"
+                                          LoadedBehavior="Play"
+                                          UnloadedBehavior="Close"
+                                          Stretch="UniformToFill"
+                                          IsMuted="True"
+                                          MediaEnded="OnThumbnailMediaEnded"
+                                          Visibility="{Binding ThumbnailPath, Converter={StaticResource StringEmptyToVisibilityConverter}}"/>
+                            <!-- Fallback when no thumbnail -->
+                            <Image Source="{StaticResource DefaultThumbImage}" 
+                                   Stretch="Uniform"
+                                   Visibility="{Binding ThumbnailPath, Converter={StaticResource InverseStringEmptyToVisibilityConverter}}"/>
                         </Grid>
                         
                         <!-- Preview Button Overlay (bottom-right of thumbnail) -->

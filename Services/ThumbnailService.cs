@@ -13,13 +13,18 @@ namespace ProductivityWallpaper.Services
     /// <summary>
     /// Generates and manages thumbnails for media resources.
     /// Supports temp mode (local editing) and export mode (theme packages).
-    /// Uses WPF imaging for image thumbnails and MediaPlayer for video frame extraction.
+    /// Uses WPF imaging for image thumbnails, and FFmpeg for animated video GIF thumbnails.
+    /// Falls back to WPF MediaPlayer frame extraction when FFmpeg is unavailable.
     /// </summary>
     public class ThumbnailService : IThumbnailService
     {
         private const string TempFolderName = "ProductivityWallpaper";
         private const string ThumbnailsFolderName = "Thumbnails";
         private const string ThumbnailSuffix = "_thumb.jpg";
+        private const string GifThumbnailSuffix = "_thumb.gif";
+        private const int GifMaxDurationSeconds = 5;
+        private const int GifFps = 8;
+        private bool? _ffmpegAvailable;
 
         /// <inheritdoc/>
         public async Task<string> GenerateThumbnailAsync(ResourceEntry resource, bool forExport = false,
@@ -96,6 +101,13 @@ namespace ProductivityWallpaper.Services
         }
 
         /// <inheritdoc/>
+        public string GetGifThumbnailPath(string resourceId)
+        {
+            var filename = $"{resourceId}{GifThumbnailSuffix}";
+            return Path.Combine(Path.GetTempPath(), TempFolderName, ThumbnailsFolderName, filename);
+        }
+
+        /// <inheritdoc/>
         public bool ThumbnailExists(string resourceId, bool forExport = false, string? exportFolder = null)
         {
             var path = GetThumbnailPath(resourceId, forExport, exportFolder);
@@ -118,9 +130,172 @@ namespace ProductivityWallpaper.Services
                     Debug.WriteLine($"[ThumbnailService] Error deleting thumbnail: {ex.Message}");
                 }
             }
+
+            // Also delete GIF thumbnail if it exists
+            var gifPath = GetGifThumbnailPath(resourceId);
+            if (File.Exists(gifPath))
+            {
+                try
+                {
+                    File.Delete(gifPath);
+                    Debug.WriteLine($"[ThumbnailService] Deleted GIF thumbnail: {gifPath}");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[ThumbnailService] Error deleting GIF thumbnail: {ex.Message}");
+                }
+            }
+        }
+
+        /// <inheritdoc/>
+        public bool IsFFmpegAvailable()
+        {
+            if (_ffmpegAvailable.HasValue)
+                return _ffmpegAvailable.Value;
+
+            try
+            {
+                using var process = new Process();
+                process.StartInfo = new ProcessStartInfo
+                {
+                    FileName = "ffmpeg",
+                    Arguments = "-version",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                };
+                process.Start();
+                process.WaitForExit(5000);
+                _ffmpegAvailable = process.ExitCode == 0;
+            }
+            catch
+            {
+                _ffmpegAvailable = false;
+            }
+
+            Debug.WriteLine($"[ThumbnailService] FFmpeg available: {_ffmpegAvailable.Value}");
+            return _ffmpegAvailable.Value;
+        }
+
+        /// <inheritdoc/>
+        public async Task<string> GenerateVideoGifThumbnailAsync(string sourcePath, string resourceId,
+            CancellationToken ct = default)
+        {
+            if (!File.Exists(sourcePath))
+            {
+                Debug.WriteLine($"[ThumbnailService] Source file not found: {sourcePath}");
+                return string.Empty;
+            }
+
+            var outputPath = GetGifThumbnailPath(resourceId);
+
+            // Ensure directory exists
+            var dir = Path.GetDirectoryName(outputPath);
+            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                Directory.CreateDirectory(dir);
+
+            // If GIF already exists, return it
+            if (File.Exists(outputPath))
+            {
+                Debug.WriteLine($"[ThumbnailService] GIF thumbnail already exists: {outputPath}");
+                return outputPath;
+            }
+
+            if (!IsFFmpegAvailable())
+            {
+                Debug.WriteLine("[ThumbnailService] FFmpeg not available, falling back to static thumbnail");
+                // Fall back to static JPEG thumbnail
+                var staticPath = GetThumbnailPath(resourceId);
+                if (File.Exists(staticPath))
+                    return staticPath;
+                return await GenerateVideoThumbnailAsync(sourcePath, staticPath, ct);
+            }
+
+            try
+            {
+                return await GenerateGifViaFFmpegAsync(sourcePath, outputPath, ct);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ThumbnailService] GIF generation failed: {ex.Message}, falling back to static thumbnail");
+                var staticPath = GetThumbnailPath(resourceId);
+                if (File.Exists(staticPath))
+                    return staticPath;
+                return await GenerateVideoThumbnailAsync(sourcePath, staticPath, ct);
+            }
         }
 
         // ==================== Private Generation Methods ====================
+
+        /// <summary>
+        /// Generates an animated GIF from a video using FFmpeg CLI.
+        /// Creates a looping GIF from the first 5 seconds at 8fps, scaled to thumbnail width.
+        /// Uses a two-pass palette approach for optimal GIF quality.
+        /// </summary>
+        private static async Task<string> GenerateGifViaFFmpegAsync(string sourcePath, string outputPath, CancellationToken ct)
+        {
+            // FFmpeg command for high-quality GIF with palette generation:
+            // -t 5: max 5 seconds
+            // -vf: fps=8, scale to 320px width (maintain aspect), palette generation for quality
+            // -loop 0: infinite loop
+            var arguments = $"-i \"{sourcePath}\" -t {GifMaxDurationSeconds} " +
+                            $"-vf \"fps={GifFps},scale={IThumbnailService.ThumbnailWidth}:-1:flags=lanczos,split[s0][s1];" +
+                            $"[s0]palettegen=max_colors=128[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3\" " +
+                            $"-loop 0 -y \"{outputPath}\"";
+
+            using var process = new Process();
+            process.StartInfo = new ProcessStartInfo
+            {
+                FileName = "ffmpeg",
+                Arguments = arguments,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+
+            process.Start();
+
+            var tcs = new TaskCompletionSource<bool>();
+            ct.Register(() =>
+            {
+                try { if (!process.HasExited) { process.Kill(); } }
+                catch { /* Process already exited */ }
+            });
+
+            process.EnableRaisingEvents = true;
+            process.Exited += (_, _) => tcs.TrySetResult(true);
+
+            // Drain stdout/stderr to prevent deadlock
+            _ = process.StandardOutput.ReadToEndAsync();
+            var stderr = await process.StandardError.ReadToEndAsync();
+
+            // Wait with timeout (30 seconds for GIF generation)
+            var completed = await Task.WhenAny(tcs.Task, Task.Delay(TimeSpan.FromSeconds(30), ct));
+
+            if (completed != tcs.Task)
+            {
+                try { if (!process.HasExited) { process.Kill(); } }
+                catch { /* Process already exited */ }
+                Debug.WriteLine("[ThumbnailService] FFmpeg GIF generation timed out");
+                return string.Empty;
+            }
+
+            if (process.ExitCode != 0)
+            {
+                Debug.WriteLine($"[ThumbnailService] FFmpeg GIF generation failed (exit code {process.ExitCode}): {stderr}");
+                return string.Empty;
+            }
+
+            if (File.Exists(outputPath))
+            {
+                Debug.WriteLine($"[ThumbnailService] Generated GIF thumbnail: {outputPath}");
+                return outputPath;
+            }
+
+            return string.Empty;
+        }
 
         /// <summary>
         /// Generates a thumbnail from an image file using WPF imaging.
@@ -156,14 +331,11 @@ namespace ProductivityWallpaper.Services
         }
 
         /// <summary>
-        /// Generates a thumbnail from a video file by extracting a frame using WPF MediaPlayer.
-        /// Must run on the UI thread (STA) for WPF media operations.
+        /// Generates a static thumbnail from a video file by extracting a frame using WPF MediaPlayer.
+        /// Must run on an STA thread with dispatcher for WPF media operations.
         /// </summary>
         private async Task<string> GenerateVideoThumbnailAsync(string sourcePath, string outputPath, CancellationToken ct)
         {
-            // Video thumbnail extraction requires STA thread with dispatcher
-            // Use a simple approach: try to load as image first (some video containers have embedded thumbnails)
-            // If that fails, create a placeholder
             try
             {
                 var tcs = new TaskCompletionSource<string>();

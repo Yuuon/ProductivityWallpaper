@@ -243,5 +243,22 @@ namespace ProductivityWallpaper.Views
         }
 
         #endregion
+
+        #region Thumbnail GIF Looping
+
+        /// <summary>
+        /// Handles MediaEnded event for GIF/video thumbnail MediaElements.
+        /// Loops the media by resetting position to the beginning.
+        /// </summary>
+        private void OnThumbnailMediaEnded(object sender, RoutedEventArgs e)
+        {
+            if (sender is MediaElement mediaElement)
+            {
+                mediaElement.Position = TimeSpan.FromMilliseconds(1);
+                mediaElement.Play();
+            }
+        }
+
+        #endregion
     }
 }

@@ -1,9 +1,12 @@
 using System;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.DependencyInjection;
 using ProductivityWallpaper.Models;
+using ProductivityWallpaper.Services;
 
 namespace ProductivityWallpaper.ViewModels
 {
@@ -250,6 +253,8 @@ namespace ProductivityWallpaper.ViewModels
                 if (mediaType == MediaFileType.Video)
                 {
                     item.Duration = GetVideoDuration(filePath);
+                    // Generate animated GIF thumbnail for videos
+                    _ = GenerateVideoThumbnailAsync(item);
                 }
 
                 ImageVideoItems.Add(item);
@@ -334,6 +339,36 @@ namespace ProductivityWallpaper.ViewModels
         {
             // TODO: Implement using TagLib# or similar library
             return null;
+        }
+
+        /// <summary>
+        /// Generates an animated GIF thumbnail for a video item asynchronously.
+        /// Updates the item's ThumbnailPath when complete.
+        /// </summary>
+        private static async Task GenerateVideoThumbnailAsync(MediaItemModel item)
+        {
+            try
+            {
+                var thumbnailService = App.Current.Services.GetService<IThumbnailService>();
+                if (thumbnailService == null) return;
+
+                var thumbPath = await thumbnailService.GenerateVideoGifThumbnailAsync(
+                    item.FilePath, item.Id);
+
+                if (!string.IsNullOrEmpty(thumbPath))
+                {
+                    // Update on UI thread
+                    System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                    {
+                        item.ThumbnailPath = thumbPath;
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[MediaConfigurationViewModel] Video thumbnail generation failed: {ex.Message}");
+            }
         }
 
         public static string FormatFileSize(long bytes)

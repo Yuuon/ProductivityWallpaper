@@ -69,5 +69,27 @@ namespace ProductivityWallpaper.Services
         /// Deletes the thumbnail for the given resource if it exists.
         /// </summary>
         void DeleteThumbnail(string resourceId, bool forExport = false, string? exportFolder = null);
+
+        /// <summary>
+        /// Generates an animated GIF thumbnail from a video file using FFmpeg.
+        /// Creates a looping GIF from the first 5 seconds (maximum) of the video.
+        /// Falls back to a static JPEG thumbnail if FFmpeg is not available.
+        /// </summary>
+        /// <param name="sourcePath">Path to the source video file.</param>
+        /// <param name="resourceId">Resource ID for naming the thumbnail.</param>
+        /// <param name="ct">Cancellation token.</param>
+        /// <returns>The generated GIF thumbnail file path, or empty string on failure.</returns>
+        Task<string> GenerateVideoGifThumbnailAsync(string sourcePath, string resourceId,
+            CancellationToken ct = default);
+
+        /// <summary>
+        /// Gets the expected GIF thumbnail path for a video resource.
+        /// </summary>
+        string GetGifThumbnailPath(string resourceId);
+
+        /// <summary>
+        /// Checks if FFmpeg is available on the system PATH.
+        /// </summary>
+        bool IsFFmpegAvailable();
     }
 }

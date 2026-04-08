@@ -217,19 +217,20 @@
                             </Image.Style>
                         </Image>
                         
-                        <!-- Video Thumbnail -->
+                        <!-- Video Thumbnail (animated GIF or static fallback) -->
                         <Grid Visibility="{Binding Type, Converter={StaticResource MediaTypeIsVideoConverter}}">
-                            <Image Source="{Binding ThumbnailPath}" Stretch="UniformToFill">
-                                <Image.Style>
-                                    <Style TargetType="Image">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding ThumbnailPath}" Value="">
-                                                <Setter Property="Source" Value="{StaticResource DefaultThumbImage}"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Image.Style>
-                            </Image>
+                            <!-- Animated GIF thumbnail via MediaElement -->
+                            <MediaElement Source="{Binding ThumbnailPath}"
+                                          LoadedBehavior="Play"
+                                          UnloadedBehavior="Close"
+                                          Stretch="UniformToFill"
+                                          IsMuted="True"
+                                          MediaEnded="OnThumbnailMediaEnded"
+                                          Visibility="{Binding ThumbnailPath, Converter={StaticResource StringEmptyToVisibilityConverter}}"/>
+                            <!-- Fallback when no thumbnail -->
+                            <Image Source="{StaticResource DefaultThumbImage}" 
+                                   Stretch="Uniform"
+                                   Visibility="{Binding ThumbnailPath, Converter={StaticResource InverseStringEmptyToVisibilityConverter}}"/>
                         </Grid>
                         
                         <!-- Preview Button Overlay -->
@@ -902,8 +903,10 @@
                                 <Border Grid.Column="0" Width="120" Height="68" CornerRadius="6" ClipToBounds="True"
                                         Background="#FF121225" Margin="0,0,16,0">
                                     <Grid>
+                                        <!-- Image Thumbnail (for image types) -->
                                         <Image Source="{Binding SelectedRegion.VisualContent.ThumbnailPath}"
-                                               Stretch="UniformToFill">
+                                               Stretch="UniformToFill"
+                                               Visibility="{Binding SelectedRegion.VisualContent.Type, Converter={StaticResource MediaTypeIsVideoConverter}, ConverterParameter=Invert}">
                                             <Image.Style>
                                                 <Style TargetType="Image">
                                                     <Style.Triggers>
@@ -914,6 +917,19 @@
                                                 </Style>
                                             </Image.Style>
                                         </Image>
+                                        <!-- Video Thumbnail (animated GIF or static fallback) -->
+                                        <Grid Visibility="{Binding SelectedRegion.VisualContent.Type, Converter={StaticResource MediaTypeIsVideoConverter}}">
+                                            <MediaElement Source="{Binding SelectedRegion.VisualContent.ThumbnailPath}"
+                                                          LoadedBehavior="Play"
+                                                          UnloadedBehavior="Close"
+                                                          Stretch="UniformToFill"
+                                                          IsMuted="True"
+                                                          MediaEnded="OnThumbnailMediaEnded"
+                                                          Visibility="{Binding SelectedRegion.VisualContent.ThumbnailPath, Converter={StaticResource StringEmptyToVisibilityConverter}}"/>
+                                            <Image Source="{StaticResource DefaultThumbImage}" 
+                                                   Stretch="Uniform"
+                                                   Visibility="{Binding SelectedRegion.VisualContent.ThumbnailPath, Converter={StaticResource InverseStringEmptyToVisibilityConverter}}"/>
+                                        </Grid>
 
                                         <!-- Preview Button Overlay -->
                                         <Button Command="{Binding PreviewMediaCommand}"
