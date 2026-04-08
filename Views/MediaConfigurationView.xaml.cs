@@ -44,6 +44,8 @@ namespace ProductivityWallpaper.Views
         /// <summary>
         /// Handles MediaEnded event for GIF/video thumbnail MediaElements.
         /// Loops the media by resetting position to the beginning.
+        /// Note: Position is set to 1ms instead of Zero because MediaElement does not
+        /// restart playback when Position is set to exactly TimeSpan.Zero after MediaEnded.
         /// </summary>
         private void OnThumbnailMediaEnded(object sender, RoutedEventArgs e)
         {

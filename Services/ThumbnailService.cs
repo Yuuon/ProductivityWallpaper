@@ -235,25 +235,40 @@ namespace ProductivityWallpaper.Services
         /// </summary>
         private static async Task<string> GenerateGifViaFFmpegAsync(string sourcePath, string outputPath, CancellationToken ct)
         {
+            // Validate paths don't contain characters that could break FFmpeg argument parsing
+            if (sourcePath.Contains('"') || outputPath.Contains('"'))
+            {
+                Debug.WriteLine("[ThumbnailService] Path contains quotes, cannot safely pass to FFmpeg");
+                return string.Empty;
+            }
+
             // FFmpeg command for high-quality GIF with palette generation:
             // -t 5: max 5 seconds
             // -vf: fps=8, scale to 320px width (maintain aspect), palette generation for quality
             // -loop 0: infinite loop
-            var arguments = $"-i \"{sourcePath}\" -t {GifMaxDurationSeconds} " +
-                            $"-vf \"fps={GifFps},scale={IThumbnailService.ThumbnailWidth}:-1:flags=lanczos,split[s0][s1];" +
-                            $"[s0]palettegen=max_colors=128[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3\" " +
-                            $"-loop 0 -y \"{outputPath}\"";
+            var vfFilter = $"fps={GifFps},scale={IThumbnailService.ThumbnailWidth}:-1:flags=lanczos,split[s0][s1];" +
+                           $"[s0]palettegen=max_colors=128[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3";
 
             using var process = new Process();
             process.StartInfo = new ProcessStartInfo
             {
                 FileName = "ffmpeg",
-                Arguments = arguments,
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 CreateNoWindow = true
             };
+            // Use ArgumentList for safe argument passing (no shell interpretation)
+            process.StartInfo.ArgumentList.Add("-i");
+            process.StartInfo.ArgumentList.Add(sourcePath);
+            process.StartInfo.ArgumentList.Add("-t");
+            process.StartInfo.ArgumentList.Add(GifMaxDurationSeconds.ToString());
+            process.StartInfo.ArgumentList.Add("-vf");
+            process.StartInfo.ArgumentList.Add(vfFilter);
+            process.StartInfo.ArgumentList.Add("-loop");
+            process.StartInfo.ArgumentList.Add("0");
+            process.StartInfo.ArgumentList.Add("-y");
+            process.StartInfo.ArgumentList.Add(outputPath);
 
             process.Start();
 
@@ -261,7 +276,7 @@ namespace ProductivityWallpaper.Services
             ct.Register(() =>
             {
                 try { if (!process.HasExited) { process.Kill(); } }
-                catch { /* Process already exited */ }
+                catch (Exception ex) { Debug.WriteLine($"[ThumbnailService] Failed to kill FFmpeg process on cancellation: {ex.Message}"); }
             });
 
             process.EnableRaisingEvents = true;
@@ -277,7 +292,7 @@ namespace ProductivityWallpaper.Services
             if (completed != tcs.Task)
             {
                 try { if (!process.HasExited) { process.Kill(); } }
-                catch { /* Process already exited */ }
+                catch (Exception ex) { Debug.WriteLine($"[ThumbnailService] Failed to kill timed-out FFmpeg process: {ex.Message}"); }
                 Debug.WriteLine("[ThumbnailService] FFmpeg GIF generation timed out");
                 return string.Empty;
             }
