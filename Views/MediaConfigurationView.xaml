@@ -195,10 +195,11 @@
                         <Grid Visibility="{Binding Type, Converter={StaticResource MediaTypeIsVideoConverter}}">
                             <!-- Animated GIF thumbnail via MediaElement -->
                             <MediaElement Source="{Binding ThumbnailPath}"
-                                          LoadedBehavior="Play"
-                                          UnloadedBehavior="Close"
+                                          LoadedBehavior="Manual"
+                                          UnloadedBehavior="Stop"
                                           Stretch="UniformToFill"
                                           IsMuted="True"
+                                          MediaOpened="OnThumbnailMediaOpened"
                                           MediaEnded="OnThumbnailMediaEnded"
                                           Visibility="{Binding ThumbnailPath, Converter={StaticResource StringEmptyToVisibilityConverter}}"/>
                             <!-- Fallback when no thumbnail -->

@@ -247,6 +247,18 @@ namespace ProductivityWallpaper.Views
         #region Thumbnail GIF Looping
 
         /// <summary>
+        /// Handles MediaOpened event for thumbnail MediaElements.
+        /// Required when LoadedBehavior="Manual": starts playback once the media source is loaded.
+        /// </summary>
+        private void OnThumbnailMediaOpened(object sender, RoutedEventArgs e)
+        {
+            if (sender is MediaElement mediaElement)
+            {
+                mediaElement.Play();
+            }
+        }
+
+        /// <summary>
         /// Handles MediaEnded event for GIF/video thumbnail MediaElements.
         /// Loops the media by resetting position to the beginning.
         /// Note: Position is set to 1ms instead of Zero because MediaElement does not

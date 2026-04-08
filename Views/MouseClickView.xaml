@@ -221,10 +221,11 @@
                         <Grid Visibility="{Binding Type, Converter={StaticResource MediaTypeIsVideoConverter}}">
                             <!-- Animated GIF thumbnail via MediaElement -->
                             <MediaElement Source="{Binding ThumbnailPath}"
-                                          LoadedBehavior="Play"
-                                          UnloadedBehavior="Close"
+                                          LoadedBehavior="Manual"
+                                          UnloadedBehavior="Stop"
                                           Stretch="UniformToFill"
                                           IsMuted="True"
+                                          MediaOpened="OnThumbnailMediaOpened"
                                           MediaEnded="OnThumbnailMediaEnded"
                                           Visibility="{Binding ThumbnailPath, Converter={StaticResource StringEmptyToVisibilityConverter}}"/>
                             <!-- Fallback when no thumbnail -->
@@ -1011,10 +1012,11 @@
                                 <!-- Video Thumbnail (animated GIF or static fallback) -->
                                 <Grid Visibility="{Binding SelectedRegion.VisualContent.Type, Converter={StaticResource MediaTypeIsVideoConverter}}">
                                     <MediaElement Source="{Binding SelectedRegion.VisualContent.ThumbnailPath}"
-                                                  LoadedBehavior="Play"
-                                                  UnloadedBehavior="Close"
+                                                  LoadedBehavior="Manual"
+                                                  UnloadedBehavior="Stop"
                                                   Stretch="UniformToFill"
                                                   IsMuted="True"
+                                                  MediaOpened="OnThumbnailMediaOpened"
                                                   MediaEnded="OnThumbnailMediaEnded"
                                                   Visibility="{Binding SelectedRegion.VisualContent.ThumbnailPath, Converter={StaticResource StringEmptyToVisibilityConverter}}"/>
                                     <Image Source="{StaticResource DefaultThumbImage}" 
