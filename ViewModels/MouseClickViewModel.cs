@@ -152,11 +152,12 @@ namespace ProductivityWallpaper.ViewModels
 
         /// <summary>
         /// Loads available media from Desktop Background scheme.
+        /// Called by CreatorViewModel.PopulateAvailableMedia() and LoadFeatureContent().
         /// </summary>
         private void LoadAvailableMedia()
         {
-            // TODO: Load from Desktop Background scheme when integration is available
-            // For now, initialize empty collection
+            // AvailableMedia is populated by CreatorViewModel when this VM is loaded.
+            // Initialize with empty collection as a placeholder.
             AvailableMedia = new ObservableCollection<MediaItemModel>();
         }
 
