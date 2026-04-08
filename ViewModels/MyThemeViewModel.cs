@@ -132,18 +132,18 @@ namespace ProductivityWallpaper.ViewModels
             {
                 if (resource.Type == MediaType.Audio) continue;
 
-                // For images, use the source path directly (they are their own thumbnails).
-                // For videos, prefer the generated thumbnail path.
                 string? path = null;
 
-                if (resource.Type == MediaType.Image && !string.IsNullOrEmpty(resource.SourcePath) 
+                // Prefer generated thumbnail path (stored in theme folder) for both images and videos.
+                // Fall back to source path for images.
+                if (!string.IsNullOrEmpty(resource.ThumbnailPath) && File.Exists(resource.ThumbnailPath))
+                {
+                    path = resource.ThumbnailPath;
+                }
+                else if (resource.Type == MediaType.Image && !string.IsNullOrEmpty(resource.SourcePath) 
                     && File.Exists(resource.SourcePath))
                 {
                     path = resource.SourcePath;
-                }
-                else if (!string.IsNullOrEmpty(resource.ThumbnailPath) && File.Exists(resource.ThumbnailPath))
-                {
-                    path = resource.ThumbnailPath;
                 }
 
                 if (!string.IsNullOrEmpty(path))

@@ -146,6 +146,9 @@ namespace ProductivityWallpaper.ViewModels
             if (item == null)
                 return;
 
+            // Delete associated thumbnail file if it exists and is different from source
+            DeleteThumbnailFile(item);
+
             if (item.Type == MediaFileType.Audio)
             {
                 AudioItems.Remove(item);
@@ -157,6 +160,32 @@ namespace ProductivityWallpaper.ViewModels
             }
 
             NotifyContentChanged();
+        }
+
+        /// <summary>
+        /// Deletes the thumbnail file associated with a media item.
+        /// Only deletes if the thumbnail path is different from the source file path
+        /// (i.e., it's a generated thumbnail, not the original image).
+        /// </summary>
+        private static void DeleteThumbnailFile(MediaItemModel item)
+        {
+            if (string.IsNullOrEmpty(item.ThumbnailPath)) return;
+            if (item.ThumbnailPath == item.FilePath) return; // Image uses source as thumbnail
+
+            try
+            {
+                if (File.Exists(item.ThumbnailPath))
+                {
+                    File.Delete(item.ThumbnailPath);
+                    System.Diagnostics.Debug.WriteLine(
+                        $"[MediaConfigurationViewModel] Deleted thumbnail: {item.ThumbnailPath}");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[MediaConfigurationViewModel] Error deleting thumbnail: {ex.Message}");
+            }
         }
 
         [RelayCommand]
@@ -247,7 +276,9 @@ namespace ProductivityWallpaper.ViewModels
 
                 if (mediaType == MediaFileType.Image)
                 {
+                    // Use source path as immediate thumbnail, then generate a stored thumbnail
                     item.ThumbnailPath = filePath;
+                    _ = GenerateImageThumbnailAsync(item);
                 }
 
                 if (mediaType == MediaFileType.Video)
@@ -344,6 +375,7 @@ namespace ProductivityWallpaper.ViewModels
         /// <summary>
         /// Generates an animated GIF thumbnail for a video item asynchronously.
         /// Updates the item's ThumbnailPath when complete.
+        /// Stores the thumbnail in the current theme's thumbnails/ folder for persistence.
         /// </summary>
         private static async Task GenerateVideoThumbnailAsync(MediaItemModel item)
         {
@@ -352,8 +384,16 @@ namespace ProductivityWallpaper.ViewModels
                 var thumbnailService = App.Current.Services.GetService<IThumbnailService>();
                 if (thumbnailService == null) return;
 
+                // Get the current theme folder path for persistent thumbnail storage
+                var themeService = App.Current.Services.GetService<IThemeService>();
+                string? themeFolderPath = null;
+                if (themeService?.CurrentTheme != null && !string.IsNullOrEmpty(themeService.CurrentTheme.Name))
+                {
+                    themeFolderPath = themeService.GetThemeFolderPath(themeService.CurrentTheme.Name);
+                }
+
                 var thumbPath = await thumbnailService.GenerateVideoGifThumbnailAsync(
-                    item.FilePath, item.Id);
+                    item.FilePath, item.Id, themeFolderPath);
 
                 if (!string.IsNullOrEmpty(thumbPath))
                 {
@@ -368,6 +408,51 @@ namespace ProductivityWallpaper.ViewModels
             {
                 System.Diagnostics.Debug.WriteLine(
                     $"[MediaConfigurationViewModel] Video thumbnail generation failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Generates a stored image thumbnail for persistence in the theme folder.
+        /// Updates the item's ThumbnailPath to the generated file.
+        /// </summary>
+        private static async Task GenerateImageThumbnailAsync(MediaItemModel item)
+        {
+            try
+            {
+                var thumbnailService = App.Current.Services.GetService<IThumbnailService>();
+                if (thumbnailService == null) return;
+
+                // Get the current theme folder path for persistent thumbnail storage
+                var themeService = App.Current.Services.GetService<IThemeService>();
+                string? themeFolderPath = null;
+                if (themeService?.CurrentTheme != null && !string.IsNullOrEmpty(themeService.CurrentTheme.Name))
+                {
+                    themeFolderPath = themeService.GetThemeFolderPath(themeService.CurrentTheme.Name);
+                }
+
+                // Use theme folder or temp folder for thumbnail storage
+                string? exportFolder = null;
+                if (!string.IsNullOrEmpty(themeFolderPath))
+                {
+                    exportFolder = themeFolderPath;
+                }
+
+                var thumbPath = await thumbnailService.GenerateThumbnailAsync(
+                    item.FilePath, item.Id, Models.MediaType.Image,
+                    forExport: exportFolder != null, exportFolder: exportFolder);
+
+                if (!string.IsNullOrEmpty(thumbPath))
+                {
+                    System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                    {
+                        item.ThumbnailPath = thumbPath;
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[MediaConfigurationViewModel] Image thumbnail generation failed: {ex.Message}");
             }
         }
 

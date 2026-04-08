@@ -344,11 +344,19 @@ namespace ProductivityWallpaper.ViewModels
 
         /// <summary>
         /// Removes the visual content from the selected region.
+        /// Also deletes the associated thumbnail file.
         /// </summary>
         [RelayCommand]
         private void RemoveRegionVisual()
         {
             if (SelectedRegion == null) return;
+            
+            // Delete thumbnail file if it exists
+            if (SelectedRegion.VisualContent != null)
+            {
+                DeleteThumbnailFile(SelectedRegion.VisualContent);
+            }
+            
             SelectedRegion.VisualContent = null;
             OnPropertyChanged(nameof(HasRegionMedia));
             OnPropertyChanged(nameof(CanAddVisual));
@@ -365,6 +373,31 @@ namespace ProductivityWallpaper.ViewModels
             SelectedRegion.AudioContent.Remove(audio);
             OnPropertyChanged(nameof(HasRegionMedia));
             OnPropertyChanged(nameof(CanAddAudio));
+        }
+
+        /// <summary>
+        /// Deletes the thumbnail file associated with a media item.
+        /// Only deletes if the thumbnail path is different from the source file path.
+        /// </summary>
+        private static void DeleteThumbnailFile(MediaItemModel item)
+        {
+            if (string.IsNullOrEmpty(item.ThumbnailPath)) return;
+            if (item.ThumbnailPath == item.FilePath) return;
+
+            try
+            {
+                if (File.Exists(item.ThumbnailPath))
+                {
+                    File.Delete(item.ThumbnailPath);
+                    System.Diagnostics.Debug.WriteLine(
+                        $"[MouseClickViewModel] Deleted thumbnail: {item.ThumbnailPath}");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[MouseClickViewModel] Error deleting thumbnail: {ex.Message}");
+            }
         }
 
         /// <summary>
@@ -481,6 +514,7 @@ namespace ProductivityWallpaper.ViewModels
 
         /// <summary>
         /// Generates an animated GIF thumbnail for a video item asynchronously.
+        /// Stores the thumbnail in the current theme's thumbnails/ folder for persistence.
         /// </summary>
         private static async Task GenerateVideoThumbnailAsync(MediaItemModel item)
         {
@@ -489,8 +523,16 @@ namespace ProductivityWallpaper.ViewModels
                 var thumbnailService = App.Current.Services.GetService<IThumbnailService>();
                 if (thumbnailService == null) return;
 
+                // Get the current theme folder path for persistent thumbnail storage
+                var themeService = App.Current.Services.GetService<IThemeService>();
+                string? themeFolderPath = null;
+                if (themeService?.CurrentTheme != null && !string.IsNullOrEmpty(themeService.CurrentTheme.Name))
+                {
+                    themeFolderPath = themeService.GetThemeFolderPath(themeService.CurrentTheme.Name);
+                }
+
                 var thumbPath = await thumbnailService.GenerateVideoGifThumbnailAsync(
-                    item.FilePath, item.Id);
+                    item.FilePath, item.Id, themeFolderPath);
 
                 if (!string.IsNullOrEmpty(thumbPath))
                 {

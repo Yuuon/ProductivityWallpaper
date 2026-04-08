@@ -1094,6 +1094,7 @@ namespace ProductivityWallpaper.ViewModels
 
         /// <summary>
         /// Regenerates a video thumbnail and updates both the MediaItemModel and ResourceEntry.
+        /// Stores the thumbnail in the current theme's thumbnails/ folder for persistence.
         /// </summary>
         private static async Task RegenerateVideoThumbnailAsync(MediaItemModel item, ResourceEntry resource)
         {
@@ -1102,8 +1103,16 @@ namespace ProductivityWallpaper.ViewModels
                 var thumbnailService = App.Current.Services.GetService<IThumbnailService>();
                 if (thumbnailService == null) return;
 
+                // Get the current theme folder path for persistent thumbnail storage
+                var themeService = App.Current.Services.GetService<IThemeService>();
+                string? themeFolderPath = null;
+                if (themeService?.CurrentTheme != null && !string.IsNullOrEmpty(themeService.CurrentTheme.Name))
+                {
+                    themeFolderPath = themeService.GetThemeFolderPath(themeService.CurrentTheme.Name);
+                }
+
                 var thumbPath = await thumbnailService.GenerateVideoGifThumbnailAsync(
-                    item.FilePath, resource.Id);
+                    item.FilePath, resource.Id, themeFolderPath);
 
                 if (!string.IsNullOrEmpty(thumbPath))
                 {

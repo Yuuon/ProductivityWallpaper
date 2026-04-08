@@ -101,9 +101,15 @@ namespace ProductivityWallpaper.Services
         }
 
         /// <inheritdoc/>
-        public string GetGifThumbnailPath(string resourceId)
+        public string GetGifThumbnailPath(string resourceId, string? themeFolderPath = null)
         {
             var filename = $"{resourceId}{GifThumbnailSuffix}";
+            
+            if (!string.IsNullOrEmpty(themeFolderPath))
+            {
+                return Path.Combine(themeFolderPath, "thumbnails", filename);
+            }
+            
             return Path.Combine(Path.GetTempPath(), TempFolderName, ThumbnailsFolderName, filename);
         }
 
@@ -131,7 +137,7 @@ namespace ProductivityWallpaper.Services
                 }
             }
 
-            // Also delete GIF thumbnail if it exists
+            // Also delete GIF thumbnail from temp folder if it exists
             var gifPath = GetGifThumbnailPath(resourceId);
             if (File.Exists(gifPath))
             {
@@ -143,6 +149,24 @@ namespace ProductivityWallpaper.Services
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[ThumbnailService] Error deleting GIF thumbnail: {ex.Message}");
+                }
+            }
+
+            // Also delete GIF thumbnail from theme folder if it exists
+            if (!string.IsNullOrEmpty(exportFolder))
+            {
+                var themeGifPath = GetGifThumbnailPath(resourceId, exportFolder);
+                if (File.Exists(themeGifPath))
+                {
+                    try
+                    {
+                        File.Delete(themeGifPath);
+                        Debug.WriteLine($"[ThumbnailService] Deleted theme GIF thumbnail: {themeGifPath}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[ThumbnailService] Error deleting theme GIF thumbnail: {ex.Message}");
+                    }
                 }
             }
         }
@@ -180,7 +204,7 @@ namespace ProductivityWallpaper.Services
 
         /// <inheritdoc/>
         public async Task<string> GenerateVideoGifThumbnailAsync(string sourcePath, string resourceId,
-            CancellationToken ct = default)
+            string? themeFolderPath = null, CancellationToken ct = default)
         {
             if (!File.Exists(sourcePath))
             {
@@ -188,7 +212,7 @@ namespace ProductivityWallpaper.Services
                 return string.Empty;
             }
 
-            var outputPath = GetGifThumbnailPath(resourceId);
+            var outputPath = GetGifThumbnailPath(resourceId, themeFolderPath);
 
             // Ensure directory exists
             var dir = Path.GetDirectoryName(outputPath);
@@ -205,8 +229,23 @@ namespace ProductivityWallpaper.Services
             if (!IsFFmpegAvailable())
             {
                 Debug.WriteLine("[ThumbnailService] FFmpeg not available, falling back to static thumbnail");
-                // Fall back to static JPEG thumbnail
-                var staticPath = GetThumbnailPath(resourceId);
+                // Fall back to static JPEG thumbnail in the same folder as the GIF would be
+                var staticFilename = $"{resourceId}{ThumbnailSuffix}";
+                string staticPath;
+                if (!string.IsNullOrEmpty(themeFolderPath))
+                {
+                    staticPath = Path.Combine(themeFolderPath, "thumbnails", staticFilename);
+                }
+                else
+                {
+                    staticPath = GetThumbnailPath(resourceId);
+                }
+                
+                // Ensure directory exists for static path too
+                var staticDir = Path.GetDirectoryName(staticPath);
+                if (!string.IsNullOrEmpty(staticDir) && !Directory.Exists(staticDir))
+                    Directory.CreateDirectory(staticDir);
+                    
                 if (File.Exists(staticPath))
                     return staticPath;
                 return await GenerateVideoThumbnailAsync(sourcePath, staticPath, ct);
@@ -219,7 +258,16 @@ namespace ProductivityWallpaper.Services
             catch (Exception ex)
             {
                 Debug.WriteLine($"[ThumbnailService] GIF generation failed: {ex.Message}, falling back to static thumbnail");
-                var staticPath = GetThumbnailPath(resourceId);
+                var staticFilename = $"{resourceId}{ThumbnailSuffix}";
+                string staticPath;
+                if (!string.IsNullOrEmpty(themeFolderPath))
+                {
+                    staticPath = Path.Combine(themeFolderPath, "thumbnails", staticFilename);
+                }
+                else
+                {
+                    staticPath = GetThumbnailPath(resourceId);
+                }
                 if (File.Exists(staticPath))
                     return staticPath;
                 return await GenerateVideoThumbnailAsync(sourcePath, staticPath, ct);

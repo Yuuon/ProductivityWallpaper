@@ -77,15 +77,20 @@ namespace ProductivityWallpaper.Services
         /// </summary>
         /// <param name="sourcePath">Path to the source video file.</param>
         /// <param name="resourceId">Resource ID for naming the thumbnail.</param>
+        /// <param name="themeFolderPath">Optional theme folder path. When provided, thumbnails are saved
+        /// to the theme's thumbnails/ subfolder instead of %Temp%.</param>
         /// <param name="ct">Cancellation token.</param>
         /// <returns>The generated GIF thumbnail file path, or empty string on failure.</returns>
         Task<string> GenerateVideoGifThumbnailAsync(string sourcePath, string resourceId,
-            CancellationToken ct = default);
+            string? themeFolderPath = null, CancellationToken ct = default);
 
         /// <summary>
         /// Gets the expected GIF thumbnail path for a video resource.
         /// </summary>
-        string GetGifThumbnailPath(string resourceId);
+        /// <param name="resourceId">Resource ID.</param>
+        /// <param name="themeFolderPath">Optional theme folder path. When provided, returns the path
+        /// inside the theme's thumbnails/ subfolder.</param>
+        string GetGifThumbnailPath(string resourceId, string? themeFolderPath = null);
 
         /// <summary>
         /// Checks if FFmpeg is available on the system PATH.
