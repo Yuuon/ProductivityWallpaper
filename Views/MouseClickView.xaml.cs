@@ -337,7 +337,11 @@ namespace ProductivityWallpaper.Views
                 else if (!(bool)e.NewValue)
                 {
                     try { mediaElement.Stop(); }
-                    catch { /* Ignore errors when stopping */ }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine(
+                            $"[MouseClickView] Background video stop failed (safe to ignore): {ex.Message}");
+                    }
                 }
             }
         }
