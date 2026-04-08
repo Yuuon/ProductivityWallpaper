@@ -17,11 +17,16 @@ namespace ProductivityWallpaper.ViewModels
     {
         // --- Constants ---
         private const long MaxFileSizeBytes = 500L * 1024 * 1024; // 500MB
-        private const string ImageVideoFilter =
+        private const string AllMediaFilter =
             "All media files|*.jpg;*.jpeg;*.png;*.webp;*.bmp;*.heic;*.svg;*.gif;*.apng;*.mp4;*.mov;*.webm;*.mp3;*.wav;*.ogg;*.flac;*.aac;*.wma;*.m4a|" +
             "Image files|*.jpg;*.jpeg;*.png;*.webp;*.bmp;*.heic;*.svg;*.gif;*.apng|" +
             "Video files|*.mp4;*.mov;*.webm|" +
             "Audio files|*.mp3;*.wav;*.ogg;*.flac;*.aac;*.wma;*.m4a|" +
+            "All files|*.*";
+        private const string ImageVideoOnlyFilter =
+            "Image/Video files|*.jpg;*.jpeg;*.png;*.webp;*.bmp;*.heic;*.svg;*.gif;*.apng;*.mp4;*.mov;*.webm|" +
+            "Image files|*.jpg;*.jpeg;*.png;*.webp;*.bmp;*.heic;*.svg;*.gif;*.apng|" +
+            "Video files|*.mp4;*.mov;*.webm|" +
             "All files|*.*";
         private const string AudioFilter =
             "Audio files|*.mp3;*.wav;*.ogg;*.flac;*.aac;*.wma;*.m4a|" +
@@ -73,6 +78,16 @@ namespace ProductivityWallpaper.ViewModels
         /// </summary>
         public bool HasContent => ImageVideoItems.Count > 0 || AudioItems.Count > 0;
 
+        /// <summary>
+        /// Whether the scheme has any image/video content.
+        /// </summary>
+        public bool HasImageVideoContent => ImageVideoItems.Count > 0;
+
+        /// <summary>
+        /// Whether the scheme has any audio content.
+        /// </summary>
+        public bool HasAudioContent => AudioItems.Count > 0;
+
         // --- Constructor ---
 
         protected MediaConfigurationViewModel()
@@ -88,7 +103,7 @@ namespace ProductivityWallpaper.ViewModels
             var dialog = new Microsoft.Win32.OpenFileDialog
             {
                 Title = "Import Media Files",
-                Filter = ImageVideoFilter,
+                Filter = IncludeAudio ? AllMediaFilter : ImageVideoOnlyFilter,
                 Multiselect = true,
                 CheckFileExists = true
             };
@@ -138,7 +153,7 @@ namespace ProductivityWallpaper.ViewModels
                 ReorderItems(ImageVideoItems);
             }
 
-            OnPropertyChanged(nameof(HasContent));
+            NotifyContentChanged();
         }
 
         [RelayCommand]
@@ -184,6 +199,16 @@ namespace ProductivityWallpaper.ViewModels
 
         // --- Helper Methods ---
 
+        /// <summary>
+        /// Notifies all content-related properties after add/remove operations.
+        /// </summary>
+        private void NotifyContentChanged()
+        {
+            OnPropertyChanged(nameof(HasContent));
+            OnPropertyChanged(nameof(HasImageVideoContent));
+            OnPropertyChanged(nameof(HasAudioContent));
+        }
+
         private void AddMediaFile(string filePath)
         {
             try
@@ -228,7 +253,7 @@ namespace ProductivityWallpaper.ViewModels
                 }
 
                 ImageVideoItems.Add(item);
-                OnPropertyChanged(nameof(HasContent));
+                NotifyContentChanged();
             }
             catch (Exception ex)
             {
@@ -267,7 +292,7 @@ namespace ProductivityWallpaper.ViewModels
                 item.Duration = GetAudioDuration(filePath);
 
                 AudioItems.Add(item);
-                OnPropertyChanged(nameof(HasContent));
+                NotifyContentChanged();
             }
             catch (Exception ex)
             {

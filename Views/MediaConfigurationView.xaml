@@ -10,8 +10,8 @@
              d:DataContext="{d:DesignInstance Type=vm:MediaConfigurationViewModel}">
     
     <UserControl.Resources>
-        <!-- Boolean to Visibility Converter for inverse -->
-        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+        <!-- Converters -->
+        <converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
         
         <!-- File Size Formatter -->
         <converters:FileSizeConverter x:Key="FileSizeConverter"/>
@@ -631,15 +631,22 @@
                     LostFocus="SchemeNameTextBox_LostFocus"
                     KeyDown="SchemeNameTextBox_KeyDown"/>
             
-            <!-- Activate Button -->
+            <!-- Activate Button (disabled when already active) -->
             <Button Grid.Column="1"
                     Content="{Binding IsActive, Converter={StaticResource BooleanToActiveTextConverter}}"
                     Style="{StaticResource PrimaryButtonStyle}"
                     Command="{Binding ActivateSchemeCommand}"
-                    IsEnabled="{Binding IsActive, Converter={StaticResource InverseBooleanToVisibilityConverter}}"
                     Padding="16,8"
                     Height="36"
-                    Visibility="{Binding HasContent, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                    Visibility="{Binding HasContent, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <Button.IsEnabled>
+                    <Binding Path="IsActive">
+                        <Binding.Converter>
+                            <converters:InverseBooleanConverter/>
+                        </Binding.Converter>
+                    </Binding>
+                </Button.IsEnabled>
+            </Button>
         </Grid>
         
         <!-- Empty State -->
@@ -934,13 +941,14 @@
                     </Grid>
                     
                     
-                    <!-- Section 3: Image/Video List -->
+                    <!-- Section 3: Image/Video List (visible when there are image/video items) -->
                     <Border Background="{StaticResource BackgroundBlockBrush}"
                            BorderBrush="{StaticResource BorderLineBrush}"
                            BorderThickness="1"
                            CornerRadius="10"
                            Padding="16"
-                           Margin="0,0,0,16">
+                           Margin="0,0,0,16"
+                           Visibility="{Binding HasImageVideoContent, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <StackPanel>
                             
                             <!-- Header Row -->
@@ -984,14 +992,14 @@
                     </Border>
                     
                     
-                    <!-- Section 4: Audio List (hidden when IncludeAudio is false) -->
+                    <!-- Section 4: Audio List (visible when audio items exist and feature supports audio) -->
                     
                     <Border Background="{StaticResource BackgroundBlockBrush}"
                            BorderBrush="{StaticResource BorderLineBrush}"
                            BorderThickness="1"
                            CornerRadius="10"
                            Padding="16"
-                           Visibility="{Binding IncludeAudio, Converter={StaticResource BooleanToVisibilityConverter}}">
+                           Visibility="{Binding HasAudioContent, Converter={StaticResource BooleanToVisibilityConverter}}">
                         
                         <StackPanel>
                             

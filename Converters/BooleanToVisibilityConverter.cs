@@ -82,4 +82,29 @@ namespace ProductivityWallpaper.Converters
             throw new NotImplementedException();
         }
     }
+
+    /// <summary>
+    /// Converts a boolean to its inverse (true→false, false→true).
+    /// Use when binding bool properties that need inversion (e.g., IsEnabled when IsActive).
+    /// </summary>
+    public class InverseBooleanConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is bool boolValue)
+            {
+                return !boolValue;
+            }
+            return false;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is bool boolValue)
+            {
+                return !boolValue;
+            }
+            return false;
+        }
+    }
 }

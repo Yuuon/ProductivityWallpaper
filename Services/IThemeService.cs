@@ -92,6 +92,11 @@ namespace ProductivityWallpaper.Services
         // ==================== Utility ====================
 
         /// <summary>
+        /// Gets the root path where all themes are stored.
+        /// </summary>
+        string GetThemesRootPath();
+
+        /// <summary>
         /// Gets the folder path for a theme in app data.
         /// </summary>
         string GetThemeFolderPath(string themeName);

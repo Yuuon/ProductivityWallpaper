@@ -13,6 +13,7 @@ namespace ProductivityWallpaper.ViewModels
     {
         private readonly LocalizationService _locService;
         private readonly ConfigService _configService;
+        private readonly IThemeService _themeService;
 
         public List<string> Languages => _locService.AvailableLanguages;
 
@@ -31,6 +32,11 @@ namespace ProductivityWallpaper.ViewModels
 
         [ObservableProperty]
         private string _mediaLibraryPath;
+
+        /// <summary>
+        /// The path where theme files are stored (%AppData%/ProductivityWallpaper/Themes/).
+        /// </summary>
+        public string ThemeStoragePath => _themeService.GetThemesRootPath();
 
         partial void OnMediaLibraryPathChanged(string value)
         {
@@ -59,10 +65,33 @@ namespace ProductivityWallpaper.ViewModels
             }
         }
 
-        public SettingsViewModel(LocalizationService locService, ConfigService configService)
+        [RelayCommand]
+        private void OpenThemeFolder()
+        {
+            var path = ThemeStoragePath;
+            if (!Directory.Exists(path))
+            {
+                Directory.CreateDirectory(path);
+            }
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = path,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[SettingsViewModel] Failed to open theme folder: {ex.Message}");
+            }
+        }
+
+        public SettingsViewModel(LocalizationService locService, ConfigService configService, IThemeService themeService)
         {
             _locService = locService;
             _configService = configService;
+            _themeService = themeService;
             _selectedLanguage = _locService.CurrentLanguageCode;
             _mediaLibraryPath = _configService.Config.MediaLibraryPath;
         }
