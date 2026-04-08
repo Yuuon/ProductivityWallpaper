@@ -1,6 +1,9 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Windows.Threading;
 
 namespace ProductivityWallpaper.ViewModels
 {
@@ -83,8 +86,12 @@ namespace ProductivityWallpaper.ViewModels
         }
     }
     
-    public partial class ThemeItem : ObservableObject
+    public partial class ThemeItem : ObservableObject, IDisposable
     {
+        private DispatcherTimer? _slideshowTimer;
+        private int _currentThumbnailIndex;
+        private bool _disposed;
+
         [ObservableProperty]
         private string _name = string.Empty;
         
@@ -111,6 +118,65 @@ namespace ProductivityWallpaper.ViewModels
         /// </summary>
         [ObservableProperty]
         private string _themeFolderName = string.Empty;
+
+        /// <summary>
+        /// Collection of thumbnail paths for slideshow display.
+        /// When multiple paths are set, the Thumbnail property cycles through them.
+        /// </summary>
+        public List<string> ThumbnailPaths { get; set; } = new();
+
+        /// <summary>
+        /// Initializes the slideshow timer to cycle through thumbnails.
+        /// Only starts if there are multiple thumbnail paths.
+        /// </summary>
+        public void StartSlideshow()
+        {
+            if (ThumbnailPaths.Count <= 1) return;
+
+            // Set initial thumbnail
+            if (ThumbnailPaths.Count > 0 && string.IsNullOrEmpty(Thumbnail))
+            {
+                Thumbnail = ThumbnailPaths[0];
+            }
+
+            _currentThumbnailIndex = 0;
+            _slideshowTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(3)
+            };
+            _slideshowTimer.Tick += OnSlideshowTick;
+            _slideshowTimer.Start();
+        }
+
+        /// <summary>
+        /// Stops the slideshow timer.
+        /// </summary>
+        public void StopSlideshow()
+        {
+            if (_slideshowTimer != null)
+            {
+                _slideshowTimer.Stop();
+                _slideshowTimer.Tick -= OnSlideshowTick;
+                _slideshowTimer = null;
+            }
+        }
+
+        private void OnSlideshowTick(object? sender, EventArgs e)
+        {
+            if (ThumbnailPaths.Count == 0) return;
+
+            _currentThumbnailIndex = (_currentThumbnailIndex + 1) % ThumbnailPaths.Count;
+            Thumbnail = ThumbnailPaths[_currentThumbnailIndex];
+        }
+
+        public void Dispose()
+        {
+            if (!_disposed)
+            {
+                StopSlideshow();
+                _disposed = true;
+            }
+        }
     }
     
     public partial class TagItem : ObservableObject
