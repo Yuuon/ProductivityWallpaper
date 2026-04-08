@@ -22,6 +22,7 @@
         <converters:InverseNullToVisibilityConverter x:Key="InverseNullToVisibilityConverter"/>
         <converters:PercentageToPixelConverter x:Key="PercentageToPixelConverter"/>
         <converters:PercentageToPixelMultiConverter x:Key="PercentageToPixelMultiConverter"/>
+        <converters:MediaTypeIsVideoConverter x:Key="MediaTypeIsVideoConverter"/>
 
         <!-- Region Item Template -->
         <DataTemplate x:Key="RegionItemTemplate" DataType="{x:Type models:ClickRegionModel}">
@@ -116,15 +117,16 @@
             </Grid>
         </DataTemplate>
 
-        <!-- Media Item Template (for Available Wallpapers panel) -->
+        <!-- Media Item Template (for Available Wallpapers panel — thumbnail only) -->
         <DataTemplate x:Key="MediaItemTemplate" DataType="{x:Type models:MediaItemModel}">
             <Border Background="{StaticResource BackgroundBlockBrush}"
                     BorderBrush="{StaticResource BorderLineBrush}"
                     BorderThickness="1"
-                    CornerRadius="8"
-                    Margin="0,4"
-                    Padding="12"
-                    Cursor="Hand">
+                    CornerRadius="6"
+                    Margin="0,3"
+                    ClipToBounds="True"
+                    Cursor="Hand"
+                    Height="72">
                 <Border.InputBindings>
                     <MouseBinding MouseAction="LeftClick"
                                    Command="{Binding DataContext.SetBackgroundMediaCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
@@ -132,59 +134,41 @@
                 </Border.InputBindings>
                 
                 <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="48"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
+                    <!-- Image Thumbnail (for image types) -->
+                    <Image Source="{Binding ThumbnailPath}"
+                           Stretch="UniformToFill"
+                           Visibility="{Binding Type, Converter={StaticResource MediaTypeIsVideoConverter}, ConverterParameter=Invert}"/>
                     
-                    <!-- Thumbnail or Icon -->
-                    <Border Grid.Column="0"
-                            Width="48"
-                            Height="48"
-                            Background="{StaticResource BackgroundMainBrush}"
-                            CornerRadius="4"
-                            Margin="0,0,12,0">
-                        <Grid>
-                            <Image Source="{Binding ThumbnailPath}"
-                                   Stretch="Uniform"
-                                   Visibility="{Binding ThumbnailPath, Converter={StaticResource StringEmptyToVisibilityConverter}}"/>
-                            <Path Data="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"
-                                  Fill="{StaticResource IconBrush}"
-                                  Width="24"
-                                  Height="24"
-                                  Stretch="Uniform"
-                                  Visibility="{Binding ThumbnailPath, Converter={StaticResource InverseStringEmptyToVisibilityConverter}}"
-                                  HorizontalAlignment="Center"
-                                  VerticalAlignment="Center">
-                                <Path.Style>
-                                    <Style TargetType="Path">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding Type}" Value="{x:Static models:MediaFileType.Audio}">
-                                                <Setter Property="Data" Value="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding Type}" Value="{x:Static models:MediaFileType.Video}">
-                                                <Setter Property="Data" Value="M10 16.5l6-4.5-6-4.5v9zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Path.Style>
-                            </Path>
-                        </Grid>
+                    <!-- Video Thumbnail (animated GIF via MediaElement) -->
+                    <MediaElement Source="{Binding ThumbnailPath}"
+                                  LoadedBehavior="Manual"
+                                  UnloadedBehavior="Stop"
+                                  Stretch="UniformToFill"
+                                  IsMuted="True"
+                                  MediaOpened="OnThumbnailMediaOpened"
+                                  MediaEnded="OnThumbnailMediaEnded"
+                                  Visibility="{Binding Type, Converter={StaticResource MediaTypeIsVideoConverter}}"/>
+                    
+                    <!-- Fallback icon when no thumbnail -->
+                    <Border Background="{StaticResource BackgroundMainBrush}"
+                            Visibility="{Binding ThumbnailPath, Converter={StaticResource StringEmptyToVisibilityConverter}}">
+                        <Path Data="M10 16.5l6-4.5-6-4.5v9zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"
+                              Fill="{StaticResource IconBrush}"
+                              Width="24" Height="24"
+                              Stretch="Uniform"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Center"/>
                     </Border>
                     
-                    <!-- File Info -->
-                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <!-- File name overlay at bottom -->
+                    <Border Background="#99000000"
+                            VerticalAlignment="Bottom"
+                            Padding="6,2">
                         <TextBlock Text="{Binding FileName}"
-                                   Foreground="{StaticResource TextPrimaryBrush}"
-                                   FontSize="13"
-                                   TextTrimming="CharacterEllipsis"
-                                   MaxWidth="180"/>
-                        
-                        <TextBlock Text="{Binding Format, StringFormat='{}{0} file'}"
-                                   Foreground="{StaticResource TextSecondaryBrush}"
-                                   FontSize="11"
-                                   Margin="0,2,0,0"/>
-                    </StackPanel>
+                                   Foreground="White"
+                                   FontSize="10"
+                                   TextTrimming="CharacterEllipsis"/>
+                    </Border>
                 </Grid>
             </Border>
         </DataTemplate>
@@ -827,11 +811,50 @@
                             <Grid x:Name="CanvasContainer"
                                   Width="1920"
                                   Height="1080">
-                                <!-- Background Media -->
+                                <!-- Background Media: Image -->
                                 <Image x:Name="BackgroundImage"
                                        Source="{Binding BackgroundMedia.FilePath}"
-                                       Stretch="{Binding BackgroundMedia.DisplayMode, Converter={StaticResource DisplayModeToStretchConverter}}"
-                                       Visibility="{Binding BackgroundMedia, Converter={StaticResource NullToVisibilityConverter}}"/>
+                                       Stretch="{Binding BackgroundMedia.DisplayMode, Converter={StaticResource DisplayModeToStretchConverter}}">
+                                    <Image.Style>
+                                        <Style TargetType="Image">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <MultiDataTrigger>
+                                                    <MultiDataTrigger.Conditions>
+                                                        <Condition Binding="{Binding BackgroundMedia, Converter={StaticResource NullToVisibilityConverter}}" Value="Visible"/>
+                                                        <Condition Binding="{Binding BackgroundMedia.Type, Converter={StaticResource MediaTypeIsVideoConverter}, ConverterParameter=Invert}" Value="Visible"/>
+                                                    </MultiDataTrigger.Conditions>
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </MultiDataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Image.Style>
+                                </Image>
+                                
+                                <!-- Background Media: Video -->
+                                <MediaElement x:Name="BackgroundVideo"
+                                              Source="{Binding BackgroundMedia.FilePath}"
+                                              LoadedBehavior="Manual"
+                                              UnloadedBehavior="Stop"
+                                              Stretch="{Binding BackgroundMedia.DisplayMode, Converter={StaticResource DisplayModeToStretchConverter}}"
+                                              IsMuted="True"
+                                              MediaOpened="OnBackgroundVideoMediaOpened"
+                                              MediaEnded="OnBackgroundVideoMediaEnded">
+                                    <MediaElement.Style>
+                                        <Style TargetType="MediaElement">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <MultiDataTrigger>
+                                                    <MultiDataTrigger.Conditions>
+                                                        <Condition Binding="{Binding BackgroundMedia, Converter={StaticResource NullToVisibilityConverter}}" Value="Visible"/>
+                                                        <Condition Binding="{Binding BackgroundMedia.Type, Converter={StaticResource MediaTypeIsVideoConverter}}" Value="Visible"/>
+                                                    </MultiDataTrigger.Conditions>
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </MultiDataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </MediaElement.Style>
+                                </MediaElement>
                                 
                                 <!-- Canvas for Regions -->
                                 <Canvas x:Name="RegionCanvas"

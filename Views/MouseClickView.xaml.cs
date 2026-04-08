@@ -280,6 +280,35 @@ namespace ProductivityWallpaper.Views
 
         #endregion
 
+        #region Background Video Playback
+
+        /// <summary>
+        /// Handles MediaOpened event for the background video element.
+        /// Starts playback when the video source is loaded.
+        /// </summary>
+        private void OnBackgroundVideoMediaOpened(object sender, RoutedEventArgs e)
+        {
+            if (sender is MediaElement mediaElement)
+            {
+                mediaElement.Play();
+            }
+        }
+
+        /// <summary>
+        /// Handles MediaEnded event for the background video element.
+        /// Loops the video by resetting position to the beginning.
+        /// </summary>
+        private void OnBackgroundVideoMediaEnded(object sender, RoutedEventArgs e)
+        {
+            if (sender is MediaElement mediaElement)
+            {
+                mediaElement.Position = TimeSpan.FromMilliseconds(1);
+                mediaElement.Play();
+            }
+        }
+
+        #endregion
+
         #region Audio ListView Drag-and-Drop Reorder
 
         private Point _audioDragStartPoint;
