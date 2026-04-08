@@ -191,9 +191,9 @@
                             </Image.Style>
                         </Image>
                         
-                        <!-- Video Thumbnail (animated GIF or static JPEG fallback) -->
+                        <!-- Video Thumbnail (animated GIF via MediaElement) -->
                         <Grid Visibility="{Binding Type, Converter={StaticResource MediaTypeIsVideoConverter}}">
-                            <!-- Animated GIF thumbnail via MediaElement (for .gif thumbnails) -->
+                            <!-- Animated GIF thumbnail via MediaElement -->
                             <MediaElement Source="{Binding ThumbnailPath}"
                                           LoadedBehavior="Manual"
                                           UnloadedBehavior="Stop"
@@ -202,10 +202,6 @@
                                           MediaOpened="OnThumbnailMediaOpened"
                                           MediaEnded="OnThumbnailMediaEnded"
                                           Visibility="{Binding ThumbnailPath, Converter={StaticResource InverseStringEmptyToVisibilityConverter}}"/>
-                            <!-- Static JPEG fallback (shown by Image when MediaElement fails) -->
-                            <Image Source="{Binding ThumbnailPath}"
-                                   Stretch="UniformToFill"
-                                   Visibility="{Binding ThumbnailPath, Converter={StaticResource InverseStringEmptyToVisibilityConverter}}"/>
                             <!-- Fallback when no thumbnail exists -->
                             <Image Source="{StaticResource DefaultThumbImage}" 
                                    Stretch="Uniform"

@@ -307,6 +307,41 @@ namespace ProductivityWallpaper.Views
             }
         }
 
+        /// <summary>
+        /// Handles IsVisibleChanged for the background video MediaElement.
+        /// When the element becomes visible (e.g., after BackgroundMedia changes to a video),
+        /// triggers playback. When hidden, stops playback to avoid resource waste.
+        /// This fixes the issue where MediaElement with LoadedBehavior="Manual" doesn't
+        /// auto-play when Source is set while the element is Collapsed.
+        /// </summary>
+        private void OnBackgroundVideoIsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            if (sender is MediaElement mediaElement)
+            {
+                if ((bool)e.NewValue && mediaElement.Source != null)
+                {
+                    // Small delay to ensure the source is loaded before playing
+                    mediaElement.Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        try
+                        {
+                            mediaElement.Play();
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine(
+                                $"[MouseClickView] Background video play failed: {ex.Message}");
+                        }
+                    }), System.Windows.Threading.DispatcherPriority.Loaded);
+                }
+                else if (!(bool)e.NewValue)
+                {
+                    try { mediaElement.Stop(); }
+                    catch { /* Ignore errors when stopping */ }
+                }
+            }
+        }
+
         #endregion
 
         #region Audio ListView Drag-and-Drop Reorder

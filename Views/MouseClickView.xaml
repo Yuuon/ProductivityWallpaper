@@ -117,7 +117,7 @@
             </Grid>
         </DataTemplate>
 
-        <!-- Media Item Template (for Available Wallpapers panel — thumbnail only) -->
+        <!-- Media Item Template (for Available Wallpapers panel — thumbnail only, 16:9 ratio) -->
         <DataTemplate x:Key="MediaItemTemplate" DataType="{x:Type models:MediaItemModel}">
             <Border Background="{StaticResource BackgroundBlockBrush}"
                     BorderBrush="{StaticResource BorderLineBrush}"
@@ -126,7 +126,7 @@
                     Margin="0,3"
                     ClipToBounds="True"
                     Cursor="Hand"
-                    Height="72">
+                    Height="130">
                 <Border.InputBindings>
                     <MouseBinding MouseAction="LeftClick"
                                    Command="{Binding DataContext.SetBackgroundMediaCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
@@ -158,16 +158,6 @@
                               Stretch="Uniform"
                               HorizontalAlignment="Center"
                               VerticalAlignment="Center"/>
-                    </Border>
-                    
-                    <!-- File name overlay at bottom -->
-                    <Border Background="#99000000"
-                            VerticalAlignment="Bottom"
-                            Padding="6,2">
-                        <TextBlock Text="{Binding FileName}"
-                                   Foreground="White"
-                                   FontSize="10"
-                                   TextTrimming="CharacterEllipsis"/>
                     </Border>
                 </Grid>
             </Border>
@@ -839,7 +829,8 @@
                                               Stretch="{Binding BackgroundMedia.DisplayMode, Converter={StaticResource DisplayModeToStretchConverter}}"
                                               IsMuted="True"
                                               MediaOpened="OnBackgroundVideoMediaOpened"
-                                              MediaEnded="OnBackgroundVideoMediaEnded">
+                                              MediaEnded="OnBackgroundVideoMediaEnded"
+                                              IsVisibleChanged="OnBackgroundVideoIsVisibleChanged">
                                     <MediaElement.Style>
                                         <Style TargetType="MediaElement">
                                             <Setter Property="Visibility" Value="Collapsed"/>
