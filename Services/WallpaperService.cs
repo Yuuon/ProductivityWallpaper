@@ -57,6 +57,9 @@ namespace ProductivityWallpaper.Services
         private List<ClickRegionModel>? _activeClickRegions;
         private ResourceResolver? _activeResolver;
         private SchemeModel? _activeMouseClickScheme;
+        private bool _bgAudioEndReachedSubscribed;
+        private readonly Dictionary<string, int> _regionAudioIndex = new();
+        private const int MinWallpaperDurationSeconds = 5;
 
         public WallpaperService()
         {
@@ -281,7 +284,8 @@ namespace ProductivityWallpaper.Services
 
             try
             {
-                using var media = new Media(_tempLibVLC, new Uri(audioPath));
+                // Do NOT use 'using' — VLC playback is async and needs the Media alive
+                var media = new Media(_tempLibVLC, new Uri(audioPath));
                 _audioPlayer.Play(media);
             }
             catch (Exception ex)
@@ -583,7 +587,7 @@ namespace ProductivityWallpaper.Services
         /// </summary>
         public void SetWallpaperDuration(int durationSeconds)
         {
-            _wallpaperDurationSeconds = Math.Max(5, durationSeconds);
+            _wallpaperDurationSeconds = Math.Max(MinWallpaperDurationSeconds, durationSeconds);
 
             if (_wallpaperCycleTimer != null)
             {
@@ -749,18 +753,22 @@ namespace ProductivityWallpaper.Services
 
             _bgAudioPlayer.Volume = Math.Clamp(volumePercent, 0, 100);
 
-            // Set up end-reached handler to play next audio
-            _bgAudioPlayer.EndReached += (_, _) =>
+            // Subscribe to EndReached only once to avoid handler accumulation
+            if (!_bgAudioEndReachedSubscribed)
             {
-                // Must schedule on another thread since VLC callbacks are on VLC thread
-                Task.Run(() =>
+                _bgAudioPlayer.EndReached += (_, _) =>
                 {
-                    Application.Current?.Dispatcher.Invoke(() =>
+                    // Must schedule on another thread since VLC callbacks are on VLC thread
+                    Task.Run(() =>
                     {
-                        PlayNextBackgroundAudio();
+                        Application.Current?.Dispatcher.Invoke(() =>
+                        {
+                            PlayNextBackgroundAudio();
+                        });
                     });
-                });
-            };
+                };
+                _bgAudioEndReachedSubscribed = true;
+            }
 
             PlayNextBackgroundAudio();
         }
@@ -789,7 +797,8 @@ namespace ProductivityWallpaper.Services
             {
                 if (!File.Exists(audioItem.FilePath)) return;
 
-                using var media = new Media(_tempLibVLC, new Uri(audioItem.FilePath));
+                // Do NOT use 'using' — VLC playback is async and needs the Media alive
+                var media = new Media(_tempLibVLC, new Uri(audioItem.FilePath));
                 _bgAudioPlayer.Play(media);
             }
             catch (Exception ex)
@@ -879,10 +888,13 @@ namespace ProductivityWallpaper.Services
             }
             else
             {
-                // For sequential, use a simple round-robin. Store index in region name or use modulo.
-                // Since regions don't track playback state, use a time-based pseudo-sequential approach.
-                int index = (int)(DateTime.Now.Ticks % audioIds.Count);
-                audioId = audioIds[index];
+                // Sequential: track per-region index for true round-robin
+                if (!_regionAudioIndex.TryGetValue(region.Id, out int currentIndex))
+                {
+                    currentIndex = 0;
+                }
+                audioId = audioIds[currentIndex % audioIds.Count];
+                _regionAudioIndex[region.Id] = (currentIndex + 1) % audioIds.Count;
             }
 
             if (string.IsNullOrEmpty(audioId)) return;
@@ -893,7 +905,8 @@ namespace ProductivityWallpaper.Services
             try
             {
                 _audioPlayer.Volume = Math.Clamp(volumePercent, 0, 100);
-                using var media = new Media(_tempLibVLC, new Uri(audioItem.FilePath));
+                // Do NOT use 'using' — VLC playback is async and needs the Media alive
+                var media = new Media(_tempLibVLC, new Uri(audioItem.FilePath));
                 _audioPlayer.Play(media);
             }
             catch (Exception ex)
@@ -941,6 +954,8 @@ namespace ProductivityWallpaper.Services
             _activeClickRegions = null;
             _activeResolver = null;
             _activeMouseClickScheme = null;
+            _regionAudioIndex.Clear();
+            _bgAudioEndReachedSubscribed = false;
 
             _mouseHook?.Stop();
             _mouseHook = null;
