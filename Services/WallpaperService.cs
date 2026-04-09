@@ -56,6 +56,7 @@ namespace ProductivityWallpaper.Services
         // Click region state for theme-based mode
         private List<ClickRegionModel>? _activeClickRegions;
         private ResourceResolver? _activeResolver;
+        private WallpaperPlaybackSettings? _activeWallpaperSettings;
         private SchemeModel? _activeMouseClickScheme;
         private ClickRegionOverlayWindow? _clickRegionOverlay;
         private bool _bgAudioEndReachedSubscribed;
@@ -763,8 +764,18 @@ namespace ProductivityWallpaper.Services
             {
                 Interval = TimeSpan.FromSeconds(_wallpaperDurationSeconds)
             };
-            _wallpaperCycleTimer.Tick += (_, _) => ShowNextWallpaper();
+            _wallpaperCycleTimer.Tick += OnWallpaperCycleTick;
             _wallpaperCycleTimer.Start();
+        }
+
+        /// <summary>
+        /// Named handler for the wallpaper cycle timer tick event.
+        /// Using a named method instead of an anonymous lambda allows proper unsubscription
+        /// during cleanup, preventing memory leaks from accumulated event handlers.
+        /// </summary>
+        private void OnWallpaperCycleTick(object? sender, EventArgs e)
+        {
+            ShowNextWallpaper();
         }
 
         private void ResetCycleTimer()
@@ -882,6 +893,7 @@ namespace ProductivityWallpaper.Services
 
             _activeClickRegions = clickScheme.ClickRegions.ToList();
             _activeMouseClickScheme = clickScheme;
+            _activeWallpaperSettings = settings;
 
             // Create the click region overlay window — follows the old InteractiveUiWindow pattern:
             // a transparent window injected into WorkerW at the topmost Z-order.
@@ -902,16 +914,25 @@ namespace ProductivityWallpaper.Services
 
             // Start mouse hook for click detection
             _mouseHook = new MouseHookService();
-
-            _mouseHook.OnMouseClick += (screenPoint) =>
-            {
-                Application.Current.Dispatcher.Invoke(() =>
-                {
-                    HandleThemeClick(screenPoint, resolver, settings);
-                });
-            };
-
+            _mouseHook.OnMouseClick += OnThemeMouseClick;
             _mouseHook.Start();
+        }
+
+        /// <summary>
+        /// Named handler for mouse clicks in theme-based dynamic wallpaper mode.
+        /// Uses stored _activeResolver and _activeWallpaperSettings instead of captured locals
+        /// so the handler can be properly unsubscribed during cleanup (preventing memory leaks).
+        /// </summary>
+        private void OnThemeMouseClick(System.Windows.Point screenPoint)
+        {
+            var resolver = _activeResolver;
+            var settings = _activeWallpaperSettings;
+            if (resolver == null || settings == null) return;
+
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                HandleThemeClick(screenPoint, resolver, settings);
+            });
         }
 
         /// <summary>
@@ -1098,7 +1119,11 @@ namespace ProductivityWallpaper.Services
         {
             // Stop dynamic wallpaper cycling
             _isDynamicWallpaperActive = false;
-            _wallpaperCycleTimer?.Stop();
+            if (_wallpaperCycleTimer != null)
+            {
+                _wallpaperCycleTimer.Stop();
+                _wallpaperCycleTimer.Tick -= OnWallpaperCycleTick;
+            }
             _wallpaperCycleTimer = null;
             _wallpaperPlaylist.Clear();
             _audioPlaylist.Clear();
@@ -1109,9 +1134,14 @@ namespace ProductivityWallpaper.Services
             _activeMouseClickScheme = null;
             _regionAudioIndex.Clear();
 
-            // Stop mouse hook first to prevent new callbacks
-            _mouseHook?.Stop();
+            // Stop mouse hook first to prevent new callbacks — unsubscribe named handlers
+            if (_mouseHook != null)
+            {
+                _mouseHook.OnMouseClick -= OnThemeMouseClick;
+                _mouseHook.Stop();
+            }
             _mouseHook = null;
+            _activeWallpaperSettings = null;
             _currentInteractiveItem = null;
             _currentConfig = null;
 

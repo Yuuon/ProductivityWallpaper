@@ -42,6 +42,38 @@ namespace ProductivityWallpaper.Views
         public MouseClickView()
         {
             InitializeComponent();
+            DataContextChanged += OnDataContextChanged;
+            Unloaded += OnUnloaded;
+        }
+
+        /// <summary>
+        /// Updates the canvas aspect ratio when the DataContext (ViewModel) is set.
+        /// </summary>
+        private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            UpdateCanvasAspectRatio();
+        }
+
+        /// <summary>
+        /// Stops and cleans up MediaElements when the view is unloaded to prevent memory leaks.
+        /// MediaElement with LoadedBehavior="Manual" must be explicitly stopped.
+        /// </summary>
+        private void OnUnloaded(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var bgVideo = FindName("BackgroundVideo") as System.Windows.Controls.MediaElement;
+                if (bgVideo != null)
+                {
+                    bgVideo.Stop();
+                    bgVideo.Source = null;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[MouseClickView] MediaElement cleanup on unload: {ex.Message}");
+            }
         }
 
         #region Scheme Name Editing
@@ -80,38 +112,43 @@ namespace ProductivityWallpaper.Views
         #region Canvas Size Management
 
         /// <summary>
-        /// Handles the SizeChanged event for the canvas container.
-        /// Maintains aspect ratio of the canvas.
+        /// Handles the SizeChanged event for the canvas container border.
+        /// The Viewbox handles all visual scaling. We only need to set the inner Grid's
+        /// aspect ratio to match the screen resolution (so the edit canvas shape matches
+        /// the user's screen).
+        /// 
+        /// IMPORTANT: We must NOT resize the CanvasContainer/RegionCanvas to the border's
+        /// actual pixel size — doing so breaks the Viewbox coordinate mapping. The Canvas
+        /// must stay at its logical size (e.g. 1920x1080) so that mouse coordinates via
+        /// GetPosition() span the full 0–1920/0–1080 range, giving correct normalization.
         /// </summary>
         private void OnCanvasContainerSizeChanged(object sender, SizeChangedEventArgs e)
         {
-            if (sender is not Border container) return;
+            // Update canvas dimensions when aspect ratio changes (e.g., DataContext loaded)
+            UpdateCanvasAspectRatio();
+        }
+
+        /// <summary>
+        /// Updates CanvasContainer and RegionCanvas dimensions to match the screen's aspect ratio.
+        /// Uses a fixed logical width of 1920 and derives height from the ViewModel's CanvasAspectRatio.
+        /// The Viewbox handles visual scaling to fit the available space.
+        /// </summary>
+        private void UpdateCanvasAspectRatio()
+        {
             if (DataContext is not MouseClickViewModel vm) return;
 
-            // Get the available size
-            var availableWidth = container.ActualWidth - 32; // Margin
-            var availableHeight = container.ActualHeight - 32; // Margin
+            const double baseWidth = 1920;
+            var height = Math.Round(baseWidth / vm.CanvasAspectRatio);
 
-            if (availableWidth <= 0 || availableHeight <= 0) return;
-
-            // Calculate size maintaining aspect ratio
-            var aspectRatio = vm.CanvasAspectRatio;
-            var targetWidth = availableWidth;
-            var targetHeight = targetWidth / aspectRatio;
-
-            if (targetHeight > availableHeight)
+            if (FindName("CanvasContainer") is FrameworkElement container)
             {
-                targetHeight = availableHeight;
-                targetWidth = targetHeight * aspectRatio;
+                container.Width = baseWidth;
+                container.Height = height;
             }
-
-            // Apply to canvas container
-            // Note: CanvasContainer is defined in XAML with x:Name
-            var canvasContainer = FindName("CanvasContainer") as FrameworkElement;
-            if (canvasContainer != null)
+            if (FindName("RegionCanvas") is Canvas canvas)
             {
-                canvasContainer.Width = targetWidth;
-                canvasContainer.Height = targetHeight;
+                canvas.Width = baseWidth;
+                canvas.Height = height;
             }
         }
 

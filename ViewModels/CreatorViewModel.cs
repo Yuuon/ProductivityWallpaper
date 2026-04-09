@@ -376,7 +376,7 @@ namespace ProductivityWallpaper.ViewModels
             NewThemeName = string.Empty;
             CurrentTheme = null;
             _loadedThemeName = null;
-            _schemeViewModelCache.Clear();
+            ClearSchemeViewModelCache();
             IsDirty = false;
 
             // Stop auto-save timer while not editing
@@ -710,14 +710,14 @@ namespace ProductivityWallpaper.ViewModels
                     // For media VMs, subscribe to collection changes
                     if (cachedVm is MediaConfigurationViewModel mediaVm)
                     {
-                        mediaVm.ImageVideoItems.CollectionChanged += (_, _) => MarkDirty();
-                        mediaVm.AudioItems.CollectionChanged += (_, _) => MarkDirty();
+                        mediaVm.ImageVideoItems.CollectionChanged += OnChildCollectionChanged;
+                        mediaVm.AudioItems.CollectionChanged += OnChildCollectionChanged;
                     }
 
                     // For mouse click VMs, subscribe to region collection changes
                     if (cachedVm is MouseClickViewModel mouseVm)
                     {
-                        mouseVm.Regions.CollectionChanged += (_, _) => MarkDirty();
+                        mouseVm.Regions.CollectionChanged += OnChildCollectionChanged;
                     }
 
                     _schemeViewModelCache[cacheKey] = cachedVm;
@@ -890,7 +890,7 @@ namespace ProductivityWallpaper.ViewModels
         private void InitializeNewTheme(string themeName)
         {
             // Clear all scheme collections and caches from any previous theme
-            _schemeViewModelCache.Clear();
+            ClearSchemeViewModelCache();
             foreach (var featureType in MultiSchemeFeatures)
             {
                 _schemesByFeature[featureType].Clear();
@@ -919,7 +919,7 @@ namespace ProductivityWallpaper.ViewModels
             }
 
             // Clear existing state
-            _schemeViewModelCache.Clear();
+            ClearSchemeViewModelCache();
             foreach (var featureType in MultiSchemeFeatures)
             {
                 _schemesByFeature[featureType].Clear();
@@ -1055,12 +1055,12 @@ namespace ProductivityWallpaper.ViewModels
                     vm.PropertyChanged += OnChildViewModelPropertyChanged;
                     if (vm is MediaConfigurationViewModel mvm)
                     {
-                        mvm.ImageVideoItems.CollectionChanged += (_, _) => MarkDirty();
-                        mvm.AudioItems.CollectionChanged += (_, _) => MarkDirty();
+                        mvm.ImageVideoItems.CollectionChanged += OnChildCollectionChanged;
+                        mvm.AudioItems.CollectionChanged += OnChildCollectionChanged;
                     }
                     if (vm is MouseClickViewModel mcvm)
                     {
-                        mcvm.Regions.CollectionChanged += (_, _) => MarkDirty();
+                        mcvm.Regions.CollectionChanged += OnChildCollectionChanged;
                     }
 
                     _schemeViewModelCache[scheme.Id] = vm;
@@ -1380,6 +1380,15 @@ namespace ProductivityWallpaper.ViewModels
         }
 
         /// <summary>
+        /// Named handler for CollectionChanged events on child VM collections.
+        /// Used instead of anonymous lambdas so the handler can be properly unsubscribed.
+        /// </summary>
+        private void OnChildCollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            MarkDirty();
+        }
+
+        /// <summary>
         /// Handles property changes on child ViewModels to propagate dirty state.
         /// </summary>
         private void OnChildViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -1393,6 +1402,32 @@ namespace ProductivityWallpaper.ViewModels
         }
 
         /// <summary>
+        /// Unsubscribes all event handlers from cached child ViewModels and clears the cache.
+        /// Must be called before clearing the cache to prevent memory leaks from
+        /// PropertyChanged and CollectionChanged handlers that reference this ViewModel.
+        /// </summary>
+        private void ClearSchemeViewModelCache()
+        {
+            foreach (var vm in _schemeViewModelCache.Values)
+            {
+                vm.PropertyChanged -= OnChildViewModelPropertyChanged;
+
+                if (vm is MediaConfigurationViewModel mediaVm)
+                {
+                    mediaVm.ImageVideoItems.CollectionChanged -= OnChildCollectionChanged;
+                    mediaVm.AudioItems.CollectionChanged -= OnChildCollectionChanged;
+                }
+
+                if (vm is MouseClickViewModel mouseVm)
+                {
+                    mouseVm.Regions.CollectionChanged -= OnChildCollectionChanged;
+                }
+            }
+
+            _schemeViewModelCache.Clear();
+        }
+
+        /// <summary>
         /// Cleans up timer resources.
         /// </summary>
         public void Dispose()
@@ -1400,13 +1435,7 @@ namespace ProductivityWallpaper.ViewModels
             _autoSaveTimer?.Stop();
             _autoSaveTimer?.Dispose();
 
-            // Unsubscribe from child VM events
-            foreach (var vm in _schemeViewModelCache.Values)
-            {
-                vm.PropertyChanged -= OnChildViewModelPropertyChanged;
-            }
-
-            _schemeViewModelCache.Clear();
+            ClearSchemeViewModelCache();
         }
     }
 }
