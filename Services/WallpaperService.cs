@@ -828,20 +828,28 @@ namespace ProductivityWallpaper.Services
             _bgAudioPlayer.Volume = Math.Clamp(volumePercent, 0, 100);
 
             // Subscribe to EndReached only once to avoid handler accumulation
+            // Uses a named method so it can be properly unsubscribed during cleanup
             if (!_bgAudioEndReachedSubscribed)
             {
-                _bgAudioPlayer.EndReached += (_, _) =>
-                {
-                    // VLC callbacks are on a background thread; dispatch directly to UI
-                    Application.Current?.Dispatcher.BeginInvoke(() =>
-                    {
-                        PlayNextBackgroundAudio();
-                    });
-                };
+                _bgAudioPlayer.EndReached += OnBgAudioEndReached;
                 _bgAudioEndReachedSubscribed = true;
             }
 
             PlayNextBackgroundAudio();
+        }
+
+        /// <summary>
+        /// Named handler for background audio EndReached event.
+        /// VLC callbacks fire on native background threads, so we dispatch to UI thread.
+        /// Named method enables proper unsubscription during cleanup (preventing memory leaks).
+        /// </summary>
+        private void OnBgAudioEndReached(object? sender, EventArgs e)
+        {
+            if (!_isDynamicWallpaperActive) return;
+            Application.Current?.Dispatcher.BeginInvoke(() =>
+            {
+                PlayNextBackgroundAudio();
+            });
         }
 
         private void PlayNextBackgroundAudio()
@@ -1146,8 +1154,13 @@ namespace ProductivityWallpaper.Services
             _currentConfig = null;
 
             // Capture and null-out audio players to prevent VLC callbacks from accessing them
+            // Unsubscribe EndReached handler before releasing the reference
             var oldAudioPlayer = _audioPlayer;
             var oldBgAudioPlayer = _bgAudioPlayer;
+            if (oldBgAudioPlayer != null)
+            {
+                oldBgAudioPlayer.EndReached -= OnBgAudioEndReached;
+            }
             _audioPlayer = null;
             _bgAudioPlayer = null;
             _bgAudioEndReachedSubscribed = false;

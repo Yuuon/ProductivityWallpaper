@@ -56,10 +56,14 @@ namespace ProductivityWallpaper.Views
 
         /// <summary>
         /// Stops and cleans up MediaElements when the view is unloaded to prevent memory leaks.
+        /// Also unsubscribes own event handlers to avoid dangling references.
         /// MediaElement with LoadedBehavior="Manual" must be explicitly stopped.
         /// </summary>
         private void OnUnloaded(object sender, RoutedEventArgs e)
         {
+            DataContextChanged -= OnDataContextChanged;
+            Unloaded -= OnUnloaded;
+
             try
             {
                 var bgVideo = FindName("BackgroundVideo") as System.Windows.Controls.MediaElement;
