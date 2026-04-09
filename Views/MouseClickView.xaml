@@ -665,7 +665,11 @@
 
         <!-- Section 1: Editable Title Bar -->
         <Grid Grid.Row="0" Margin="32,24,42,0">
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                 <!-- Scheme Name Display -->
                 <TextBlock Text="{Binding SchemeName, FallbackValue='Mouse Click Scheme'}"
                            Style="{StaticResource SubHeaderTextStyle}"
@@ -698,6 +702,23 @@
                           Stretch="Uniform"/>
                 </Button>
             </StackPanel>
+
+            <!-- Activate Button (disabled when already active) -->
+            <Button Grid.Column="1"
+                    Content="{Binding IsActive, Converter={StaticResource BooleanToActiveTextConverter}}"
+                    Style="{StaticResource PrimaryButtonStyle}"
+                    Command="{Binding ActivateSchemeCommand}"
+                    Padding="16,8"
+                    Height="36"
+                    Visibility="{Binding HasContent, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <Button.IsEnabled>
+                    <Binding Path="IsActive">
+                        <Binding.Converter>
+                            <converters:InverseBooleanConverter/>
+                        </Binding.Converter>
+                    </Binding>
+                </Button.IsEnabled>
+            </Button>
         </Grid>
 
         <!-- Section 2: Page Header -->

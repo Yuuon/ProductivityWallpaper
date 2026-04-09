@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Input;
 using ProductivityWallpaper.Services;
@@ -11,6 +12,7 @@ namespace ProductivityWallpaper
     {
         private readonly WinForms.NotifyIcon _notifyIcon;
         private readonly LocalizationService _locService;
+        private bool _isExiting;
 
         public MainWindow(MainViewModel viewModel, LocalizationService locService)
         {
@@ -38,6 +40,22 @@ namespace ProductivityWallpaper
             contextMenu.Items.Add("Show Window", null, (s, e) => ShowApp());
             contextMenu.Items.Add("Exit", null, (s, e) => AppExit());
             _notifyIcon.ContextMenuStrip = contextMenu;
+        }
+
+        /// <summary>
+        /// Intercepts the window close event (Alt+F4, taskbar close, etc.).
+        /// Hides to tray instead of closing, unless the app is actually exiting.
+        /// This prevents InvalidOperationException when trying to Show() a closed window.
+        /// </summary>
+        protected override void OnClosing(CancelEventArgs e)
+        {
+            if (!_isExiting)
+            {
+                e.Cancel = true;
+                this.Hide();
+                return;
+            }
+            base.OnClosing(e);
         }
 
         private void TitleBar_MouseDown(object sender, MouseButtonEventArgs e)
@@ -74,6 +92,7 @@ namespace ProductivityWallpaper
 
         private void AppExit()
         {
+            _isExiting = true;
             // Dispose icon resource to prevent ghost icon in tray
             _notifyIcon.Dispose();
             System.Windows.Application.Current.Shutdown();

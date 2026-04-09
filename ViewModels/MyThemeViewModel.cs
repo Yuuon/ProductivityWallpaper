@@ -15,6 +15,7 @@ namespace ProductivityWallpaper.ViewModels
     {
         private readonly MainViewModel _mainViewModel;
         private readonly IThemeService _themeService;
+        private readonly WallpaperService _wallpaperService;
         
         [ObservableProperty]
         private bool _isUsageHistorySelected = true;
@@ -40,10 +41,11 @@ namespace ProductivityWallpaper.ViewModels
         [ObservableProperty]
         private string _actionButtonText = "Browse Workshop";
         
-        public MyThemeViewModel(MainViewModel mainViewModel, IThemeService themeService)
+        public MyThemeViewModel(MainViewModel mainViewModel, IThemeService themeService, WallpaperService wallpaperService)
         {
             _mainViewModel = mainViewModel;
             _themeService = themeService;
+            _wallpaperService = wallpaperService;
             ShowUsageHistory();
         }
         
@@ -197,9 +199,28 @@ namespace ProductivityWallpaper.ViewModels
         }
         
         [RelayCommand]
-        private void UseTheme()
+        private async Task UseTheme()
         {
-            // TODO: Implement use theme logic (apply theme to desktop)
+            if (SelectedTheme == null || string.IsNullOrEmpty(SelectedTheme.ThemeFolderName))
+                return;
+
+            try
+            {
+                var manifest = await _themeService.LoadThemeAsync(SelectedTheme.ThemeFolderName);
+                if (manifest == null)
+                {
+                    Debug.WriteLine($"[MyThemeViewModel] Failed to load theme: {SelectedTheme.ThemeFolderName}");
+                    return;
+                }
+
+                // Apply the theme wallpaper via WallpaperService
+                _wallpaperService.ApplyThemeWallpaper(manifest);
+                Debug.WriteLine($"[MyThemeViewModel] Applied theme wallpaper: {manifest.Name}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[MyThemeViewModel] Error applying theme: {ex.Message}");
+            }
         }
         
         [RelayCommand]

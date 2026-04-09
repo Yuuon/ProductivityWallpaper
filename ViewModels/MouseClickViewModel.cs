@@ -117,6 +117,7 @@ namespace ProductivityWallpaper.ViewModels
             _configService = App.Current.Services.GetRequiredService<ConfigService>();
             InitializeScreenInfo();
             LoadAvailableMedia();
+            Regions.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasContent));
         }
 
         /// <summary>
@@ -128,6 +129,7 @@ namespace ProductivityWallpaper.ViewModels
             _configService = configService;
             InitializeScreenInfo();
             LoadAvailableMedia();
+            Regions.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasContent));
         }
 
         // --- Initialization Methods ---
@@ -438,16 +440,40 @@ namespace ProductivityWallpaper.ViewModels
             IsEditingName = !IsEditingName;
         }
 
+        /// <summary>
+        /// Exits scheme name editing mode.
+        /// </summary>
+        [RelayCommand]
+        private void FinishEditName()
+        {
+            IsEditingName = false;
+        }
+
+        /// <summary>
+        /// Marks this scheme as the active scheme.
+        /// CreatorViewModel.SelectScheme() handles deactivating others.
+        /// </summary>
+        [RelayCommand]
+        private void ActivateScheme()
+        {
+            IsActive = true;
+        }
+
+        /// <summary>
+        /// Returns true if there are any regions defined (for activate button visibility).
+        /// </summary>
+        public bool HasContent => Regions.Count > 0;
+
         // --- Public Methods ---
 
         /// <summary>
-        /// Creates a new region from percentage coordinates.
+        /// Creates a new region from normalized coordinates (0–1).
         /// Called by the view after mouse drawing operation.
         /// </summary>
-        /// <param name="x">X position as percentage (0-100).</param>
-        /// <param name="y">Y position as percentage (0-100).</param>
-        /// <param name="width">Width as percentage (0-100).</param>
-        /// <param name="height">Height as percentage (0-100).</param>
+        /// <param name="x">X position normalized (0–1).</param>
+        /// <param name="y">Y position normalized (0–1).</param>
+        /// <param name="width">Width normalized (0–1).</param>
+        /// <param name="height">Height normalized (0–1).</param>
         public void CreateRegion(double x, double y, double width, double height)
         {
             // Normalize negative dimensions
@@ -462,9 +488,9 @@ namespace ProductivityWallpaper.ViewModels
                 height = -height;
             }
 
-            // Clamp to canvas bounds
-            x = Math.Max(0, Math.Min(100 - width, x));
-            y = Math.Max(0, Math.Min(100 - height, y));
+            // Clamp to canvas bounds (0–1)
+            x = Math.Max(0, Math.Min(1.0 - width, x));
+            y = Math.Max(0, Math.Min(1.0 - height, y));
 
             var region = new ClickRegionModel
             {

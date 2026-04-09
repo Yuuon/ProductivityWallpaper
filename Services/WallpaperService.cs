@@ -4,19 +4,22 @@ using MediaType = ProductivityWallpaper.Models.MediaType;
 using MediaPlayer = LibVLCSharp.Shared.MediaPlayer;
 
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Interop;
+using System.Windows.Threading;
 using ProductivityWallpaper.Models;
 using System.Drawing;
 using System.Drawing.Imaging;
 using Microsoft.Win32;
 using ProductivityWallpaper.Views;
-using LibVLCSharp.Shared; // 需要引用以获取视频时长
-using System.Windows.Media.Animation; // 引用动画库
-using System.Windows.Media; // 用于音频播放
+using LibVLCSharp.Shared;
+using System.Windows.Media.Animation;
+using System.Windows.Media;
 
 namespace ProductivityWallpaper.Services
 {
@@ -25,7 +28,7 @@ namespace ProductivityWallpaper.Services
         private const string MetaFileName = ".wp_meta.json";
         private const string InteractiveConfigName = "config.wallpaper";
 
-        // 窗口实例管理
+        // --- Legacy window management ---
         private VideoPlayerWindow? _idleVideoWindow;
         private VideoPlayerWindow? _actionVideoWindow;
         private InteractiveUiWindow? _currentUiWindow;
@@ -33,8 +36,35 @@ namespace ProductivityWallpaper.Services
 
         private LibVLC? _tempLibVLC;
         private MediaPlayer? _audioPlayer;
+        private MediaPlayer? _bgAudioPlayer;
         private MediaItem? _currentInteractiveItem;
         private InteractiveConfig? _currentConfig;
+
+        // --- Theme-based dynamic wallpaper state ---
+        private Window? _currentBackgroundWindow;  // Either VideoPlayerWindow or ImagePlayerWindow
+        private DispatcherTimer? _wallpaperCycleTimer;
+        private List<MediaItemModel> _wallpaperPlaylist = new();
+        private List<MediaItemModel> _audioPlaylist = new();
+        private int _currentWallpaperIndex = -1;
+        private int _currentAudioIndex = -1;
+        private int _wallpaperDurationSeconds = 30;
+        private PlaybackMode _wallpaperPlaybackMode = PlaybackMode.Sequential;
+        private PlaybackMode _audioPlaybackMode = PlaybackMode.Sequential;
+        private bool _isDynamicWallpaperActive;
+        private readonly Random _random = new();
+
+        // Click region state for theme-based mode
+        private List<ClickRegionModel>? _activeClickRegions;
+        private ResourceResolver? _activeResolver;
+        private WallpaperPlaybackSettings? _activeWallpaperSettings;
+        private SchemeModel? _activeMouseClickScheme;
+        private ClickRegionOverlayWindow? _clickRegionOverlay;
+        private bool _bgAudioEndReachedSubscribed;
+        private readonly Dictionary<string, int> _regionAudioIndex = new();
+        private const int MinWallpaperDurationSeconds = 5;
+
+        // Track Media objects for disposal during cleanup
+        private readonly List<Media> _activeMediaObjects = new();
 
         public WallpaperService()
         {
@@ -42,6 +72,7 @@ namespace ProductivityWallpaper.Services
             { 
                 _tempLibVLC = new LibVLC();
                 _audioPlayer = new MediaPlayer(_tempLibVLC);
+                _bgAudioPlayer = new MediaPlayer(_tempLibVLC);
             } 
             catch { }
         }
@@ -254,12 +285,14 @@ namespace ProductivityWallpaper.Services
         // --- 播放音频 ---
         private void PlayAudio(string audioPath)
         {
-            if (_audioPlayer == null || !File.Exists(audioPath)) return;
+            var player = _audioPlayer;
+            if (player == null || !File.Exists(audioPath)) return;
 
             try
             {
-                using var media = new Media(_tempLibVLC, new Uri(audioPath));
-                _audioPlayer.Play(media);
+                var media = CreateTrackedMedia(audioPath);
+                if (media == null) return;
+                player.Play(media);
             }
             catch (Exception ex)
             {
@@ -306,8 +339,9 @@ namespace ProductivityWallpaper.Services
 
             // 5. [瞬间展开] 手动将窗口设置为全屏尺寸
             var helper = new WindowInteropHelper(_actionVideoWindow);
-            int screenW = (int)SystemParameters.PrimaryScreenWidth;
-            int screenH = (int)SystemParameters.PrimaryScreenHeight;
+            // Use physical screen dimensions for SetWindowPos (DPI-safe)
+            int screenW = Win32Api.GetSystemMetrics(Win32Api.SM_CXSCREEN);
+            int screenH = Win32Api.GetSystemMetrics(Win32Api.SM_CYSCREEN);
 
             // 使用 SetWindowPos 瞬间拉伸，跳过“最大化”动画
             // 参数说明: HWND_TOP, x=0, y=0, w=ScreenW, h=ScreenH, NOACTIVATE
@@ -328,6 +362,63 @@ namespace ProductivityWallpaper.Services
                 _actionVideoWindow.Visibility = Visibility.Hidden;
                 try { _actionVideoWindow.StopAndClose(); } catch { }
                 _actionVideoWindow = null;
+            }
+        }
+
+        /// <summary>
+        /// Displays a full-screen image overlay for a set duration (default 3 seconds) on click region trigger.
+        /// Uses the same anti-flicker pattern as PlayActionVideo: create hidden → show → inject → expand.
+        /// </summary>
+        private async void PlayActionImage(string imagePath, int displayDurationMs = 3000)
+        {
+            // Reuse _actionVideoWindow field as guard (null = no action playing)
+            if (_actionVideoWindow != null) return;
+
+            Window? actionWindow = null;
+            try
+            {
+                var imageWindow = CreateHiddenImageWindow(imagePath);
+                actionWindow = imageWindow;
+
+                imageWindow.Show();
+
+                // Inject into WorkerW at topmost Z-order
+                InjectDynamicWallpaper(imageWindow);
+
+                // Brief delay for rendering
+                await Task.Delay(50);
+
+                // Expand to full screen
+                var helper = new WindowInteropHelper(imageWindow);
+                int screenW = Win32Api.GetSystemMetrics(Win32Api.SM_CXSCREEN);
+                int screenH = Win32Api.GetSystemMetrics(Win32Api.SM_CYSCREEN);
+                Win32Api.SetWindowPos(helper.Handle, Win32Api.HWND_TOP, 0, 0, screenW, screenH, Win32Api.SWP_NOACTIVATE);
+
+                // Fade in
+                await FadeWindowAsync(imageWindow, 0, 1, 300);
+
+                // Display for the specified duration
+                await Task.Delay(displayDurationMs);
+
+                // Fade out
+                await FadeWindowAsync(imageWindow, 1, 0, 300);
+
+                imageWindow.StopAndClose();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[WallpaperService] PlayActionImage error: {ex.Message}");
+                if (actionWindow != null)
+                {
+                    try
+                    {
+                        if (actionWindow is ImagePlayerWindow ipw)
+                            ipw.StopAndClose();
+                        else
+                            actionWindow.Close();
+                    }
+                    catch { }
+                }
             }
         }
 
@@ -432,7 +523,6 @@ namespace ProductivityWallpaper.Services
             var videoWin = CreateHiddenVideoWindow(path);
             videoWin.Show();
             InjectDynamicWallpaper(videoWin);
-            // 单视频应用也可以加个淡入，体验更好
             FadeWindowAsync(videoWin, 0, 1, 500);
             _idleVideoWindow = videoWin;
         }
@@ -456,20 +546,643 @@ namespace ProductivityWallpaper.Services
             catch { }
         }
 
+        // ==================== Theme-Based Dynamic Wallpaper ====================
+
+        /// <summary>
+        /// Applies a theme-based dynamic wallpaper using the active desktop background scheme.
+        /// Cycles through images and videos from the scheme's media list in mixed order,
+        /// with configurable duration per wallpaper. Also handles audio playback and click regions.
+        /// </summary>
+        /// <param name="manifest">The theme manifest containing schemes and resources.</param>
+        /// <param name="settings">Wallpaper playback settings (duration, audio, volume).</param>
+        public void ApplyThemeWallpaper(ThemeManifest manifest, WallpaperPlaybackSettings? settings = null)
+        {
+            CleanupCurrentWallpaper();
+
+            settings ??= new WallpaperPlaybackSettings();
+            _wallpaperDurationSeconds = settings.WallpaperDurationSeconds;
+
+            var themeRootPath = GetThemeRootPath(manifest);
+            var resolver = new ResourceResolver(manifest.ResourceLibrary, themeRootPath);
+            _activeResolver = resolver;
+
+            // Find the active desktop background scheme
+            var bgScheme = manifest.DesktopBackgroundSchemes
+                .FirstOrDefault(s => s.IsActive)
+                ?? manifest.DesktopBackgroundSchemes.FirstOrDefault();
+
+            if (bgScheme == null)
+            {
+                System.Diagnostics.Debug.WriteLine("[WallpaperService] No desktop background scheme found");
+                return;
+            }
+
+            // Build wallpaper playlist from scheme's media IDs
+            _wallpaperPlaylist = resolver.ResolveToMediaItems(bgScheme.DesktopBackgroundMedia.MediaIds)
+                .Where(item => item.Type == MediaFileType.Image || item.Type == MediaFileType.Video)
+                .Where(item => !string.IsNullOrEmpty(item.FilePath) && File.Exists(item.FilePath))
+                .ToList();
+
+            if (_wallpaperPlaylist.Count == 0)
+            {
+                System.Diagnostics.Debug.WriteLine("[WallpaperService] No valid wallpaper media found in scheme");
+                return;
+            }
+
+            _wallpaperPlaybackMode = bgScheme.DesktopBackgroundMedia.PlaybackMode;
+
+            // Override duration from MediaReferenceList if set
+            if (bgScheme.DesktopBackgroundMedia.ItemDuration.HasValue)
+            {
+                _wallpaperDurationSeconds = (int)bgScheme.DesktopBackgroundMedia.ItemDuration.Value.TotalSeconds;
+            }
+
+            // Build audio playlist from scheme's dedicated background audio list
+            // Falls back to any audio in the desktop background media IDs
+            if (bgScheme.BackgroundAudio.MediaIds.Count > 0)
+            {
+                _audioPlaylist = resolver.ResolveToMediaItems(bgScheme.BackgroundAudio.MediaIds)
+                    .Where(item => item.Type == MediaFileType.Audio)
+                    .Where(item => !string.IsNullOrEmpty(item.FilePath) && File.Exists(item.FilePath))
+                    .ToList();
+                _audioPlaybackMode = bgScheme.BackgroundAudio.PlaybackMode;
+            }
+            else
+            {
+                _audioPlaylist = resolver.ResolveToMediaItems(bgScheme.DesktopBackgroundMedia.MediaIds)
+                    .Where(item => item.Type == MediaFileType.Audio)
+                    .Where(item => !string.IsNullOrEmpty(item.FilePath) && File.Exists(item.FilePath))
+                    .ToList();
+                _audioPlaybackMode = bgScheme.DesktopBackgroundMedia.PlaybackMode;
+            }
+            _currentAudioIndex = -1;
+
+            // Show the first wallpaper
+            _isDynamicWallpaperActive = true;
+            _currentWallpaperIndex = -1;
+            ShowNextWallpaper();
+
+            // Start background audio if available and enabled
+            if (settings.EnableBackgroundAudio && _audioPlaylist.Count > 0)
+            {
+                StartBackgroundAudio(settings.BackgroundAudioVolume);
+            }
+
+            // Set up cycling timer (only if more than one wallpaper)
+            if (_wallpaperPlaylist.Count > 1)
+            {
+                StartWallpaperCycleTimer();
+            }
+
+            // Set up mouse click regions if a mouse click scheme is active
+            SetupMouseClickRegions(manifest, resolver, settings);
+        }
+
+        /// <summary>
+        /// Stops the current theme-based dynamic wallpaper and cleans up resources.
+        /// </summary>
+        public void StopThemeWallpaper()
+        {
+            CleanupCurrentWallpaper();
+        }
+
+        /// <summary>
+        /// Updates the wallpaper duration at runtime (without restarting).
+        /// </summary>
+        public void SetWallpaperDuration(int durationSeconds)
+        {
+            _wallpaperDurationSeconds = Math.Max(MinWallpaperDurationSeconds, durationSeconds);
+
+            if (_wallpaperCycleTimer != null)
+            {
+                _wallpaperCycleTimer.Interval = TimeSpan.FromSeconds(_wallpaperDurationSeconds);
+            }
+        }
+
+        /// <summary>
+        /// Advances to the next wallpaper in the playlist.
+        /// Can be called externally to skip the current wallpaper.
+        /// </summary>
+        public void SkipToNextWallpaper()
+        {
+            if (_isDynamicWallpaperActive)
+            {
+                ShowNextWallpaper();
+                ResetCycleTimer();
+            }
+        }
+
+        // --- Theme wallpaper internal methods ---
+
+        private void ShowNextWallpaper()
+        {
+            if (_wallpaperPlaylist.Count == 0) return;
+
+            // Determine next index
+            int nextIndex;
+            if (_wallpaperPlaybackMode == PlaybackMode.Random)
+            {
+                nextIndex = _wallpaperPlaylist.Count > 1
+                    ? GetRandomIndexExcluding(_wallpaperPlaylist.Count, _currentWallpaperIndex)
+                    : 0;
+            }
+            else
+            {
+                nextIndex = (_currentWallpaperIndex + 1) % _wallpaperPlaylist.Count;
+            }
+
+            _currentWallpaperIndex = nextIndex;
+            var mediaItem = _wallpaperPlaylist[nextIndex];
+
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                TransitionToWallpaper(mediaItem);
+            });
+        }
+
+        private async void TransitionToWallpaper(MediaItemModel mediaItem)
+        {
+            Window? newWindow = null;
+
+            try
+            {
+                if (mediaItem.Type == MediaFileType.Video)
+                {
+                    newWindow = CreateHiddenVideoWindow(mediaItem.FilePath);
+                }
+                else if (mediaItem.Type == MediaFileType.Image)
+                {
+                    newWindow = CreateHiddenImageWindow(mediaItem.FilePath);
+                }
+
+                if (newWindow == null) return;
+
+                newWindow.Show();
+
+                // Inject into WorkerW (below desktop icons)
+                InjectDynamicWallpaper(newWindow);
+
+                // Wait for content to buffer (100ms for video, less for image)
+                await Task.Delay(mediaItem.Type == MediaFileType.Video ? 100 : 50);
+
+                // Expand to full screen
+                var helper = new WindowInteropHelper(newWindow);
+                int screenW = Win32Api.GetSystemMetrics(Win32Api.SM_CXSCREEN);
+                int screenH = Win32Api.GetSystemMetrics(Win32Api.SM_CYSCREEN);
+                Win32Api.SetWindowPos(helper.Handle, Win32Api.HWND_TOP,
+                    0, 0, screenW, screenH, Win32Api.SWP_NOACTIVATE);
+
+                // Fade in the new window
+                await FadeWindowAsync(newWindow, 0, 1, 500);
+
+                // Close the old background window
+                var oldWindow = _currentBackgroundWindow;
+                _currentBackgroundWindow = newWindow;
+
+                if (oldWindow != null)
+                {
+                    await FadeWindowAsync(oldWindow, 1, 0, 300);
+                    CloseBackgroundWindow(oldWindow);
+                }
+
+                // Also keep legacy _idleVideoWindow reference updated for action video compatibility
+                if (newWindow is VideoPlayerWindow vpw)
+                    _idleVideoWindow = vpw;
+                else
+                    _idleVideoWindow = null;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[WallpaperService] TransitionToWallpaper error: {ex.Message}");
+            }
+        }
+
+        private void StartWallpaperCycleTimer()
+        {
+            _wallpaperCycleTimer?.Stop();
+            _wallpaperCycleTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(_wallpaperDurationSeconds)
+            };
+            _wallpaperCycleTimer.Tick += OnWallpaperCycleTick;
+            _wallpaperCycleTimer.Start();
+        }
+
+        /// <summary>
+        /// Named handler for the wallpaper cycle timer tick event.
+        /// Using a named method instead of an anonymous lambda allows proper unsubscription
+        /// during cleanup, preventing memory leaks from accumulated event handlers.
+        /// </summary>
+        private void OnWallpaperCycleTick(object? sender, EventArgs e)
+        {
+            ShowNextWallpaper();
+        }
+
+        private void ResetCycleTimer()
+        {
+            if (_wallpaperCycleTimer != null && _wallpaperCycleTimer.IsEnabled)
+            {
+                _wallpaperCycleTimer.Stop();
+                _wallpaperCycleTimer.Start();
+            }
+        }
+
+        private ImagePlayerWindow CreateHiddenImageWindow(string path)
+        {
+            var win = new ImagePlayerWindow(path);
+            win.WindowStartupLocation = WindowStartupLocation.Manual;
+            win.Left = -32000;
+            win.Top = -32000;
+            win.Width = 1;
+            win.Height = 1;
+            win.WindowStyle = WindowStyle.None;
+            win.ResizeMode = ResizeMode.NoResize;
+            win.ShowInTaskbar = false;
+            return win;
+        }
+
+        private static void CloseBackgroundWindow(Window window)
+        {
+            try
+            {
+                if (window is VideoPlayerWindow vpw)
+                    vpw.StopAndClose();
+                else if (window is ImagePlayerWindow ipw)
+                    ipw.StopAndClose();
+                else
+                    window.Close();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[WallpaperService] CloseBackgroundWindow error: {ex.Message}");
+            }
+        }
+
+        // --- Background Audio ---
+
+        private void StartBackgroundAudio(int volumePercent)
+        {
+            if (_audioPlaylist.Count == 0 || _bgAudioPlayer == null || _tempLibVLC == null)
+                return;
+
+            _bgAudioPlayer.Volume = Math.Clamp(volumePercent, 0, 100);
+
+            // Subscribe to EndReached only once to avoid handler accumulation
+            // Uses a named method so it can be properly unsubscribed during cleanup
+            if (!_bgAudioEndReachedSubscribed)
+            {
+                _bgAudioPlayer.EndReached += OnBgAudioEndReached;
+                _bgAudioEndReachedSubscribed = true;
+            }
+
+            PlayNextBackgroundAudio();
+        }
+
+        /// <summary>
+        /// Named handler for background audio EndReached event.
+        /// VLC callbacks fire on native background threads, so we dispatch to UI thread.
+        /// Named method enables proper unsubscription during cleanup (preventing memory leaks).
+        /// </summary>
+        private void OnBgAudioEndReached(object? sender, EventArgs e)
+        {
+            if (!_isDynamicWallpaperActive) return;
+            Application.Current?.Dispatcher.BeginInvoke(() =>
+            {
+                PlayNextBackgroundAudio();
+            });
+        }
+
+        private void PlayNextBackgroundAudio()
+        {
+            var player = _bgAudioPlayer;
+            if (!_isDynamicWallpaperActive || _audioPlaylist.Count == 0 || player == null || _tempLibVLC == null)
+                return;
+
+            int nextIndex;
+            if (_audioPlaybackMode == PlaybackMode.Random)
+            {
+                nextIndex = _audioPlaylist.Count > 1
+                    ? GetRandomIndexExcluding(_audioPlaylist.Count, _currentAudioIndex)
+                    : 0;
+            }
+            else
+            {
+                nextIndex = (_currentAudioIndex + 1) % _audioPlaylist.Count;
+            }
+
+            _currentAudioIndex = nextIndex;
+            var audioItem = _audioPlaylist[nextIndex];
+
+            try
+            {
+                if (!File.Exists(audioItem.FilePath)) return;
+
+                var media = CreateTrackedMedia(audioItem.FilePath);
+                if (media == null) return;
+                player.Play(media);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[WallpaperService] Background audio error: {ex.Message}");
+            }
+        }
+
+        // --- Click Region Setup ---
+
+        private void SetupMouseClickRegions(ThemeManifest manifest, ResourceResolver resolver,
+            WallpaperPlaybackSettings settings)
+        {
+            var clickScheme = manifest.MouseClickSchemes
+                .FirstOrDefault(s => s.IsActive)
+                ?? manifest.MouseClickSchemes.FirstOrDefault();
+
+            if (clickScheme == null || clickScheme.ClickRegions.Count == 0)
+                return;
+
+            _activeClickRegions = clickScheme.ClickRegions.ToList();
+            _activeMouseClickScheme = clickScheme;
+            _activeWallpaperSettings = settings;
+
+            // Create the click region overlay window — follows the old InteractiveUiWindow pattern:
+            // a transparent window injected into WorkerW at the topmost Z-order.
+            // debugVisible=true makes regions red so we can verify correct positioning.
+            _clickRegionOverlay = new ClickRegionOverlayWindow();
+            _clickRegionOverlay.WindowStartupLocation = WindowStartupLocation.Manual;
+            _clickRegionOverlay.Left = -32000;
+            _clickRegionOverlay.Top = -32000;
+            _clickRegionOverlay.Width = 1;
+            _clickRegionOverlay.Height = 1;
+            _clickRegionOverlay.LoadRegions(_activeClickRegions, debugVisible: false);
+            _clickRegionOverlay.Show();
+
+            // Inject into WorkerW at the topmost Z-order (same as InteractiveUiWindow)
+            InjectClickRegionOverlay(_clickRegionOverlay);
+
+            // Layout is auto-updated via SizeChanged event in ClickRegionOverlayWindow
+
+            // Start mouse hook for click detection
+            _mouseHook = new MouseHookService();
+            _mouseHook.OnMouseClick += OnThemeMouseClick;
+            _mouseHook.Start();
+        }
+
+        /// <summary>
+        /// Named handler for mouse clicks in theme-based dynamic wallpaper mode.
+        /// Uses stored _activeResolver and _activeWallpaperSettings instead of captured locals
+        /// so the handler can be properly unsubscribed during cleanup (preventing memory leaks).
+        /// </summary>
+        private void OnThemeMouseClick(System.Windows.Point screenPoint)
+        {
+            var resolver = _activeResolver;
+            var settings = _activeWallpaperSettings;
+            if (resolver == null || settings == null) return;
+
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                HandleThemeClick(screenPoint, resolver, settings);
+            });
+        }
+
+        /// <summary>
+        /// Injects the click region overlay window into WorkerW at the topmost Z-order.
+        /// This is the same pattern used by InjectInteractiveLayers for the old InteractiveUiWindow.
+        /// The overlay sits above the wallpaper content but below desktop icons.
+        /// Uses WorkerW's actual client rect for sizing (DPI-safe).
+        /// </summary>
+        private void InjectClickRegionOverlay(ClickRegionOverlayWindow overlay)
+        {
+            var helper = new WindowInteropHelper(overlay);
+            IntPtr workerw = FindWorkerW();
+            if (workerw == IntPtr.Zero) return;
+
+            Win32Api.SetParent(helper.Handle, workerw);
+
+            // Remove popup style, keep child window style
+            int style = Win32Api.GetWindowLong(helper.Handle, Win32Api.GWL_STYLE);
+            style = style & ~Win32Api.WS_POPUP & ~Win32Api.WS_VISIBLE;
+            Win32Api.SetWindowLong(helper.Handle, Win32Api.GWL_STYLE, style);
+
+            overlay.WindowState = WindowState.Maximized;
+
+            // Use WorkerW's actual client rect for sizing — this gives physical pixels
+            // regardless of DPI scaling, ensuring the overlay covers the full screen
+            int screenW, screenH;
+            if (Win32Api.GetClientRect(workerw, out var rect))
+            {
+                screenW = rect.right - rect.left;
+                screenH = rect.bottom - rect.top;
+            }
+            else
+            {
+                // Fallback to GetSystemMetrics which returns physical pixels for Per-Monitor DPI Aware apps
+                screenW = Win32Api.GetSystemMetrics(Win32Api.SM_CXSCREEN);
+                screenH = Win32Api.GetSystemMetrics(Win32Api.SM_CYSCREEN);
+            }
+
+            Win32Api.SetWindowPos(helper.Handle, Win32Api.HWND_TOP, 0, 0,
+                screenW, screenH, Win32Api.SWP_NOACTIVATE);
+        }
+
+        private void HandleThemeClick(System.Windows.Point screenPoint,
+            ResourceResolver resolver, WallpaperPlaybackSettings settings)
+        {
+            if (_activeClickRegions == null) return;
+
+            // Use physical screen resolution because mouse hook coordinates are in
+            // physical screen pixels (WH_MOUSE_LL with Per-Monitor DPI Aware v2)
+            int physicalW = Win32Api.GetSystemMetrics(Win32Api.SM_CXSCREEN);
+            int physicalH = Win32Api.GetSystemMetrics(Win32Api.SM_CYSCREEN);
+            if (physicalW <= 0 || physicalH <= 0) return;
+
+            // Convert physical screen point to normalized (0–1)
+            double xNorm = screenPoint.X / physicalW;
+            double yNorm = screenPoint.Y / physicalH;
+
+            foreach (var region in _activeClickRegions)
+            {
+                if (!region.ContainsPoint(xNorm, yNorm)) continue;
+
+                // Play visual content (image or video) if available
+                if (!string.IsNullOrEmpty(region.ClickAction.VisualMediaId))
+                {
+                    var visualItem = resolver.ResolveToMediaItem(region.ClickAction.VisualMediaId);
+                    if (visualItem != null && File.Exists(visualItem.FilePath))
+                    {
+                        if (visualItem.Type == MediaFileType.Video)
+                        {
+                            PlayActionVideo(visualItem.FilePath);
+                        }
+                        else if (visualItem.Type == MediaFileType.Image)
+                        {
+                            PlayActionImage(visualItem.FilePath);
+                        }
+                    }
+                }
+
+                // Play audio content if available
+                if (region.ClickAction.AudioMediaIds.Count > 0)
+                {
+                    PlayClickRegionAudio(region, resolver, settings.ClickAudioVolume);
+                }
+
+                break; // Only trigger the first matching region
+            }
+        }
+
+        private void PlayClickRegionAudio(ClickRegionModel region, ResourceResolver resolver, int volumePercent)
+        {
+            var player = _audioPlayer;
+            if (player == null || _tempLibVLC == null) return;
+
+            var audioIds = region.ClickAction.AudioMediaIds;
+            if (audioIds.Count == 0) return;
+
+            // Select audio based on playback mode
+            string? audioId;
+            if (region.AudioPlaybackMode == PlaybackMode.Random)
+            {
+                audioId = audioIds[_random.Next(audioIds.Count)];
+            }
+            else
+            {
+                // Sequential: track per-region index for true round-robin
+                if (!_regionAudioIndex.TryGetValue(region.Id, out int currentIndex))
+                {
+                    currentIndex = 0;
+                }
+                audioId = audioIds[currentIndex % audioIds.Count];
+                _regionAudioIndex[region.Id] = currentIndex + 1;
+            }
+
+            if (string.IsNullOrEmpty(audioId)) return;
+
+            var audioItem = resolver.ResolveToMediaItem(audioId);
+            if (audioItem == null || !File.Exists(audioItem.FilePath)) return;
+
+            try
+            {
+                player.Volume = Math.Clamp(volumePercent, 0, 100);
+                var media = CreateTrackedMedia(audioItem.FilePath);
+                if (media == null) return;
+                player.Play(media);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[WallpaperService] Click audio error: {ex.Message}");
+            }
+        }
+
+        // --- Utility ---
+
+        private int GetRandomIndexExcluding(int count, int excludeIndex)
+        {
+            if (count <= 1) return 0;
+            int next;
+            do { next = _random.Next(count); }
+            while (next == excludeIndex);
+            return next;
+        }
+
+        /// <summary>
+        /// Creates a Media object with lifecycle tracking. Tracked Media objects
+        /// are disposed during CleanupCurrentWallpaper to prevent resource leaks.
+        /// Returns null if LibVLC is not available (e.g., during cleanup).
+        /// </summary>
+        private Media? CreateTrackedMedia(string filePath)
+        {
+            if (_tempLibVLC == null) return null;
+            var media = new Media(_tempLibVLC, new Uri(filePath));
+            _activeMediaObjects.Add(media);
+            return media;
+        }
+
+        /// <summary>
+        /// Disposes all tracked Media objects and clears the list.
+        /// </summary>
+        private void DisposeTrackedMedia()
+        {
+            foreach (var media in _activeMediaObjects)
+            {
+                try { media.Dispose(); } catch { }
+            }
+            _activeMediaObjects.Clear();
+        }
+
+        private static string GetThemeRootPath(ThemeManifest manifest)
+        {
+            // If export base path is set, use that
+            if (!string.IsNullOrEmpty(manifest.ExportBasePath))
+                return manifest.ExportBasePath;
+
+            // Otherwise, construct from AppData
+            var themesRoot = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "ProductivityWallpaper", "Themes");
+            return Path.Combine(themesRoot, manifest.Name);
+        }
+
+        // ==================== End Theme-Based Dynamic Wallpaper ====================
+
         private void CleanupCurrentWallpaper()
         {
-            _mouseHook?.Stop();
+            // Stop dynamic wallpaper cycling
+            _isDynamicWallpaperActive = false;
+            if (_wallpaperCycleTimer != null)
+            {
+                _wallpaperCycleTimer.Stop();
+                _wallpaperCycleTimer.Tick -= OnWallpaperCycleTick;
+            }
+            _wallpaperCycleTimer = null;
+            _wallpaperPlaylist.Clear();
+            _audioPlaylist.Clear();
+            _currentWallpaperIndex = -1;
+            _currentAudioIndex = -1;
+            _activeClickRegions = null;
+            _activeResolver = null;
+            _activeMouseClickScheme = null;
+            _regionAudioIndex.Clear();
+
+            // Stop mouse hook first to prevent new callbacks — unsubscribe named handlers
+            if (_mouseHook != null)
+            {
+                _mouseHook.OnMouseClick -= OnThemeMouseClick;
+                _mouseHook.Stop();
+            }
             _mouseHook = null;
+            _activeWallpaperSettings = null;
             _currentInteractiveItem = null;
             _currentConfig = null;
 
-            // 停止音频播放
-            try { _audioPlayer?.Stop(); } catch { }
+            // Capture and null-out audio players to prevent VLC callbacks from accessing them
+            // Unsubscribe EndReached handler before releasing the reference
+            var oldAudioPlayer = _audioPlayer;
+            var oldBgAudioPlayer = _bgAudioPlayer;
+            if (oldBgAudioPlayer != null)
+            {
+                oldBgAudioPlayer.EndReached -= OnBgAudioEndReached;
+            }
+            _audioPlayer = null;
+            _bgAudioPlayer = null;
+            _bgAudioEndReachedSubscribed = false;
+
+            // Stop audio playback on captured references
+            try { oldAudioPlayer?.Stop(); } catch { }
+            try { oldBgAudioPlayer?.Stop(); } catch { }
+
+            // Dispose tracked Media objects to prevent resource leaks
+            DisposeTrackedMedia();
 
             if (_currentUiWindow != null)
             {
                 _currentUiWindow.Close();
                 _currentUiWindow = null;
+            }
+
+            // Close click region overlay window
+            if (_clickRegionOverlay != null)
+            {
+                try { _clickRegionOverlay.Close(); } catch { }
+                _clickRegionOverlay = null;
             }
 
             if (_actionVideoWindow != null)
@@ -484,9 +1197,32 @@ namespace ProductivityWallpaper.Services
                 _idleVideoWindow = null;
             }
 
-            // 清理音频播放器
-            try { _audioPlayer?.Dispose(); } catch { }
-            _audioPlayer = null;
+            // Close theme-based background window
+            if (_currentBackgroundWindow != null)
+            {
+                CloseBackgroundWindow(_currentBackgroundWindow);
+                _currentBackgroundWindow = null;
+            }
+
+            // Dispose old audio players after all windows are closed
+            try { oldAudioPlayer?.Dispose(); } catch { }
+            try { oldBgAudioPlayer?.Dispose(); } catch { }
+
+            // Dispose and recreate LibVLC to prevent corrupted state across theme switches
+            // This is critical: reusing a stale LibVLC instance causes AccessViolationException
+            try { _tempLibVLC?.Dispose(); } catch { }
+            _tempLibVLC = null;
+
+            try
+            {
+                _tempLibVLC = new LibVLC();
+                _audioPlayer = new MediaPlayer(_tempLibVLC);
+                _bgAudioPlayer = new MediaPlayer(_tempLibVLC);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[WallpaperService] Failed to recreate LibVLC: {ex.Message}");
+            }
         }
 
         // --- 注入与层级控制 ---

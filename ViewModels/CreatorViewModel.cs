@@ -376,7 +376,7 @@ namespace ProductivityWallpaper.ViewModels
             NewThemeName = string.Empty;
             CurrentTheme = null;
             _loadedThemeName = null;
-            _schemeViewModelCache.Clear();
+            ClearSchemeViewModelCache();
             IsDirty = false;
 
             // Stop auto-save timer while not editing
@@ -696,11 +696,12 @@ namespace ProductivityWallpaper.ViewModels
                     // Create new VM via factory
                     cachedVm = _featureVmFactory.Create(featureType);
 
-                    // For multi-scheme features, sync scheme name from selected scheme
+                    // For multi-scheme features, sync scheme name and active state from selected scheme
                     var selectedScheme = GetSelectedScheme(featureType);
                     if (selectedScheme != null && cachedVm is IFeatureViewModel featureVm)
                     {
                         featureVm.SchemeName = selectedScheme.Name;
+                        featureVm.IsActive = selectedScheme.IsActive;
                     }
 
                     // Subscribe to property changes for dirty tracking
@@ -709,14 +710,14 @@ namespace ProductivityWallpaper.ViewModels
                     // For media VMs, subscribe to collection changes
                     if (cachedVm is MediaConfigurationViewModel mediaVm)
                     {
-                        mediaVm.ImageVideoItems.CollectionChanged += (_, _) => MarkDirty();
-                        mediaVm.AudioItems.CollectionChanged += (_, _) => MarkDirty();
+                        mediaVm.ImageVideoItems.CollectionChanged += OnChildCollectionChanged;
+                        mediaVm.AudioItems.CollectionChanged += OnChildCollectionChanged;
                     }
 
                     // For mouse click VMs, subscribe to region collection changes
                     if (cachedVm is MouseClickViewModel mouseVm)
                     {
-                        mouseVm.Regions.CollectionChanged += (_, _) => MarkDirty();
+                        mouseVm.Regions.CollectionChanged += OnChildCollectionChanged;
                     }
 
                     _schemeViewModelCache[cacheKey] = cachedVm;
@@ -889,7 +890,7 @@ namespace ProductivityWallpaper.ViewModels
         private void InitializeNewTheme(string themeName)
         {
             // Clear all scheme collections and caches from any previous theme
-            _schemeViewModelCache.Clear();
+            ClearSchemeViewModelCache();
             foreach (var featureType in MultiSchemeFeatures)
             {
                 _schemesByFeature[featureType].Clear();
@@ -918,7 +919,7 @@ namespace ProductivityWallpaper.ViewModels
             }
 
             // Clear existing state
-            _schemeViewModelCache.Clear();
+            ClearSchemeViewModelCache();
             foreach (var featureType in MultiSchemeFeatures)
             {
                 _schemesByFeature[featureType].Clear();
@@ -979,6 +980,7 @@ namespace ProductivityWallpaper.ViewModels
                     if (vm is IFeatureViewModel featureVm)
                     {
                         featureVm.SchemeName = scheme.Name;
+                        featureVm.IsActive = scheme.IsActive;
                     }
 
                     // Restore media items from ResourceLibrary references
@@ -996,8 +998,14 @@ namespace ProductivityWallpaper.ViewModels
                         }
                         mediaVm.SelectedPlaybackMode = scheme.DesktopBackgroundMedia.PlaybackMode;
 
+                        // For DesktopBackground, restore audio from BackgroundAudio
+                        // For other features, restore from EventMedia
+                        var audioSource = (vm is DesktopBackgroundViewModel)
+                            ? scheme.BackgroundAudio
+                            : scheme.EventMedia;
+
                         var audioIndex = 0;
-                        foreach (var resourceId in scheme.EventMedia.MediaIds)
+                        foreach (var resourceId in audioSource.MediaIds)
                         {
                             var mediaItem = ResolveMediaItem(resourceId, audioIndex);
                             if (mediaItem != null)
@@ -1006,14 +1014,39 @@ namespace ProductivityWallpaper.ViewModels
                                 audioIndex++;
                             }
                         }
-                        mediaVm.SelectedAudioPlaybackMode = scheme.EventMedia.PlaybackMode;
+                        mediaVm.SelectedAudioPlaybackMode = audioSource.PlaybackMode;
                     }
 
-                    // Restore mouse click regions
+                    // Restore mouse click regions and resolve ClickAction resource IDs to MediaItemModels
                     if (vm is MouseClickViewModel mouseVm)
                     {
+                        mouseVm.IsActive = scheme.IsActive;
                         foreach (var region in scheme.ClickRegions)
                         {
+                            // Resolve VisualMediaId to VisualContent MediaItemModel
+                            if (!string.IsNullOrEmpty(region.ClickAction.VisualMediaId))
+                            {
+                                var visualItem = ResolveMediaItem(region.ClickAction.VisualMediaId);
+                                region.VisualContent = visualItem; // null if resource not found
+                            }
+                            else
+                            {
+                                region.VisualContent = null;
+                            }
+
+                            // Resolve AudioMediaIds to AudioContent MediaItemModels
+                            region.AudioContent.Clear();
+                            var audioIndex = 0;
+                            foreach (var audioId in region.ClickAction.AudioMediaIds)
+                            {
+                                var audioItem = ResolveMediaItem(audioId, audioIndex);
+                                if (audioItem != null)
+                                {
+                                    region.AudioContent.Add(audioItem);
+                                    audioIndex++;
+                                }
+                            }
+
                             mouseVm.Regions.Add(region);
                         }
                     }
@@ -1022,12 +1055,12 @@ namespace ProductivityWallpaper.ViewModels
                     vm.PropertyChanged += OnChildViewModelPropertyChanged;
                     if (vm is MediaConfigurationViewModel mvm)
                     {
-                        mvm.ImageVideoItems.CollectionChanged += (_, _) => MarkDirty();
-                        mvm.AudioItems.CollectionChanged += (_, _) => MarkDirty();
+                        mvm.ImageVideoItems.CollectionChanged += OnChildCollectionChanged;
+                        mvm.AudioItems.CollectionChanged += OnChildCollectionChanged;
                     }
                     if (vm is MouseClickViewModel mcvm)
                     {
-                        mcvm.Regions.CollectionChanged += (_, _) => MarkDirty();
+                        mcvm.Regions.CollectionChanged += OnChildCollectionChanged;
                     }
 
                     _schemeViewModelCache[scheme.Id] = vm;
@@ -1189,22 +1222,62 @@ namespace ProductivityWallpaper.ViewModels
                     }
                     scheme.DesktopBackgroundMedia.PlaybackMode = mediaVm.SelectedPlaybackMode;
 
-                    scheme.EventMedia.MediaIds.Clear();
-                    foreach (var item in mediaVm.AudioItems)
+                    // For DesktopBackground feature, store audio in BackgroundAudio
+                    // For other features, store in EventMedia (system events, etc.)
+                    if (vm is DesktopBackgroundViewModel)
                     {
-                        var resourceId = RegisterOrFindResource(item);
-                        scheme.EventMedia.MediaIds.Add(resourceId);
+                        scheme.BackgroundAudio.MediaIds.Clear();
+                        foreach (var item in mediaVm.AudioItems)
+                        {
+                            var resourceId = RegisterOrFindResource(item);
+                            scheme.BackgroundAudio.MediaIds.Add(resourceId);
+                        }
+                        scheme.BackgroundAudio.PlaybackMode = mediaVm.SelectedAudioPlaybackMode;
                     }
-                    scheme.EventMedia.PlaybackMode = mediaVm.SelectedAudioPlaybackMode;
+                    else
+                    {
+                        scheme.EventMedia.MediaIds.Clear();
+                        foreach (var item in mediaVm.AudioItems)
+                        {
+                            var resourceId = RegisterOrFindResource(item);
+                            scheme.EventMedia.MediaIds.Add(resourceId);
+                        }
+                        scheme.EventMedia.PlaybackMode = mediaVm.SelectedAudioPlaybackMode;
+                    }
 
                     scheme.Name = mediaVm.SchemeName;
+                    scheme.IsActive = mediaVm.IsActive;
                 }
 
                 // Sync MouseClickViewModel data to SchemeModel
                 if (vm is MouseClickViewModel mouseVm)
                 {
+                    // Register media resources and populate ClickAction IDs for each region
+                    foreach (var region in mouseVm.Regions)
+                    {
+                        // Register visual content and set ClickAction.VisualMediaId
+                        if (region.VisualContent != null)
+                        {
+                            var visualResourceId = RegisterOrFindResource(region.VisualContent);
+                            region.ClickAction.VisualMediaId = visualResourceId;
+                        }
+                        else
+                        {
+                            region.ClickAction.VisualMediaId = null;
+                        }
+
+                        // Register audio content and set ClickAction.AudioMediaIds
+                        region.ClickAction.AudioMediaIds.Clear();
+                        foreach (var audio in region.AudioContent)
+                        {
+                            var audioResourceId = RegisterOrFindResource(audio);
+                            region.ClickAction.AudioMediaIds.Add(audioResourceId);
+                        }
+                    }
+
                     scheme.ClickRegions = new ObservableCollection<ClickRegionModel>(mouseVm.Regions);
                     scheme.Name = mouseVm.SchemeName;
+                    scheme.IsActive = mouseVm.IsActive;
                 }
             }
 
@@ -1307,6 +1380,15 @@ namespace ProductivityWallpaper.ViewModels
         }
 
         /// <summary>
+        /// Named handler for CollectionChanged events on child VM collections.
+        /// Used instead of anonymous lambdas so the handler can be properly unsubscribed.
+        /// </summary>
+        private void OnChildCollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            MarkDirty();
+        }
+
+        /// <summary>
         /// Handles property changes on child ViewModels to propagate dirty state.
         /// </summary>
         private void OnChildViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -1320,6 +1402,32 @@ namespace ProductivityWallpaper.ViewModels
         }
 
         /// <summary>
+        /// Unsubscribes all event handlers from cached child ViewModels and clears the cache.
+        /// Must be called before clearing the cache to prevent memory leaks from
+        /// PropertyChanged and CollectionChanged handlers that reference this ViewModel.
+        /// </summary>
+        private void ClearSchemeViewModelCache()
+        {
+            foreach (var vm in _schemeViewModelCache.Values)
+            {
+                vm.PropertyChanged -= OnChildViewModelPropertyChanged;
+
+                if (vm is MediaConfigurationViewModel mediaVm)
+                {
+                    mediaVm.ImageVideoItems.CollectionChanged -= OnChildCollectionChanged;
+                    mediaVm.AudioItems.CollectionChanged -= OnChildCollectionChanged;
+                }
+
+                if (vm is MouseClickViewModel mouseVm)
+                {
+                    mouseVm.Regions.CollectionChanged -= OnChildCollectionChanged;
+                }
+            }
+
+            _schemeViewModelCache.Clear();
+        }
+
+        /// <summary>
         /// Cleans up timer resources.
         /// </summary>
         public void Dispose()
@@ -1327,13 +1435,7 @@ namespace ProductivityWallpaper.ViewModels
             _autoSaveTimer?.Stop();
             _autoSaveTimer?.Dispose();
 
-            // Unsubscribe from child VM events
-            foreach (var vm in _schemeViewModelCache.Values)
-            {
-                vm.PropertyChanged -= OnChildViewModelPropertyChanged;
-            }
-
-            _schemeViewModelCache.Clear();
+            ClearSchemeViewModelCache();
         }
     }
 }

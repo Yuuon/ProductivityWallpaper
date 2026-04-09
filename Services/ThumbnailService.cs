@@ -187,9 +187,8 @@ namespace ProductivityWallpaper.Services
 
             if (!IsFFmpegAvailable())
             {
-                Debug.WriteLine("[ThumbnailService] FFmpeg not available — cannot generate GIF thumbnail. " +
-                    "Please install FFmpeg and ensure it is on the system PATH.");
-                return string.Empty;
+                Debug.WriteLine("[ThumbnailService] FFmpeg not available — falling back to JPEG frame extraction.");
+                return await GenerateVideoJpegFallbackAsync(sourcePath, resourceId, themeFolderPath, ct);
             }
 
             try
@@ -201,7 +200,9 @@ namespace ProductivityWallpaper.Services
                 Debug.WriteLine($"[ThumbnailService] GIF generation failed: {ex.Message}");
                 // Clean up partial file if it exists
                 TryDeleteFile(outputPath);
-                return string.Empty;
+                // Fall back to JPEG frame extraction
+                Debug.WriteLine("[ThumbnailService] Falling back to JPEG frame extraction.");
+                return await GenerateVideoJpegFallbackAsync(sourcePath, resourceId, themeFolderPath, ct);
             }
         }
 
@@ -265,6 +266,154 @@ namespace ProductivityWallpaper.Services
                 Debug.WriteLine($"[ThumbnailService] Generated image thumbnail: {outputPath}");
                 return outputPath;
             }, ct);
+        }
+
+        /// <summary>
+        /// Fallback: extracts a single frame from a video as a JPEG thumbnail using WPF MediaPlayer.
+        /// Used when FFmpeg is not available or GIF generation fails.
+        /// </summary>
+        private async Task<string> GenerateVideoJpegFallbackAsync(string sourcePath, string resourceId,
+            string themeFolderPath, CancellationToken ct)
+        {
+            var jpegOutputPath = GetThumbnailPath(resourceId, themeFolderPath, isVideo: false);
+
+            // If JPEG thumbnail already exists, return it
+            if (File.Exists(jpegOutputPath))
+            {
+                Debug.WriteLine($"[ThumbnailService] JPEG fallback thumbnail already exists: {jpegOutputPath}");
+                return jpegOutputPath;
+            }
+
+            try
+            {
+                var tcs = new TaskCompletionSource<string>();
+
+                // MediaPlayer must be created on an STA thread
+                var thread = new System.Threading.Thread(() =>
+                {
+                    try
+                    {
+                        var player = new System.Windows.Media.MediaPlayer();
+                        player.ScrubbingEnabled = true;
+                        player.Volume = 0;
+
+                        player.MediaOpened += (s, e) =>
+                        {
+                            try
+                            {
+                                // Seek to 1 second in for a representative frame
+                                player.Position = TimeSpan.FromSeconds(1);
+                            }
+                            catch
+                            {
+                                tcs.TrySetResult(string.Empty);
+                            }
+                        };
+
+                        player.MediaFailed += (s, e) =>
+                        {
+                            Debug.WriteLine($"[ThumbnailService] MediaPlayer failed: {e.ErrorException?.Message}");
+                            tcs.TrySetResult(string.Empty);
+                        };
+
+                        // Use a timer to capture frame after seek
+                        var timer = new System.Windows.Threading.DispatcherTimer
+                        {
+                            Interval = TimeSpan.FromMilliseconds(500)
+                        };
+                        timer.Tick += (s, e) =>
+                        {
+                            timer.Stop();
+                            try
+                            {
+                                if (player.NaturalVideoWidth > 0 && player.NaturalVideoHeight > 0)
+                                {
+                                    // Calculate thumbnail dimensions maintaining aspect ratio
+                                    double scale = (double)IThumbnailService.ThumbnailWidth / player.NaturalVideoWidth;
+                                    int thumbWidth = IThumbnailService.ThumbnailWidth;
+                                    int thumbHeight = (int)(player.NaturalVideoHeight * scale);
+
+                                    var rtb = new RenderTargetBitmap(thumbWidth, thumbHeight, 96, 96,
+                                        System.Windows.Media.PixelFormats.Pbgra32);
+
+                                    var dv = new System.Windows.Media.DrawingVisual();
+                                    using (var dc = dv.RenderOpen())
+                                    {
+                                        dc.DrawVideo(player,
+                                            new System.Windows.Rect(0, 0, thumbWidth, thumbHeight));
+                                    }
+                                    rtb.Render(dv);
+
+                                    var encoder = new JpegBitmapEncoder
+                                    {
+                                        QualityLevel = IThumbnailService.ThumbnailQuality
+                                    };
+                                    encoder.Frames.Add(BitmapFrame.Create(rtb));
+
+                                    // Ensure directory exists
+                                    var dir = Path.GetDirectoryName(jpegOutputPath);
+                                    if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                                        Directory.CreateDirectory(dir);
+
+                                    using var stream = File.Create(jpegOutputPath);
+                                    encoder.Save(stream);
+
+                                    Debug.WriteLine($"[ThumbnailService] Generated JPEG fallback thumbnail: {jpegOutputPath}");
+                                    tcs.TrySetResult(jpegOutputPath);
+                                }
+                                else
+                                {
+                                    Debug.WriteLine("[ThumbnailService] MediaPlayer reported zero video dimensions");
+                                    tcs.TrySetResult(string.Empty);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine($"[ThumbnailService] JPEG fallback frame capture error: {ex.Message}");
+                                tcs.TrySetResult(string.Empty);
+                            }
+                            finally
+                            {
+                                player.Close();
+                                System.Windows.Threading.Dispatcher.CurrentDispatcher.BeginInvokeShutdown(
+                                    System.Windows.Threading.DispatcherPriority.Background);
+                            }
+                        };
+
+                        player.Open(new Uri(sourcePath, UriKind.Absolute));
+                        timer.Start();
+
+                        // Run dispatcher to process events
+                        System.Windows.Threading.Dispatcher.Run();
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[ThumbnailService] JPEG fallback thread error: {ex.Message}");
+                        tcs.TrySetResult(string.Empty);
+                    }
+                });
+
+                thread.SetApartmentState(System.Threading.ApartmentState.STA);
+                thread.IsBackground = true;
+                thread.Start();
+
+                // Wait with a timeout
+                var completedTask = await Task.WhenAny(tcs.Task, Task.Delay(10000, ct));
+                if (completedTask == tcs.Task)
+                {
+                    return tcs.Task.Result;
+                }
+                else
+                {
+                    Debug.WriteLine("[ThumbnailService] JPEG fallback timed out");
+                    return string.Empty;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ThumbnailService] JPEG fallback error: {ex.Message}");
+                return string.Empty;
+            }
         }
 
         // ==================== Utility ====================

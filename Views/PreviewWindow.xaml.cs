@@ -58,11 +58,21 @@ namespace ProductivityWallpaper.Views
 
         /// <summary>
         /// Handles the Closed event.
-        /// Cleans up media resources.
+        /// Cleans up media resources and unsubscribes event handlers to prevent memory leaks.
         /// </summary>
         private void PreviewWindow_Closed(object? sender, EventArgs e)
         {
-            _positionTimer?.Stop();
+            // Stop and unsubscribe position timer
+            if (_positionTimer != null)
+            {
+                _positionTimer.Stop();
+                _positionTimer.Tick -= PositionTimer_Tick;
+                _positionTimer = null;
+            }
+
+            // Unsubscribe MediaElement events to prevent handler accumulation
+            PreviewVideo.MediaOpened -= Video_MediaOpened;
+            PreviewVideo.MediaEnded -= Video_MediaEnded;
 
             // Stop and clean up video
             if (PreviewVideo.Source != null)
@@ -83,6 +93,10 @@ namespace ProductivityWallpaper.Views
             try
             {
                 PreviewVideo.Source = new Uri(item.FilePath);
+
+                // Unsubscribe first to prevent duplicate handlers
+                PreviewVideo.MediaOpened -= Video_MediaOpened;
+                PreviewVideo.MediaEnded -= Video_MediaEnded;
                 PreviewVideo.MediaOpened += Video_MediaOpened;
                 PreviewVideo.MediaEnded += Video_MediaEnded;
 
@@ -115,6 +129,10 @@ namespace ProductivityWallpaper.Views
             try
             {
                 PreviewVideo.Source = new Uri(item.FilePath);
+
+                // Unsubscribe first to prevent duplicate handlers
+                PreviewVideo.MediaOpened -= Video_MediaOpened;
+                PreviewVideo.MediaEnded -= Video_MediaEnded;
                 PreviewVideo.MediaOpened += Video_MediaOpened;
                 PreviewVideo.MediaEnded += Video_MediaEnded;
 

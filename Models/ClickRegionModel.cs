@@ -7,6 +7,9 @@ namespace ProductivityWallpaper.Models
 {
     /// <summary>
     /// Represents a clickable region on the desktop with associated media content.
+    /// All position and size values are stored as normalized 0–1 values
+    /// (0 = left/top edge, 1 = right/bottom edge of the screen).
+    /// This ensures theme packs are resolution-independent and portable.
     /// </summary>
     public partial class ClickRegionModel : ObservableObject
     {
@@ -19,16 +22,16 @@ namespace ProductivityWallpaper.Models
         private string _name = string.Empty;
 
         [ObservableProperty]
-        private double _x;  // Percentage 0-100
+        private double _x;  // Normalized 0–1 (0 = left edge)
 
         [ObservableProperty]
-        private double _y;  // Percentage 0-100
+        private double _y;  // Normalized 0–1 (0 = top edge)
 
         [ObservableProperty]
-        private double _width;  // Percentage 0-100
+        private double _width;  // Normalized 0–1 (fraction of screen width)
 
         [ObservableProperty]
-        private double _height;  // Percentage 0-100
+        private double _height;  // Normalized 0–1 (fraction of screen height)
 
         [ObservableProperty]
         private bool _isSelected;
@@ -56,15 +59,15 @@ namespace ProductivityWallpaper.Models
         // --- Validation ---
 
         /// <summary>
-        /// Validates the region position and size.
+        /// Validates the region position and size (normalized 0–1).
         /// </summary>
         public bool IsValid()
         {
-            return X >= 0 && X <= 100 &&
-                   Y >= 0 && Y <= 100 &&
+            return X >= 0 && X <= 1 &&
+                   Y >= 0 && Y <= 1 &&
                    Width > 0 && Height > 0 &&
-                   X + Width <= 100 &&
-                   Y + Height <= 100 &&
+                   X + Width <= 1.001 &&   // small epsilon for floating-point
+                   Y + Height <= 1.001 &&
                    AudioContent.Count <= 5;
         }
 
@@ -73,12 +76,12 @@ namespace ProductivityWallpaper.Models
         /// </summary>
         public string? GetValidationError()
         {
-            if (X < 0 || X > 100) return "X position must be between 0 and 100";
-            if (Y < 0 || Y > 100) return "Y position must be between 0 and 100";
+            if (X < 0 || X > 1) return "X position must be between 0 and 1";
+            if (Y < 0 || Y > 1) return "Y position must be between 0 and 1";
             if (Width <= 0) return "Width must be greater than 0";
             if (Height <= 0) return "Height must be greater than 0";
-            if (X + Width > 100) return "Region exceeds canvas right boundary";
-            if (Y + Height > 100) return "Region exceeds canvas bottom boundary";
+            if (X + Width > 1.001) return "Region exceeds canvas right boundary";
+            if (Y + Height > 1.001) return "Region exceeds canvas bottom boundary";
             if (AudioContent.Count > 5) return "Maximum 5 audio files allowed";
             return null;
         }
@@ -86,10 +89,10 @@ namespace ProductivityWallpaper.Models
         // --- Helper Methods ---
 
         /// <summary>
-        /// Checks if a point (in percentage coordinates) is contained within this region.
+        /// Checks if a point (in normalized 0–1 coordinates) is contained within this region.
         /// </summary>
-        /// <param name="x">X coordinate as percentage (0-100).</param>
-        /// <param name="y">Y coordinate as percentage (0-100).</param>
+        /// <param name="x">X coordinate normalized 0–1.</param>
+        /// <param name="y">Y coordinate normalized 0–1.</param>
         /// <returns>True if the point is inside the region.</returns>
         public bool ContainsPoint(double x, double y)
         {
@@ -98,7 +101,7 @@ namespace ProductivityWallpaper.Models
         }
 
         /// <summary>
-        /// Converts percentage-based region to absolute pixel coordinates.
+        /// Converts normalized region to absolute pixel coordinates.
         /// </summary>
         /// <param name="canvasWidth">The actual canvas width in pixels.</param>
         /// <param name="canvasHeight">The actual canvas height in pixels.</param>
@@ -106,10 +109,10 @@ namespace ProductivityWallpaper.Models
         public Rect ToAbsoluteRect(double canvasWidth, double canvasHeight)
         {
             return new Rect(
-                X / 100.0 * canvasWidth,
-                Y / 100.0 * canvasHeight,
-                Width / 100.0 * canvasWidth,
-                Height / 100.0 * canvasHeight
+                X * canvasWidth,
+                Y * canvasHeight,
+                Width * canvasWidth,
+                Height * canvasHeight
             );
         }
 
@@ -122,17 +125,17 @@ namespace ProductivityWallpaper.Models
         /// <param name="height">Height in pixels.</param>
         /// <param name="canvasWidth">The canvas width in pixels.</param>
         /// <param name="canvasHeight">The canvas height in pixels.</param>
-        /// <returns>A new ClickRegionModel with percentage values.</returns>
+        /// <returns>A new ClickRegionModel with normalized 0–1 values.</returns>
         public static ClickRegionModel FromAbsoluteRect(
             double left, double top, double width, double height,
             double canvasWidth, double canvasHeight)
         {
             return new ClickRegionModel
             {
-                X = left / canvasWidth * 100,
-                Y = top / canvasHeight * 100,
-                Width = width / canvasWidth * 100,
-                Height = height / canvasHeight * 100
+                X = left / canvasWidth,
+                Y = top / canvasHeight,
+                Width = width / canvasWidth,
+                Height = height / canvasHeight
             };
         }
     }

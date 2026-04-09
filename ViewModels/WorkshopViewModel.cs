@@ -1,8 +1,12 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using ProductivityWallpaper.Models;
+using ProductivityWallpaper.Services;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.Threading.Tasks;
 using System.Windows.Threading;
 
 namespace ProductivityWallpaper.ViewModels
@@ -38,10 +42,10 @@ namespace ProductivityWallpaper.ViewModels
         
         [ObservableProperty]
         private bool _hasSelectedTheme;
-        
+
         public WorkshopViewModel()
         {
-            // Load mock data
+            // Load mock data for now; future: load from online service
             LoadMockData();
         }
         
@@ -74,15 +78,56 @@ namespace ProductivityWallpaper.ViewModels
         }
         
         [RelayCommand]
-        private void UseTheme()
+        private async Task UseTheme()
         {
-            // Implement use theme logic
+            if (SelectedTheme == null)
+                return;
+
+            // Workshop themes with ThemeFolderName are local themes that can be loaded
+            if (!string.IsNullOrEmpty(SelectedTheme.ThemeFolderName))
+            {
+                try
+                {
+                    var themeService = App.Current.Services.GetService(typeof(IThemeService)) as IThemeService;
+                    var wallpaperService = App.Current.Services.GetService(typeof(WallpaperService)) as WallpaperService;
+                    if (themeService == null || wallpaperService == null) return;
+
+                    var manifest = await themeService.LoadThemeAsync(SelectedTheme.ThemeFolderName);
+                    if (manifest == null)
+                    {
+                        Debug.WriteLine($"[WorkshopViewModel] Failed to load theme: {SelectedTheme.ThemeFolderName}");
+                        return;
+                    }
+
+                    wallpaperService.ApplyThemeWallpaper(manifest);
+                    Debug.WriteLine($"[WorkshopViewModel] Applied theme wallpaper: {manifest.Name}");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[WorkshopViewModel] Error applying theme: {ex.Message}");
+                }
+            }
+            else
+            {
+                // Future: handle online theme download and apply
+                Debug.WriteLine("[WorkshopViewModel] Online theme application not yet implemented");
+            }
         }
         
         [RelayCommand]
-        private void EditTheme()
+        private async Task EditTheme()
         {
-            // Implement edit theme logic
+            if (SelectedTheme == null)
+                return;
+
+            if (!string.IsNullOrEmpty(SelectedTheme.ThemeFolderName))
+            {
+                var mainVm = App.Current.Services.GetService(typeof(MainViewModel)) as MainViewModel;
+                if (mainVm != null)
+                {
+                    await mainVm.NavigateToCreatorWithThemeCommand.ExecuteAsync(SelectedTheme.ThemeFolderName);
+                }
+            }
         }
     }
     
