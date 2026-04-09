@@ -696,11 +696,12 @@ namespace ProductivityWallpaper.ViewModels
                     // Create new VM via factory
                     cachedVm = _featureVmFactory.Create(featureType);
 
-                    // For multi-scheme features, sync scheme name from selected scheme
+                    // For multi-scheme features, sync scheme name and active state from selected scheme
                     var selectedScheme = GetSelectedScheme(featureType);
                     if (selectedScheme != null && cachedVm is IFeatureViewModel featureVm)
                     {
                         featureVm.SchemeName = selectedScheme.Name;
+                        featureVm.IsActive = selectedScheme.IsActive;
                     }
 
                     // Subscribe to property changes for dirty tracking
@@ -979,6 +980,7 @@ namespace ProductivityWallpaper.ViewModels
                     if (vm is IFeatureViewModel featureVm)
                     {
                         featureVm.SchemeName = scheme.Name;
+                        featureVm.IsActive = scheme.IsActive;
                     }
 
                     // Restore media items from ResourceLibrary references
@@ -1015,11 +1017,35 @@ namespace ProductivityWallpaper.ViewModels
                         mediaVm.SelectedAudioPlaybackMode = audioSource.PlaybackMode;
                     }
 
-                    // Restore mouse click regions
+                    // Restore mouse click regions and resolve ClickAction resource IDs to MediaItemModels
                     if (vm is MouseClickViewModel mouseVm)
                     {
+                        mouseVm.IsActive = scheme.IsActive;
                         foreach (var region in scheme.ClickRegions)
                         {
+                            // Resolve VisualMediaId to VisualContent MediaItemModel
+                            if (!string.IsNullOrEmpty(region.ClickAction.VisualMediaId))
+                            {
+                                var visualItem = ResolveMediaItem(region.ClickAction.VisualMediaId);
+                                if (visualItem != null)
+                                {
+                                    region.VisualContent = visualItem;
+                                }
+                            }
+
+                            // Resolve AudioMediaIds to AudioContent MediaItemModels
+                            region.AudioContent.Clear();
+                            var audioIndex = 0;
+                            foreach (var audioId in region.ClickAction.AudioMediaIds)
+                            {
+                                var audioItem = ResolveMediaItem(audioId, audioIndex);
+                                if (audioItem != null)
+                                {
+                                    region.AudioContent.Add(audioItem);
+                                    audioIndex++;
+                                }
+                            }
+
                             mouseVm.Regions.Add(region);
                         }
                     }
@@ -1219,13 +1245,38 @@ namespace ProductivityWallpaper.ViewModels
                     }
 
                     scheme.Name = mediaVm.SchemeName;
+                    scheme.IsActive = mediaVm.IsActive;
                 }
 
                 // Sync MouseClickViewModel data to SchemeModel
                 if (vm is MouseClickViewModel mouseVm)
                 {
+                    // Register media resources and populate ClickAction IDs for each region
+                    foreach (var region in mouseVm.Regions)
+                    {
+                        // Register visual content and set ClickAction.VisualMediaId
+                        if (region.VisualContent != null)
+                        {
+                            var visualResourceId = RegisterOrFindResource(region.VisualContent);
+                            region.ClickAction.VisualMediaId = visualResourceId;
+                        }
+                        else
+                        {
+                            region.ClickAction.VisualMediaId = null;
+                        }
+
+                        // Register audio content and set ClickAction.AudioMediaIds
+                        region.ClickAction.AudioMediaIds.Clear();
+                        foreach (var audio in region.AudioContent)
+                        {
+                            var audioResourceId = RegisterOrFindResource(audio);
+                            region.ClickAction.AudioMediaIds.Add(audioResourceId);
+                        }
+                    }
+
                     scheme.ClickRegions = new ObservableCollection<ClickRegionModel>(mouseVm.Regions);
                     scheme.Name = mouseVm.SchemeName;
+                    scheme.IsActive = mouseVm.IsActive;
                 }
             }
 

@@ -117,6 +117,7 @@ namespace ProductivityWallpaper.ViewModels
             _configService = App.Current.Services.GetRequiredService<ConfigService>();
             InitializeScreenInfo();
             LoadAvailableMedia();
+            Regions.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasContent));
         }
 
         /// <summary>
@@ -128,6 +129,7 @@ namespace ProductivityWallpaper.ViewModels
             _configService = configService;
             InitializeScreenInfo();
             LoadAvailableMedia();
+            Regions.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasContent));
         }
 
         // --- Initialization Methods ---
@@ -437,6 +439,30 @@ namespace ProductivityWallpaper.ViewModels
         {
             IsEditingName = !IsEditingName;
         }
+
+        /// <summary>
+        /// Exits scheme name editing mode.
+        /// </summary>
+        [RelayCommand]
+        private void FinishEditName()
+        {
+            IsEditingName = false;
+        }
+
+        /// <summary>
+        /// Marks this scheme as the active scheme.
+        /// CreatorViewModel.SelectScheme() handles deactivating others.
+        /// </summary>
+        [RelayCommand]
+        private void ActivateScheme()
+        {
+            IsActive = true;
+        }
+
+        /// <summary>
+        /// Returns true if there are any regions defined (for activate button visibility).
+        /// </summary>
+        public bool HasContent => Regions.Count > 0;
 
         // --- Public Methods ---
 
