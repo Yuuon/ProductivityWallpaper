@@ -18,7 +18,8 @@ using ProductivityWallpaper.ViewModels;
 namespace ProductivityWallpaper.Views
 {
     /// <summary>
-    /// Interaction logic for MouseClickView.xaml - handles canvas drawing and region interaction.
+    /// Interaction logic for MouseClickView.xaml - handles canvas drawing, region interaction,
+    /// and drag-move repositioning of existing click regions.
     /// </summary>
     public partial class MouseClickView : System.Windows.Controls.UserControl
     {
@@ -27,6 +28,13 @@ namespace ProductivityWallpaper.Views
         private bool _isDragging;
         private Rectangle? _dragPreviewRect;
         private Canvas? _regionCanvas;
+
+        // --- Move/Drag State ---
+        private bool _isMovingRegion;
+        private ClickRegionModel? _movingRegion;
+        private Point _moveStartPoint;
+        private double _moveStartX;
+        private double _moveStartY;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="MouseClickView"/> class.
@@ -109,11 +117,11 @@ namespace ProductivityWallpaper.Views
 
         #endregion
 
-        #region Canvas Drawing
+        #region Canvas Drawing & Region Move
 
         /// <summary>
         /// Handles MouseLeftButtonDown on the canvas.
-        /// Starts drawing a new region if in adding mode, or selects existing region.
+        /// Starts drawing a new region if in adding mode, or starts moving/selecting an existing region.
         /// </summary>
         private void OnCanvasMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
@@ -148,26 +156,66 @@ namespace ProductivityWallpaper.Views
             }
             else
             {
-                // Hit test for region selection
-                HandleRegionSelection(position);
+                // Hit test for region selection or drag-move
+                var hitRegion = HitTestRegion(position);
+                if (hitRegion != null)
+                {
+                    // Select and start move
+                    vm.SelectRegionCommand.Execute(hitRegion);
+                    _isMovingRegion = true;
+                    _movingRegion = hitRegion;
+                    _moveStartPoint = position;
+                    _moveStartX = hitRegion.X;
+                    _moveStartY = hitRegion.Y;
+                    _regionCanvas.CaptureMouse();
+                }
+                else
+                {
+                    // Clicked empty space — deselect
+                    vm.SelectRegionCommand.Execute(null);
+                }
             }
         }
 
         /// <summary>
         /// Handles MouseMove on the canvas.
-        /// Updates preview rectangle during drag operation.
+        /// Updates preview rectangle during draw, or updates position during region move.
         /// </summary>
         private void OnCanvasMouseMove(object sender, System.Windows.Input.MouseEventArgs e)
         {
-            if (!_isDragging || _regionCanvas == null || _dragPreviewRect == null) return;
+            if (_regionCanvas == null) return;
 
-            var currentPosition = e.GetPosition(_regionCanvas);
+            // Handle region move
+            if (_isMovingRegion && _movingRegion != null)
+            {
+                var currentPosition = e.GetPosition(_regionCanvas);
+                var canvasW = _regionCanvas.ActualWidth;
+                var canvasH = _regionCanvas.ActualHeight;
+                if (canvasW <= 0 || canvasH <= 0) return;
+
+                // Calculate delta in normalized coordinates
+                var dx = (currentPosition.X - _moveStartPoint.X) / canvasW;
+                var dy = (currentPosition.Y - _moveStartPoint.Y) / canvasH;
+
+                // Apply delta, clamping to canvas bounds
+                var newX = Math.Max(0, Math.Min(1.0 - _movingRegion.Width, _moveStartX + dx));
+                var newY = Math.Max(0, Math.Min(1.0 - _movingRegion.Height, _moveStartY + dy));
+
+                _movingRegion.X = newX;
+                _movingRegion.Y = newY;
+                return;
+            }
+
+            // Handle draw preview
+            if (!_isDragging || _dragPreviewRect == null) return;
+
+            var pos = e.GetPosition(_regionCanvas);
 
             // Calculate rectangle dimensions
-            var left = Math.Min(_dragStartPoint.X, currentPosition.X);
-            var top = Math.Min(_dragStartPoint.Y, currentPosition.Y);
-            var width = Math.Abs(currentPosition.X - _dragStartPoint.X);
-            var height = Math.Abs(currentPosition.Y - _dragStartPoint.Y);
+            var left = Math.Min(_dragStartPoint.X, pos.X);
+            var top = Math.Min(_dragStartPoint.Y, pos.Y);
+            var width = Math.Abs(pos.X - _dragStartPoint.X);
+            var height = Math.Abs(pos.Y - _dragStartPoint.Y);
 
             // Clamp to canvas bounds
             left = Math.Max(0, left);
@@ -184,10 +232,20 @@ namespace ProductivityWallpaper.Views
 
         /// <summary>
         /// Handles MouseLeftButtonUp on the canvas.
-        /// Finishes drawing and creates the new region.
+        /// Finishes drawing a new region, or finishes moving an existing region.
         /// </summary>
         private void OnCanvasMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
+            // End region move
+            if (_isMovingRegion)
+            {
+                _isMovingRegion = false;
+                _movingRegion = null;
+                _regionCanvas?.ReleaseMouseCapture();
+                return;
+            }
+
+            // End region draw
             if (!_isDragging || _regionCanvas == null || _dragPreviewRect == null) return;
             if (DataContext is not MouseClickViewModel vm) return;
 
@@ -201,17 +259,17 @@ namespace ProductivityWallpaper.Views
             const double minSize = 20;
             if (width >= minSize && height >= minSize)
             {
-                // Convert to percentages
+                // Convert to normalized 0–1 coordinates
                 var canvasWidth = _regionCanvas.ActualWidth;
                 var canvasHeight = _regionCanvas.ActualHeight;
 
-                var xPercent = left / canvasWidth * 100;
-                var yPercent = top / canvasHeight * 100;
-                var widthPercent = width / canvasWidth * 100;
-                var heightPercent = height / canvasHeight * 100;
+                var xNorm = left / canvasWidth;
+                var yNorm = top / canvasHeight;
+                var widthNorm = width / canvasWidth;
+                var heightNorm = height / canvasHeight;
 
-                // Create the region
-                vm.CreateRegion(xPercent, yPercent, widthPercent, heightPercent);
+                // Create the region with normalized values
+                vm.CreateRegion(xNorm, yNorm, widthNorm, heightNorm);
             }
 
             // Clean up
@@ -222,29 +280,27 @@ namespace ProductivityWallpaper.Views
         }
 
         /// <summary>
-        /// Handles hit testing and selection of existing regions.
+        /// Performs hit testing to find which region (if any) contains the given point.
         /// </summary>
-        private void HandleRegionSelection(Point clickPosition)
+        private ClickRegionModel? HitTestRegion(Point clickPosition)
         {
-            if (DataContext is not MouseClickViewModel vm) return;
-            if (_regionCanvas == null) return;
+            if (DataContext is not MouseClickViewModel vm) return null;
+            if (_regionCanvas == null) return null;
 
-            // Convert click position to percentages
-            var xPercent = clickPosition.X / _regionCanvas.ActualWidth * 100;
-            var yPercent = clickPosition.Y / _regionCanvas.ActualHeight * 100;
+            // Convert click position to normalized 0–1
+            var xNorm = clickPosition.X / _regionCanvas.ActualWidth;
+            var yNorm = clickPosition.Y / _regionCanvas.ActualHeight;
 
             // Find top-most region containing the point
             ClickRegionModel? hitRegion = null;
             foreach (var region in vm.Regions)
             {
-                if (region.ContainsPoint(xPercent, yPercent))
+                if (region.ContainsPoint(xNorm, yNorm))
                 {
                     hitRegion = region;
                 }
             }
-
-            // Select the region (or deselect if clicking empty space)
-            vm.SelectRegionCommand.Execute(hitRegion);
+            return hitRegion;
         }
 
         #endregion

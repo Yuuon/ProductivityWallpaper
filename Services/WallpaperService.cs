@@ -965,13 +965,13 @@ namespace ProductivityWallpaper.Services
             int physicalH = Win32Api.GetSystemMetrics(Win32Api.SM_CYSCREEN);
             if (physicalW <= 0 || physicalH <= 0) return;
 
-            // Convert physical screen point to percentage (0-100)
-            double xPct = screenPoint.X / physicalW * 100.0;
-            double yPct = screenPoint.Y / physicalH * 100.0;
+            // Convert physical screen point to normalized (0–1)
+            double xNorm = screenPoint.X / physicalW;
+            double yNorm = screenPoint.Y / physicalH;
 
             foreach (var region in _activeClickRegions)
             {
-                if (!region.ContainsPoint(xPct, yPct)) continue;
+                if (!region.ContainsPoint(xNorm, yNorm)) continue;
 
                 // Play visual content (image or video) if available
                 if (!string.IsNullOrEmpty(region.ClickAction.VisualMediaId))

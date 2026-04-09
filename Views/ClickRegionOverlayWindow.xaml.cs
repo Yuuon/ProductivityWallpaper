@@ -40,7 +40,7 @@ namespace ProductivityWallpaper.Views
 
         /// <summary>
         /// Loads click regions from the theme data and creates rectangles on the canvas.
-        /// Regions use percentage-based coordinates (0-100) relative to screen size.
+        /// Regions use normalized coordinates (0–1) relative to screen size.
         /// </summary>
         /// <param name="regions">The click regions to display.</param>
         /// <param name="debugVisible">If true, regions are shown in semi-transparent red for debugging.</param>
@@ -84,6 +84,7 @@ namespace ProductivityWallpaper.Views
         /// Automatically called when the canvas resizes (after injection into WorkerW).
         /// Uses the canvas's ActualWidth/ActualHeight so it's DPI-safe — WPF handles 
         /// the logical-to-physical pixel mapping automatically.
+        /// Region model stores normalized 0–1 values; multiply by canvas size to get pixels.
         /// </summary>
         public void UpdateRegionLayout()
         {
@@ -95,12 +96,12 @@ namespace ProductivityWallpaper.Views
             {
                 if (child is Rectangle rect && rect.Tag is ClickRegionModel region)
                 {
-                    // Convert percentage (0-100) to absolute pixel coordinates
+                    // Convert normalized (0–1) to absolute pixel coordinates
                     // relative to the canvas's actual dimensions
-                    double x = region.X / 100.0 * canvasW;
-                    double y = region.Y / 100.0 * canvasH;
-                    double w = region.Width / 100.0 * canvasW;
-                    double h = region.Height / 100.0 * canvasH;
+                    double x = region.X * canvasW;
+                    double y = region.Y * canvasH;
+                    double w = region.Width * canvasW;
+                    double h = region.Height * canvasH;
 
                     Canvas.SetLeft(rect, x);
                     Canvas.SetTop(rect, y);
@@ -126,13 +127,13 @@ namespace ProductivityWallpaper.Views
             int physicalH = Win32Api.GetSystemMetrics(Win32Api.SM_CYSCREEN);
             if (physicalW <= 0 || physicalH <= 0) return null;
 
-            // Convert physical screen point to percentage (0-100)
-            double xPct = screenPoint.X / physicalW * 100.0;
-            double yPct = screenPoint.Y / physicalH * 100.0;
+            // Convert physical screen point to normalized (0–1)
+            double xNorm = screenPoint.X / physicalW;
+            double yNorm = screenPoint.Y / physicalH;
 
             foreach (var region in _regions)
             {
-                if (region.ContainsPoint(xPct, yPct))
+                if (region.ContainsPoint(xNorm, yNorm))
                 {
                     return region;
                 }

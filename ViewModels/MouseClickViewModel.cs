@@ -467,13 +467,13 @@ namespace ProductivityWallpaper.ViewModels
         // --- Public Methods ---
 
         /// <summary>
-        /// Creates a new region from percentage coordinates.
+        /// Creates a new region from normalized coordinates (0–1).
         /// Called by the view after mouse drawing operation.
         /// </summary>
-        /// <param name="x">X position as percentage (0-100).</param>
-        /// <param name="y">Y position as percentage (0-100).</param>
-        /// <param name="width">Width as percentage (0-100).</param>
-        /// <param name="height">Height as percentage (0-100).</param>
+        /// <param name="x">X position normalized (0–1).</param>
+        /// <param name="y">Y position normalized (0–1).</param>
+        /// <param name="width">Width normalized (0–1).</param>
+        /// <param name="height">Height normalized (0–1).</param>
         public void CreateRegion(double x, double y, double width, double height)
         {
             // Normalize negative dimensions
@@ -488,9 +488,9 @@ namespace ProductivityWallpaper.ViewModels
                 height = -height;
             }
 
-            // Clamp to canvas bounds
-            x = Math.Max(0, Math.Min(100 - width, x));
-            y = Math.Max(0, Math.Min(100 - height, y));
+            // Clamp to canvas bounds (0–1)
+            x = Math.Max(0, Math.Min(1.0 - width, x));
+            y = Math.Max(0, Math.Min(1.0 - height, y));
 
             var region = new ClickRegionModel
             {

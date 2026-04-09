@@ -66,19 +66,18 @@ namespace ProductivityWallpaper.Converters
     }
 
     /// <summary>
-    /// Converts percentage value to pixel value based on canvas size.
-    /// Expects percentage (0-100) and converts using converter parameter as total size.
+    /// Converts a normalized value (0–1) to pixel value based on canvas size.
+    /// Expects normalized (0–1) and converts using converter parameter as total size.
     /// </summary>
     public class PercentageToPixelConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value is double percentage)
+            if (value is double normalized)
             {
                 // The actual canvas size should be passed as parameter
                 // For now, use a default scale (the canvas will resize via Viewbox)
                 const double DefaultCanvasWidth = 1920;
-                const double DefaultCanvasHeight = 1080;
                 
                 var totalSize = DefaultCanvasWidth; // Default to width
                 
@@ -92,7 +91,7 @@ namespace ProductivityWallpaper.Converters
                     totalSize = element.ActualWidth > 0 ? element.ActualWidth : DefaultCanvasWidth;
                 }
                 
-                return percentage / 100.0 * totalSize;
+                return normalized * totalSize;
             }
             return 0;
         }
@@ -104,8 +103,8 @@ namespace ProductivityWallpaper.Converters
     }
 
     /// <summary>
-    /// Converts a percentage value to a pixel value using a MultiBinding.
-    /// values[0]: percentage (0–100) from the model (X, Y, Width, or Height)
+    /// Converts a normalized value (0–1) to a pixel value using a MultiBinding.
+    /// values[0]: normalized (0–1) from the model (X, Y, Width, or Height)
     /// values[1]: total size in pixels from the Canvas (ActualWidth or ActualHeight)
     /// </summary>
     public class PercentageToPixelMultiConverter : IMultiValueConverter
@@ -113,11 +112,11 @@ namespace ProductivityWallpaper.Converters
         public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
         {
             if (values.Length == 2
-                && values[0] is double percentage
+                && values[0] is double normalized
                 && values[1] is double totalSize
                 && totalSize > 0)
             {
-                return percentage / 100.0 * totalSize;
+                return normalized * totalSize;
             }
             return 0.0;
         }
