@@ -57,6 +57,7 @@ namespace ProductivityWallpaper.Services
         private List<ClickRegionModel>? _activeClickRegions;
         private ResourceResolver? _activeResolver;
         private SchemeModel? _activeMouseClickScheme;
+        private ClickRegionOverlayWindow? _clickRegionOverlay;
         private bool _bgAudioEndReachedSubscribed;
         private readonly Dictionary<string, int> _regionAudioIndex = new();
         private const int MinWallpaperDurationSeconds = 5;
@@ -881,6 +882,26 @@ namespace ProductivityWallpaper.Services
             _activeClickRegions = clickScheme.ClickRegions.ToList();
             _activeMouseClickScheme = clickScheme;
 
+            // Create the click region overlay window — follows the old InteractiveUiWindow pattern:
+            // a transparent window injected into WorkerW at the topmost Z-order.
+            // debugVisible=true makes regions red so we can verify correct positioning.
+            _clickRegionOverlay = new ClickRegionOverlayWindow();
+            _clickRegionOverlay.WindowStartupLocation = WindowStartupLocation.Manual;
+            _clickRegionOverlay.Left = -32000;
+            _clickRegionOverlay.Top = -32000;
+            _clickRegionOverlay.Width = 1;
+            _clickRegionOverlay.Height = 1;
+            _clickRegionOverlay.LoadRegions(_activeClickRegions, debugVisible: true);
+            _clickRegionOverlay.Show();
+
+            // Inject into WorkerW at the topmost Z-order (same as InteractiveUiWindow)
+            InjectClickRegionOverlay(_clickRegionOverlay);
+
+            // Update layout with actual screen dimensions after injection
+            double screenW = SystemParameters.PrimaryScreenWidth;
+            double screenH = SystemParameters.PrimaryScreenHeight;
+            _clickRegionOverlay.UpdateRegionLayout(screenW, screenH);
+
             // Start mouse hook for click detection
             _mouseHook = new MouseHookService();
 
@@ -893,6 +914,33 @@ namespace ProductivityWallpaper.Services
             };
 
             _mouseHook.Start();
+        }
+
+        /// <summary>
+        /// Injects the click region overlay window into WorkerW at the topmost Z-order.
+        /// This is the same pattern used by InjectInteractiveLayers for the old InteractiveUiWindow.
+        /// The overlay sits above the wallpaper content but below desktop icons.
+        /// </summary>
+        private void InjectClickRegionOverlay(ClickRegionOverlayWindow overlay)
+        {
+            var helper = new WindowInteropHelper(overlay);
+            IntPtr workerw = FindWorkerW();
+            if (workerw == IntPtr.Zero) return;
+
+            Win32Api.SetParent(helper.Handle, workerw);
+
+            // Remove popup style, keep child window style
+            int style = Win32Api.GetWindowLong(helper.Handle, Win32Api.GWL_STYLE);
+            style = style & ~Win32Api.WS_POPUP & ~Win32Api.WS_VISIBLE;
+            Win32Api.SetWindowLong(helper.Handle, Win32Api.GWL_STYLE, style);
+
+            overlay.WindowState = WindowState.Maximized;
+
+            // Set to topmost Z-order within WorkerW
+            int screenW = (int)SystemParameters.PrimaryScreenWidth;
+            int screenH = (int)SystemParameters.PrimaryScreenHeight;
+            Win32Api.SetWindowPos(helper.Handle, Win32Api.HWND_TOP, 0, 0,
+                screenW, screenH, Win32Api.SWP_NOACTIVATE);
         }
 
         private void HandleThemeClick(System.Windows.Point screenPoint,
@@ -1071,6 +1119,13 @@ namespace ProductivityWallpaper.Services
             {
                 _currentUiWindow.Close();
                 _currentUiWindow = null;
+            }
+
+            // Close click region overlay window
+            if (_clickRegionOverlay != null)
+            {
+                try { _clickRegionOverlay.Close(); } catch { }
+                _clickRegionOverlay = null;
             }
 
             if (_actionVideoWindow != null)

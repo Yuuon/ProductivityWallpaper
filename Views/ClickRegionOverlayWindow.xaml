@@ -1,0 +1,11 @@
+<Window x:Class="ProductivityWallpaper.Views.ClickRegionOverlayWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="ClickRegionOverlay" Height="450" Width="800"
+        WindowStyle="None" ResizeMode="NoResize"
+        AllowsTransparency="True" Background="Transparent"
+        ShowInTaskbar="False">
+    
+    <!-- Canvas for absolute positioning of click region rectangles -->
+    <Canvas x:Name="OverlayCanvas" />
+</Window>
