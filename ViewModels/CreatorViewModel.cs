@@ -1027,10 +1027,11 @@ namespace ProductivityWallpaper.ViewModels
                             if (!string.IsNullOrEmpty(region.ClickAction.VisualMediaId))
                             {
                                 var visualItem = ResolveMediaItem(region.ClickAction.VisualMediaId);
-                                if (visualItem != null)
-                                {
-                                    region.VisualContent = visualItem;
-                                }
+                                region.VisualContent = visualItem; // null if resource not found
+                            }
+                            else
+                            {
+                                region.VisualContent = null;
                             }
 
                             // Resolve AudioMediaIds to AudioContent MediaItemModels
