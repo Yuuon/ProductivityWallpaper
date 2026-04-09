@@ -338,8 +338,9 @@ namespace ProductivityWallpaper.Services
 
             // 5. [瞬间展开] 手动将窗口设置为全屏尺寸
             var helper = new WindowInteropHelper(_actionVideoWindow);
-            int screenW = (int)SystemParameters.PrimaryScreenWidth;
-            int screenH = (int)SystemParameters.PrimaryScreenHeight;
+            // Use physical screen dimensions for SetWindowPos (DPI-safe)
+            int screenW = Win32Api.GetSystemMetrics(Win32Api.SM_CXSCREEN);
+            int screenH = Win32Api.GetSystemMetrics(Win32Api.SM_CYSCREEN);
 
             // 使用 SetWindowPos 瞬间拉伸，跳过“最大化”动画
             // 参数说明: HWND_TOP, x=0, y=0, w=ScreenW, h=ScreenH, NOACTIVATE
@@ -388,8 +389,8 @@ namespace ProductivityWallpaper.Services
 
                 // Expand to full screen
                 var helper = new WindowInteropHelper(imageWindow);
-                int screenW = (int)SystemParameters.PrimaryScreenWidth;
-                int screenH = (int)SystemParameters.PrimaryScreenHeight;
+                int screenW = Win32Api.GetSystemMetrics(Win32Api.SM_CXSCREEN);
+                int screenH = Win32Api.GetSystemMetrics(Win32Api.SM_CYSCREEN);
                 Win32Api.SetWindowPos(helper.Handle, Win32Api.HWND_TOP, 0, 0, screenW, screenH, Win32Api.SWP_NOACTIVATE);
 
                 // Fade in
@@ -725,8 +726,8 @@ namespace ProductivityWallpaper.Services
 
                 // Expand to full screen
                 var helper = new WindowInteropHelper(newWindow);
-                int screenW = (int)SystemParameters.PrimaryScreenWidth;
-                int screenH = (int)SystemParameters.PrimaryScreenHeight;
+                int screenW = Win32Api.GetSystemMetrics(Win32Api.SM_CXSCREEN);
+                int screenH = Win32Api.GetSystemMetrics(Win32Api.SM_CYSCREEN);
                 Win32Api.SetWindowPos(helper.Handle, Win32Api.HWND_TOP,
                     0, 0, screenW, screenH, Win32Api.SWP_NOACTIVATE);
 
@@ -891,16 +892,13 @@ namespace ProductivityWallpaper.Services
             _clickRegionOverlay.Top = -32000;
             _clickRegionOverlay.Width = 1;
             _clickRegionOverlay.Height = 1;
-            _clickRegionOverlay.LoadRegions(_activeClickRegions, debugVisible: true);
+            _clickRegionOverlay.LoadRegions(_activeClickRegions, debugVisible: false);
             _clickRegionOverlay.Show();
 
             // Inject into WorkerW at the topmost Z-order (same as InteractiveUiWindow)
             InjectClickRegionOverlay(_clickRegionOverlay);
 
-            // Update layout with actual screen dimensions after injection
-            double screenW = SystemParameters.PrimaryScreenWidth;
-            double screenH = SystemParameters.PrimaryScreenHeight;
-            _clickRegionOverlay.UpdateRegionLayout(screenW, screenH);
+            // Layout is auto-updated via SizeChanged event in ClickRegionOverlayWindow
 
             // Start mouse hook for click detection
             _mouseHook = new MouseHookService();
@@ -920,6 +918,7 @@ namespace ProductivityWallpaper.Services
         /// Injects the click region overlay window into WorkerW at the topmost Z-order.
         /// This is the same pattern used by InjectInteractiveLayers for the old InteractiveUiWindow.
         /// The overlay sits above the wallpaper content but below desktop icons.
+        /// Uses WorkerW's actual client rect for sizing (DPI-safe).
         /// </summary>
         private void InjectClickRegionOverlay(ClickRegionOverlayWindow overlay)
         {
@@ -936,9 +935,21 @@ namespace ProductivityWallpaper.Services
 
             overlay.WindowState = WindowState.Maximized;
 
-            // Set to topmost Z-order within WorkerW
-            int screenW = (int)SystemParameters.PrimaryScreenWidth;
-            int screenH = (int)SystemParameters.PrimaryScreenHeight;
+            // Use WorkerW's actual client rect for sizing — this gives physical pixels
+            // regardless of DPI scaling, ensuring the overlay covers the full screen
+            int screenW, screenH;
+            if (Win32Api.GetClientRect(workerw, out var rect))
+            {
+                screenW = rect.right - rect.left;
+                screenH = rect.bottom - rect.top;
+            }
+            else
+            {
+                // Fallback to GetSystemMetrics which returns physical pixels for Per-Monitor DPI Aware apps
+                screenW = Win32Api.GetSystemMetrics(Win32Api.SM_CXSCREEN);
+                screenH = Win32Api.GetSystemMetrics(Win32Api.SM_CYSCREEN);
+            }
+
             Win32Api.SetWindowPos(helper.Handle, Win32Api.HWND_TOP, 0, 0,
                 screenW, screenH, Win32Api.SWP_NOACTIVATE);
         }
@@ -948,12 +959,15 @@ namespace ProductivityWallpaper.Services
         {
             if (_activeClickRegions == null) return;
 
-            double screenW = SystemParameters.PrimaryScreenWidth;
-            double screenH = SystemParameters.PrimaryScreenHeight;
+            // Use physical screen resolution because mouse hook coordinates are in
+            // physical screen pixels (WH_MOUSE_LL with Per-Monitor DPI Aware v2)
+            int physicalW = Win32Api.GetSystemMetrics(Win32Api.SM_CXSCREEN);
+            int physicalH = Win32Api.GetSystemMetrics(Win32Api.SM_CYSCREEN);
+            if (physicalW <= 0 || physicalH <= 0) return;
 
-            // Convert screen point to percentage (0-100)
-            double xPct = screenPoint.X / screenW * 100.0;
-            double yPct = screenPoint.Y / screenH * 100.0;
+            // Convert physical screen point to percentage (0-100)
+            double xPct = screenPoint.X / physicalW * 100.0;
+            double yPct = screenPoint.Y / physicalH * 100.0;
 
             foreach (var region in _activeClickRegions)
             {

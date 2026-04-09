@@ -1,5 +1,6 @@
 using LibVLCSharp.Shared;
 using System.Windows;
+using Application = System.Windows.Application;
 
 namespace ProductivityWallpaper.Views
 {
@@ -43,37 +44,56 @@ namespace ProductivityWallpaper.Views
 
         /// <summary>
         /// Safely stops VLC playback and closes the window.
-        /// Detaches the MediaPlayer from the VideoView first to prevent AccessViolationException,
-        /// then stops and disposes on a background thread to avoid native callback conflicts.
+        /// 
+        /// CRITICAL: The sequence must be:
+        /// 1. Hide window (stops native VLC rendering demand)
+        /// 2. Stop VLC on ThreadPool (NOT on UI thread — VLC callbacks fire on native threads,
+        ///    calling Stop from UI while native thread renders causes AccessViolationException)
+        /// 3. Only AFTER Stop() returns, detach VideoView.MediaPlayer on UI thread
+        /// 4. Close the window and dispose resources
+        /// 
+        /// Setting VideoView.MediaPlayer = null while VLC is still rendering causes
+        /// AccessViolationException that CANNOT be caught in .NET 8 (corrupted state exception).
         /// </summary>
         public void StopAndClose()
         {
             if (_isStopping) return;
             _isStopping = true;
 
-            // Capture and null-out references to prevent concurrent access
+            // Capture and null-out references to prevent concurrent access from VLC callbacks
             var player = _mediaPlayer;
             var libvlc = _libVLC;
             _mediaPlayer = null;
             _libVLC = null;
 
-            // Detach MediaPlayer from the VideoView FIRST — this breaks the native rendering link
-            // before we attempt to stop/dispose, preventing AccessViolationException
-            try { VideoView.MediaPlayer = null; } catch { }
+            // STEP 1: Hide window immediately — this tells the native rendering pipeline
+            // there is no visible surface, reducing the chance of native thread conflicts
+            try { this.Visibility = Visibility.Hidden; } catch { }
 
-            // Stop and dispose on ThreadPool to avoid calling Stop() from a VLC callback thread
-            // which is the primary cause of AccessViolationException
-            if (player != null)
+            // STEP 2-4: All VLC cleanup on ThreadPool to avoid native callback thread conflicts
+            System.Threading.ThreadPool.QueueUserWorkItem(_ =>
             {
-                System.Threading.ThreadPool.QueueUserWorkItem(_ =>
-                {
-                    try { player.Stop(); } catch { }
-                    try { player.Dispose(); } catch { }
-                    try { libvlc?.Dispose(); } catch { }
-                });
-            }
+                // STEP 2: Stop playback (blocks until VLC native rendering thread stops)
+                try { player?.Stop(); } catch { }
 
-            this.Close();
+                // Brief pause for native thread to fully wind down
+                System.Threading.Thread.Sleep(50);
+
+                // STEP 3: Now VLC is stopped — safe to detach VideoView and close window on UI thread
+                try
+                {
+                    Application.Current?.Dispatcher?.BeginInvoke(() =>
+                    {
+                        try { VideoView.MediaPlayer = null; } catch { }
+                        try { this.Close(); } catch { }
+                    });
+                }
+                catch { /* App may be shutting down */ }
+
+                // STEP 4: Dispose player resources
+                try { player?.Dispose(); } catch { }
+                try { libvlc?.Dispose(); } catch { }
+            });
         }
     }
 }

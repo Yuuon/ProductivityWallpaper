@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using ProductivityWallpaper.Models;
+using ProductivityWallpaper.Services;
 using Point = System.Windows.Point;
 using Rectangle = System.Windows.Shapes.Rectangle;
 using Color = System.Windows.Media.Color;
@@ -13,7 +14,7 @@ namespace ProductivityWallpaper.Views
 {
     /// <summary>
     /// Transparent overlay window injected into WorkerW at the topmost Z-order.
-    /// Displays click regions as colored rectangles (red for debugging visibility).
+    /// Displays click regions as invisible hit-testable rectangles (or colored for debug).
     /// Provides hit-testing for mouse click detection in theme-based click regions.
     /// 
     /// This follows the same pattern as InteractiveUiWindow: a transparent Canvas-based
@@ -23,6 +24,7 @@ namespace ProductivityWallpaper.Views
     {
         private readonly List<ClickRegionModel> _regions = new();
         private readonly Dictionary<Rectangle, ClickRegionModel> _rectRegionMap = new();
+        private bool _debugVisible;
 
         /// <summary>
         /// Fired when a click region is hit. Passes the ClickRegionModel that was clicked.
@@ -32,19 +34,22 @@ namespace ProductivityWallpaper.Views
         public ClickRegionOverlayWindow()
         {
             InitializeComponent();
+            // Auto-recalculate layout when canvas resizes (after injection into WorkerW, maximize, etc.)
+            OverlayCanvas.SizeChanged += (_, _) => UpdateRegionLayout();
         }
 
         /// <summary>
-        /// Loads click regions from the theme data and creates visible rectangles on the canvas.
+        /// Loads click regions from the theme data and creates rectangles on the canvas.
         /// Regions use percentage-based coordinates (0-100) relative to screen size.
         /// </summary>
         /// <param name="regions">The click regions to display.</param>
         /// <param name="debugVisible">If true, regions are shown in semi-transparent red for debugging.</param>
-        public void LoadRegions(IEnumerable<ClickRegionModel> regions, bool debugVisible = true)
+        public void LoadRegions(IEnumerable<ClickRegionModel> regions, bool debugVisible = false)
         {
             OverlayCanvas.Children.Clear();
             _regions.Clear();
             _rectRegionMap.Clear();
+            _debugVisible = debugVisible;
 
             foreach (var region in regions)
             {
@@ -56,9 +61,9 @@ namespace ProductivityWallpaper.Views
                     // Production mode: fully transparent (invisible) but still hit-testable
                     Fill = debugVisible
                         ? new SolidColorBrush(Color.FromArgb(100, 255, 0, 0))  // Semi-transparent red
-                        : System.Windows.Media.Brushes.Transparent,
+                        : Brushes.Transparent,
                     Stroke = debugVisible
-                        ? System.Windows.Media.Brushes.Red
+                        ? Brushes.Red
                         : null,
                     StrokeThickness = debugVisible ? 2 : 0,
                     Tag = region,
@@ -69,36 +74,44 @@ namespace ProductivityWallpaper.Views
                 _rectRegionMap[rect] = region;
                 OverlayCanvas.Children.Add(rect);
             }
+
+            // If the canvas already has valid dimensions, update layout immediately
+            UpdateRegionLayout();
         }
 
         /// <summary>
-        /// Updates the layout of all click region rectangles based on the current screen/canvas size.
-        /// Must be called after the window is injected and maximized in WorkerW.
+        /// Updates the layout of all click region rectangles based on the canvas's actual size.
+        /// Automatically called when the canvas resizes (after injection into WorkerW).
+        /// Uses the canvas's ActualWidth/ActualHeight so it's DPI-safe — WPF handles 
+        /// the logical-to-physical pixel mapping automatically.
         /// </summary>
-        /// <param name="screenWidth">The actual screen width in pixels.</param>
-        /// <param name="screenHeight">The actual screen height in pixels.</param>
-        public void UpdateRegionLayout(double screenWidth, double screenHeight)
+        public void UpdateRegionLayout()
         {
+            double canvasW = OverlayCanvas.ActualWidth;
+            double canvasH = OverlayCanvas.ActualHeight;
+            if (canvasW <= 0 || canvasH <= 0) return;
+
             foreach (var child in OverlayCanvas.Children)
             {
                 if (child is Rectangle rect && rect.Tag is ClickRegionModel region)
                 {
                     // Convert percentage (0-100) to absolute pixel coordinates
-                    double x = region.X / 100.0 * screenWidth;
-                    double y = region.Y / 100.0 * screenHeight;
-                    double w = region.Width / 100.0 * screenWidth;
-                    double h = region.Height / 100.0 * screenHeight;
+                    // relative to the canvas's actual dimensions
+                    double x = region.X / 100.0 * canvasW;
+                    double y = region.Y / 100.0 * canvasH;
+                    double w = region.Width / 100.0 * canvasW;
+                    double h = region.Height / 100.0 * canvasH;
 
                     Canvas.SetLeft(rect, x);
                     Canvas.SetTop(rect, y);
-                    rect.Width = w;
-                    rect.Height = h;
+                    rect.Width = Math.Max(1, w);
+                    rect.Height = Math.Max(1, h);
                 }
             }
         }
 
         /// <summary>
-        /// Checks if a screen point falls within any click region and fires the event.
+        /// Checks if a screen point falls within any click region.
         /// Returns the matched region, or null if no region was hit.
         /// </summary>
         /// <param name="screenPoint">The click point in screen coordinates.</param>
@@ -107,12 +120,15 @@ namespace ProductivityWallpaper.Views
         {
             if (_regions.Count == 0) return null;
 
-            double screenW = SystemParameters.PrimaryScreenWidth;
-            double screenH = SystemParameters.PrimaryScreenHeight;
+            // Use physical screen resolution for coordinate conversion since
+            // mouse hook coordinates are in physical screen pixels
+            int physicalW = Win32Api.GetSystemMetrics(Win32Api.SM_CXSCREEN);
+            int physicalH = Win32Api.GetSystemMetrics(Win32Api.SM_CYSCREEN);
+            if (physicalW <= 0 || physicalH <= 0) return null;
 
-            // Convert screen point to percentage (0-100)
-            double xPct = screenPoint.X / screenW * 100.0;
-            double yPct = screenPoint.Y / screenH * 100.0;
+            // Convert physical screen point to percentage (0-100)
+            double xPct = screenPoint.X / physicalW * 100.0;
+            double yPct = screenPoint.Y / physicalH * 100.0;
 
             foreach (var region in _regions)
             {
