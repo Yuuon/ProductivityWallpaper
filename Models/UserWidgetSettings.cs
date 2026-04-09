@@ -52,6 +52,12 @@ namespace ProductivityWallpaper.Models
         /// </summary>
         [ObservableProperty]
         private Dictionary<string, PomodoroPerThemeSettings> _perThemePomodoroSettings = new();
+
+        /// <summary>
+        /// Wallpaper playback settings.
+        /// </summary>
+        [ObservableProperty]
+        private WallpaperPlaybackSettings _wallpaperSettings = new();
     }
 
     /// <summary>
@@ -193,5 +199,38 @@ namespace ProductivityWallpaper.Models
         /// </summary>
         [ObservableProperty]
         private int _opacity = 100;
+    }
+
+    /// <summary>
+    /// Settings for dynamic wallpaper playback behavior.
+    /// Controls how wallpapers cycle through the playlist.
+    /// </summary>
+    public partial class WallpaperPlaybackSettings : ObservableObject
+    {
+        /// <summary>
+        /// Duration in seconds to display each wallpaper (image or video).
+        /// For videos longer than this duration, the video plays to completion.
+        /// Default: 30 seconds.
+        /// </summary>
+        [ObservableProperty]
+        private int _wallpaperDurationSeconds = 30;
+
+        /// <summary>
+        /// Whether to play background audio from the scheme's audio list.
+        /// </summary>
+        [ObservableProperty]
+        private bool _enableBackgroundAudio = true;
+
+        /// <summary>
+        /// Volume level for background audio (0-100).
+        /// </summary>
+        [ObservableProperty]
+        private int _backgroundAudioVolume = 50;
+
+        /// <summary>
+        /// Volume level for click-triggered audio (0-100).
+        /// </summary>
+        [ObservableProperty]
+        private int _clickAudioVolume = 80;
     }
 }

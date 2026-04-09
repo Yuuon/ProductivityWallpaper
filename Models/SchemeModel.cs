@@ -127,6 +127,13 @@ namespace ProductivityWallpaper.Models
         private MediaReferenceList _desktopBackgroundMedia = new();
 
         /// <summary>
+        /// Background audio that plays alongside desktop wallpapers.
+        /// Separate from desktop background media to allow independent playback control.
+        /// </summary>
+        [ObservableProperty]
+        private MediaReferenceList _backgroundAudio = new();
+
+        /// <summary>
         /// Media for system events (shutdown, boot, wake, lock, unlock, etc.).
         /// Same structure as desktop background but typically shorter clips.
         /// </summary>

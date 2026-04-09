@@ -1,0 +1,14 @@
+<Window x:Class="ProductivityWallpaper.Views.ImagePlayerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="WallpaperImagePlayer" Height="450" Width="800"
+        WindowStyle="None" ResizeMode="NoResize"
+        AllowsTransparency="False" Background="Black"
+        ShowInTaskbar="False">
+    <Grid>
+        <Image x:Name="WallpaperImage"
+               Stretch="UniformToFill"
+               HorizontalAlignment="Center"
+               VerticalAlignment="Center" />
+    </Grid>
+</Window>

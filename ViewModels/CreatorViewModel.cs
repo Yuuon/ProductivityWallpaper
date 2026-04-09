@@ -996,8 +996,14 @@ namespace ProductivityWallpaper.ViewModels
                         }
                         mediaVm.SelectedPlaybackMode = scheme.DesktopBackgroundMedia.PlaybackMode;
 
+                        // For DesktopBackground, restore audio from BackgroundAudio
+                        // For other features, restore from EventMedia
+                        var audioSource = (vm is DesktopBackgroundViewModel)
+                            ? scheme.BackgroundAudio
+                            : scheme.EventMedia;
+
                         var audioIndex = 0;
-                        foreach (var resourceId in scheme.EventMedia.MediaIds)
+                        foreach (var resourceId in audioSource.MediaIds)
                         {
                             var mediaItem = ResolveMediaItem(resourceId, audioIndex);
                             if (mediaItem != null)
@@ -1006,7 +1012,7 @@ namespace ProductivityWallpaper.ViewModels
                                 audioIndex++;
                             }
                         }
-                        mediaVm.SelectedAudioPlaybackMode = scheme.EventMedia.PlaybackMode;
+                        mediaVm.SelectedAudioPlaybackMode = audioSource.PlaybackMode;
                     }
 
                     // Restore mouse click regions
@@ -1189,13 +1195,28 @@ namespace ProductivityWallpaper.ViewModels
                     }
                     scheme.DesktopBackgroundMedia.PlaybackMode = mediaVm.SelectedPlaybackMode;
 
-                    scheme.EventMedia.MediaIds.Clear();
-                    foreach (var item in mediaVm.AudioItems)
+                    // For DesktopBackground feature, store audio in BackgroundAudio
+                    // For other features, store in EventMedia (system events, etc.)
+                    if (vm is DesktopBackgroundViewModel)
                     {
-                        var resourceId = RegisterOrFindResource(item);
-                        scheme.EventMedia.MediaIds.Add(resourceId);
+                        scheme.BackgroundAudio.MediaIds.Clear();
+                        foreach (var item in mediaVm.AudioItems)
+                        {
+                            var resourceId = RegisterOrFindResource(item);
+                            scheme.BackgroundAudio.MediaIds.Add(resourceId);
+                        }
+                        scheme.BackgroundAudio.PlaybackMode = mediaVm.SelectedAudioPlaybackMode;
                     }
-                    scheme.EventMedia.PlaybackMode = mediaVm.SelectedAudioPlaybackMode;
+                    else
+                    {
+                        scheme.EventMedia.MediaIds.Clear();
+                        foreach (var item in mediaVm.AudioItems)
+                        {
+                            var resourceId = RegisterOrFindResource(item);
+                            scheme.EventMedia.MediaIds.Add(resourceId);
+                        }
+                        scheme.EventMedia.PlaybackMode = mediaVm.SelectedAudioPlaybackMode;
+                    }
 
                     scheme.Name = mediaVm.SchemeName;
                 }
