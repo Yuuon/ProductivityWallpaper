@@ -45,16 +45,34 @@ namespace ProductivityWallpaper.Services
 
         /// <summary>
         /// Resolves a resource ID to a MediaItemModel for playback.
+        /// Prefers SourcePath (local editing mode) over export-style path construction.
         /// </summary>
         public MediaItemModel? ResolveToMediaItem(string resourceId)
         {
             var entry = _library.GetById(resourceId);
             if (entry == null) return null;
 
-            var filePath = Path.Combine(_themeRootPath, ThemeResourceLibrary.GetTypeFolderName(entry.Type), entry.FileName);
+            // Prefer SourcePath for local editing mode; fall back to export path construction
+            string filePath;
+            if (!string.IsNullOrEmpty(entry.SourcePath))
+            {
+                filePath = entry.SourcePath;
+            }
+            else
+            {
+                filePath = Path.Combine(_themeRootPath, ThemeResourceLibrary.GetTypeFolderName(entry.Type), entry.FileName);
+            }
+
             var thumbnailPath = entry.ThumbnailFileName != null
                 ? Path.Combine(_themeRootPath, "thumbnails", entry.ThumbnailFileName)
                 : string.Empty;
+
+            // Also try ThumbnailPath directly if ThumbnailFileName-based path doesn't exist
+            if ((string.IsNullOrEmpty(thumbnailPath) || !File.Exists(thumbnailPath))
+                && !string.IsNullOrEmpty(entry.ThumbnailPath))
+            {
+                thumbnailPath = entry.ThumbnailPath;
+            }
 
             return new MediaItemModel
             {

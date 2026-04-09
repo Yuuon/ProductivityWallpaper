@@ -46,7 +46,12 @@ namespace ProductivityWallpaper
 
             // New ViewModels
             services.AddSingleton<WorkshopViewModel>();
-            services.AddSingleton<MyThemeViewModel>();
+            services.AddSingleton<MyThemeViewModel>(sp =>
+                new MyThemeViewModel(
+                    sp.GetRequiredService<MainViewModel>(),
+                    sp.GetRequiredService<IThemeService>(),
+                    sp.GetRequiredService<WallpaperService>()));
+
             services.AddTransient<DesktopBackgroundViewModel>();
             services.AddTransient<MouseClickViewModel>();
             services.AddTransient<DesktopClockViewModel>();
