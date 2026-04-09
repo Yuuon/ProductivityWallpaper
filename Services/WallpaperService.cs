@@ -760,13 +760,10 @@ namespace ProductivityWallpaper.Services
             {
                 _bgAudioPlayer.EndReached += (_, _) =>
                 {
-                    // Must schedule on another thread since VLC callbacks are on VLC thread
-                    Task.Run(() =>
+                    // VLC callbacks are on a background thread; dispatch directly to UI
+                    Application.Current?.Dispatcher.BeginInvoke(() =>
                     {
-                        Application.Current?.Dispatcher.Invoke(() =>
-                        {
-                            PlayNextBackgroundAudio();
-                        });
+                        PlayNextBackgroundAudio();
                     });
                 };
                 _bgAudioEndReachedSubscribed = true;
