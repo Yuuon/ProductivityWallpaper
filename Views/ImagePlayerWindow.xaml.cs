@@ -25,7 +25,11 @@ namespace ProductivityWallpaper.Views
         {
             try
             {
-                if (!File.Exists(imagePath)) return;
+                if (!File.Exists(imagePath))
+                {
+                    System.Diagnostics.Debug.WriteLine($"[ImagePlayerWindow] Image file not found: {imagePath}");
+                    return;
+                }
 
                 var bitmap = new BitmapImage();
                 bitmap.BeginInit();
@@ -38,7 +42,7 @@ namespace ProductivityWallpaper.Views
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[ImagePlayerWindow] Failed to load image: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[ImagePlayerWindow] Failed to load image '{imagePath}': {ex.Message}");
             }
         }
 

@@ -61,6 +61,9 @@ namespace ProductivityWallpaper.Services
         private readonly Dictionary<string, int> _regionAudioIndex = new();
         private const int MinWallpaperDurationSeconds = 5;
 
+        // Track Media objects for disposal during cleanup
+        private readonly List<Media> _activeMediaObjects = new();
+
         public WallpaperService()
         {
             try 
@@ -284,8 +287,7 @@ namespace ProductivityWallpaper.Services
 
             try
             {
-                // Do NOT use 'using' — VLC playback is async and needs the Media alive
-                var media = new Media(_tempLibVLC, new Uri(audioPath));
+                var media = CreateTrackedMedia(audioPath);
                 _audioPlayer.Play(media);
             }
             catch (Exception ex)
@@ -797,8 +799,7 @@ namespace ProductivityWallpaper.Services
             {
                 if (!File.Exists(audioItem.FilePath)) return;
 
-                // Do NOT use 'using' — VLC playback is async and needs the Media alive
-                var media = new Media(_tempLibVLC, new Uri(audioItem.FilePath));
+                var media = CreateTrackedMedia(audioItem.FilePath);
                 _bgAudioPlayer.Play(media);
             }
             catch (Exception ex)
@@ -894,7 +895,7 @@ namespace ProductivityWallpaper.Services
                     currentIndex = 0;
                 }
                 audioId = audioIds[currentIndex % audioIds.Count];
-                _regionAudioIndex[region.Id] = (currentIndex + 1) % audioIds.Count;
+                _regionAudioIndex[region.Id] = currentIndex + 1;
             }
 
             if (string.IsNullOrEmpty(audioId)) return;
@@ -905,8 +906,7 @@ namespace ProductivityWallpaper.Services
             try
             {
                 _audioPlayer.Volume = Math.Clamp(volumePercent, 0, 100);
-                // Do NOT use 'using' — VLC playback is async and needs the Media alive
-                var media = new Media(_tempLibVLC, new Uri(audioItem.FilePath));
+                var media = CreateTrackedMedia(audioItem.FilePath);
                 _audioPlayer.Play(media);
             }
             catch (Exception ex)
@@ -924,6 +924,29 @@ namespace ProductivityWallpaper.Services
             do { next = _random.Next(count); }
             while (next == excludeIndex);
             return next;
+        }
+
+        /// <summary>
+        /// Creates a Media object with lifecycle tracking. Tracked Media objects
+        /// are disposed during CleanupCurrentWallpaper to prevent resource leaks.
+        /// </summary>
+        private Media CreateTrackedMedia(string filePath)
+        {
+            var media = new Media(_tempLibVLC, new Uri(filePath));
+            _activeMediaObjects.Add(media);
+            return media;
+        }
+
+        /// <summary>
+        /// Disposes all tracked Media objects and clears the list.
+        /// </summary>
+        private void DisposeTrackedMedia()
+        {
+            foreach (var media in _activeMediaObjects)
+            {
+                try { media.Dispose(); } catch { }
+            }
+            _activeMediaObjects.Clear();
         }
 
         private static string GetThemeRootPath(ThemeManifest manifest)
@@ -965,6 +988,9 @@ namespace ProductivityWallpaper.Services
             // Stop audio playback
             try { _audioPlayer?.Stop(); } catch { }
             try { _bgAudioPlayer?.Stop(); } catch { }
+
+            // Dispose tracked Media objects to prevent resource leaks
+            DisposeTrackedMedia();
 
             if (_currentUiWindow != null)
             {
