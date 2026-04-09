@@ -288,6 +288,7 @@ namespace ProductivityWallpaper.Services
             try
             {
                 var media = CreateTrackedMedia(audioPath);
+                if (media == null) return;
                 _audioPlayer.Play(media);
             }
             catch (Exception ex)
@@ -357,6 +358,63 @@ namespace ProductivityWallpaper.Services
                 _actionVideoWindow.Visibility = Visibility.Hidden;
                 try { _actionVideoWindow.StopAndClose(); } catch { }
                 _actionVideoWindow = null;
+            }
+        }
+
+        /// <summary>
+        /// Displays a full-screen image overlay for a set duration (default 3 seconds) on click region trigger.
+        /// Uses the same anti-flicker pattern as PlayActionVideo: create hidden → show → inject → expand.
+        /// </summary>
+        private async void PlayActionImage(string imagePath, int displayDurationMs = 3000)
+        {
+            // Reuse _actionVideoWindow field as guard (null = no action playing)
+            if (_actionVideoWindow != null) return;
+
+            Window? actionWindow = null;
+            try
+            {
+                var imageWindow = CreateHiddenImageWindow(imagePath);
+                actionWindow = imageWindow;
+
+                imageWindow.Show();
+
+                // Inject into WorkerW at topmost Z-order
+                InjectDynamicWallpaper(imageWindow);
+
+                // Brief delay for rendering
+                await Task.Delay(50);
+
+                // Expand to full screen
+                var helper = new WindowInteropHelper(imageWindow);
+                int screenW = (int)SystemParameters.PrimaryScreenWidth;
+                int screenH = (int)SystemParameters.PrimaryScreenHeight;
+                Win32Api.SetWindowPos(helper.Handle, Win32Api.HWND_TOP, 0, 0, screenW, screenH, Win32Api.SWP_NOACTIVATE);
+
+                // Fade in
+                await FadeWindowAsync(imageWindow, 0, 1, 300);
+
+                // Display for the specified duration
+                await Task.Delay(displayDurationMs);
+
+                // Fade out
+                await FadeWindowAsync(imageWindow, 1, 0, 300);
+
+                imageWindow.StopAndClose();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[WallpaperService] PlayActionImage error: {ex.Message}");
+                if (actionWindow != null)
+                {
+                    try
+                    {
+                        if (actionWindow is ImagePlayerWindow ipw)
+                            ipw.StopAndClose();
+                        else
+                            actionWindow.Close();
+                    }
+                    catch { }
+                }
             }
         }
 
@@ -774,7 +832,7 @@ namespace ProductivityWallpaper.Services
 
         private void PlayNextBackgroundAudio()
         {
-            if (_audioPlaylist.Count == 0 || _bgAudioPlayer == null || _tempLibVLC == null)
+            if (!_isDynamicWallpaperActive || _audioPlaylist.Count == 0 || _bgAudioPlayer == null || _tempLibVLC == null)
                 return;
 
             int nextIndex;
@@ -797,6 +855,7 @@ namespace ProductivityWallpaper.Services
                 if (!File.Exists(audioItem.FilePath)) return;
 
                 var media = CreateTrackedMedia(audioItem.FilePath);
+                if (media == null || _bgAudioPlayer == null) return;
                 _bgAudioPlayer.Play(media);
             }
             catch (Exception ex)
@@ -850,14 +909,20 @@ namespace ProductivityWallpaper.Services
             {
                 if (!region.ContainsPoint(xPct, yPct)) continue;
 
-                // Play visual content (action video) if available
+                // Play visual content (image or video) if available
                 if (!string.IsNullOrEmpty(region.ClickAction.VisualMediaId))
                 {
                     var visualItem = resolver.ResolveToMediaItem(region.ClickAction.VisualMediaId);
-                    if (visualItem != null && File.Exists(visualItem.FilePath)
-                        && visualItem.Type == MediaFileType.Video)
+                    if (visualItem != null && File.Exists(visualItem.FilePath))
                     {
-                        PlayActionVideo(visualItem.FilePath);
+                        if (visualItem.Type == MediaFileType.Video)
+                        {
+                            PlayActionVideo(visualItem.FilePath);
+                        }
+                        else if (visualItem.Type == MediaFileType.Image)
+                        {
+                            PlayActionImage(visualItem.FilePath);
+                        }
                     }
                 }
 
@@ -902,8 +967,10 @@ namespace ProductivityWallpaper.Services
 
             try
             {
+                if (_audioPlayer == null) return;
                 _audioPlayer.Volume = Math.Clamp(volumePercent, 0, 100);
                 var media = CreateTrackedMedia(audioItem.FilePath);
+                if (media == null) return;
                 _audioPlayer.Play(media);
             }
             catch (Exception ex)
@@ -926,9 +993,11 @@ namespace ProductivityWallpaper.Services
         /// <summary>
         /// Creates a Media object with lifecycle tracking. Tracked Media objects
         /// are disposed during CleanupCurrentWallpaper to prevent resource leaks.
+        /// Returns null if LibVLC is not available (e.g., during cleanup).
         /// </summary>
-        private Media CreateTrackedMedia(string filePath)
+        private Media? CreateTrackedMedia(string filePath)
         {
+            if (_tempLibVLC == null) return null;
             var media = new Media(_tempLibVLC, new Uri(filePath));
             _activeMediaObjects.Add(media);
             return media;
@@ -975,16 +1044,23 @@ namespace ProductivityWallpaper.Services
             _activeResolver = null;
             _activeMouseClickScheme = null;
             _regionAudioIndex.Clear();
-            _bgAudioEndReachedSubscribed = false;
 
+            // Stop mouse hook first to prevent new callbacks
             _mouseHook?.Stop();
             _mouseHook = null;
             _currentInteractiveItem = null;
             _currentConfig = null;
 
-            // Stop audio playback
-            try { _audioPlayer?.Stop(); } catch { }
-            try { _bgAudioPlayer?.Stop(); } catch { }
+            // Capture and null-out audio players to prevent VLC callbacks from accessing them
+            var oldAudioPlayer = _audioPlayer;
+            var oldBgAudioPlayer = _bgAudioPlayer;
+            _audioPlayer = null;
+            _bgAudioPlayer = null;
+            _bgAudioEndReachedSubscribed = false;
+
+            // Stop audio playback on captured references
+            try { oldAudioPlayer?.Stop(); } catch { }
+            try { oldBgAudioPlayer?.Stop(); } catch { }
 
             // Dispose tracked Media objects to prevent resource leaks
             DisposeTrackedMedia();
@@ -1014,21 +1090,24 @@ namespace ProductivityWallpaper.Services
                 _currentBackgroundWindow = null;
             }
 
-            // Recreate audio players for next use (don't dispose _tempLibVLC)
-            try { _audioPlayer?.Dispose(); } catch { }
-            try { _bgAudioPlayer?.Dispose(); } catch { }
-            _audioPlayer = null;
-            _bgAudioPlayer = null;
+            // Dispose old audio players after all windows are closed
+            try { oldAudioPlayer?.Dispose(); } catch { }
+            try { oldBgAudioPlayer?.Dispose(); } catch { }
 
-            // Recreate audio players
-            if (_tempLibVLC != null)
+            // Dispose and recreate LibVLC to prevent corrupted state across theme switches
+            // This is critical: reusing a stale LibVLC instance causes AccessViolationException
+            try { _tempLibVLC?.Dispose(); } catch { }
+            _tempLibVLC = null;
+
+            try
             {
-                try
-                {
-                    _audioPlayer = new MediaPlayer(_tempLibVLC);
-                    _bgAudioPlayer = new MediaPlayer(_tempLibVLC);
-                }
-                catch { }
+                _tempLibVLC = new LibVLC();
+                _audioPlayer = new MediaPlayer(_tempLibVLC);
+                _bgAudioPlayer = new MediaPlayer(_tempLibVLC);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[WallpaperService] Failed to recreate LibVLC: {ex.Message}");
             }
         }
 
