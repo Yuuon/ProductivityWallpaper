@@ -283,13 +283,14 @@ namespace ProductivityWallpaper.Services
         // --- 播放音频 ---
         private void PlayAudio(string audioPath)
         {
-            if (_audioPlayer == null || !File.Exists(audioPath)) return;
+            var player = _audioPlayer;
+            if (player == null || !File.Exists(audioPath)) return;
 
             try
             {
                 var media = CreateTrackedMedia(audioPath);
                 if (media == null) return;
-                _audioPlayer.Play(media);
+                player.Play(media);
             }
             catch (Exception ex)
             {
@@ -832,7 +833,8 @@ namespace ProductivityWallpaper.Services
 
         private void PlayNextBackgroundAudio()
         {
-            if (!_isDynamicWallpaperActive || _audioPlaylist.Count == 0 || _bgAudioPlayer == null || _tempLibVLC == null)
+            var player = _bgAudioPlayer;
+            if (!_isDynamicWallpaperActive || _audioPlaylist.Count == 0 || player == null || _tempLibVLC == null)
                 return;
 
             int nextIndex;
@@ -855,8 +857,8 @@ namespace ProductivityWallpaper.Services
                 if (!File.Exists(audioItem.FilePath)) return;
 
                 var media = CreateTrackedMedia(audioItem.FilePath);
-                if (media == null || _bgAudioPlayer == null) return;
-                _bgAudioPlayer.Play(media);
+                if (media == null) return;
+                player.Play(media);
             }
             catch (Exception ex)
             {
@@ -938,7 +940,8 @@ namespace ProductivityWallpaper.Services
 
         private void PlayClickRegionAudio(ClickRegionModel region, ResourceResolver resolver, int volumePercent)
         {
-            if (_audioPlayer == null || _tempLibVLC == null) return;
+            var player = _audioPlayer;
+            if (player == null || _tempLibVLC == null) return;
 
             var audioIds = region.ClickAction.AudioMediaIds;
             if (audioIds.Count == 0) return;
@@ -967,11 +970,10 @@ namespace ProductivityWallpaper.Services
 
             try
             {
-                if (_audioPlayer == null) return;
-                _audioPlayer.Volume = Math.Clamp(volumePercent, 0, 100);
+                player.Volume = Math.Clamp(volumePercent, 0, 100);
                 var media = CreateTrackedMedia(audioItem.FilePath);
                 if (media == null) return;
-                _audioPlayer.Play(media);
+                player.Play(media);
             }
             catch (Exception ex)
             {
