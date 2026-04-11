@@ -1320,15 +1320,25 @@ namespace ProductivityWallpaper.Services
         /// </summary>
         private IntPtr FindWorkerW()
         {
-            // Check cache first — avoid expensive shell IPC on every injection
+            // Check cache first — avoid expensive shell IPC on every injection.
+            // Validate both visibility AND class name to prevent injecting into a
+            // wrong window if the HWND gets reused after a shell restart.
             if (_cachedWorkerW != IntPtr.Zero && Win32Api.IsWindowVisible(_cachedWorkerW))
             {
-                System.Diagnostics.Debug.WriteLine($"[FindWorkerW] Using cached WorkerW=0x{_cachedWorkerW:X8}");
-                return _cachedWorkerW;
+                var sb = new System.Text.StringBuilder(64);
+                Win32Api.GetClassName(_cachedWorkerW, sb, sb.Capacity);
+                if (sb.ToString() == "WorkerW")
+                {
+                    System.Diagnostics.Debug.WriteLine($"[FindWorkerW] Using cached WorkerW=0x{_cachedWorkerW:X8}");
+                    return _cachedWorkerW;
+                }
+                System.Diagnostics.Debug.WriteLine($"[FindWorkerW] Cache invalidated — HWND 0x{_cachedWorkerW:X8} class is '{sb}', not WorkerW");
             }
 
             _cachedWorkerW = IntPtr.Zero;
             IntPtr result = FindWorkerWCore();
+            if (result != IntPtr.Zero)
+                System.Diagnostics.Debug.WriteLine($"[FindWorkerW] Caching new WorkerW=0x{result:X8}");
             _cachedWorkerW = result;
             return result;
         }
