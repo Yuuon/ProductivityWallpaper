@@ -63,6 +63,12 @@ namespace ProductivityWallpaper.Services
         private readonly Dictionary<string, int> _regionAudioIndex = new();
         private const int MinWallpaperDurationSeconds = 5;
 
+        /// <summary>
+        /// Delay after StopAndClose to allow async cleanup (ThreadPool.Stop + BeginInvoke.Close)
+        /// to complete before allowing a new action video to be created.
+        /// </summary>
+        private const int ActionVideoCleanupDelayMs = 200;
+
         // Track Media objects for disposal during cleanup
         private readonly List<Media> _activeMediaObjects = new();
 
@@ -353,7 +359,7 @@ namespace ProductivityWallpaper.Services
                 try { actionWin.StopAndClose(); } catch { }
 
                 // Give StopAndClose time to process: ThreadPool.Stop() + BeginInvoke(Close).
-                await Task.Delay(200);
+                await Task.Delay(ActionVideoCleanupDelayMs);
                 _isActionVideoClosing = false;
             }
         }
@@ -1620,7 +1626,7 @@ namespace ProductivityWallpaper.Services
                                 int clientW = clientRect.right - clientRect.left;
                                 int clientH = clientRect.bottom - clientRect.top;
 
-                                if (clientW > 0 && clientH > 0)
+                                if (clientW > 0 && clientH > 0 && bitmap.Width > 0 && bitmap.Height > 0)
                                 {
                                     using (var g = System.Drawing.Graphics.FromHdc(ps.hdc))
                                     {
