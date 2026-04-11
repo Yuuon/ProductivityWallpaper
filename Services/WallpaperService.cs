@@ -946,6 +946,7 @@ namespace ProductivityWallpaper.Services
 
         /// <summary>
         /// Injects the click region overlay window into WorkerW at the topmost Z-order.
+        /// Injects the click region overlay window into WorkerW at the topmost Z-order.
         /// This is the same pattern used by InjectInteractiveLayers for the old InteractiveUiWindow.
         /// The overlay sits above the wallpaper content but below desktop icons.
         /// Uses WorkerW's actual client rect for sizing (DPI-safe).
@@ -958,9 +959,9 @@ namespace ProductivityWallpaper.Services
 
             Win32Api.SetParent(helper.Handle, workerw);
 
-            // Set WS_CHILD style (remove popup)
+            // Remove popup style (do NOT add WS_CHILD — breaks WPF rendering)
             int style = Win32Api.GetWindowLong(helper.Handle, Win32Api.GWL_STYLE);
-            style = (style & ~Win32Api.WS_POPUP) | Win32Api.WS_CHILD;
+            style = style & ~Win32Api.WS_POPUP & ~Win32Api.WS_VISIBLE;
             Win32Api.SetWindowLong(helper.Handle, Win32Api.GWL_STYLE, style);
 
             // Use WorkerW's actual client rect for sizing — this gives physical pixels
@@ -1228,7 +1229,8 @@ namespace ProductivityWallpaper.Services
 
         /// <summary>
         /// Injects a wallpaper window into the WorkerW behind the desktop icons.
-        /// Uses SetParent + WS_CHILD style to properly nest the window.
+        /// Uses SetParent + RemoveBorderAndSetTransparent (no WS_CHILD — WPF windows
+        /// must NOT have WS_CHILD set, as it breaks HwndSource rendering).
         /// Returns true if injection succeeded, false if WorkerW not found.
         /// </summary>
         private bool InjectDynamicWallpaper(Window playerWindow)
@@ -1243,17 +1245,11 @@ namespace ProductivityWallpaper.Services
 
             Win32Api.SetParent(helper.Handle, workerw);
 
-            // Set WS_CHILD style (remove popup) for proper child window behavior
-            int style = Win32Api.GetWindowLong(helper.Handle, Win32Api.GWL_STYLE);
-            style = (style & ~Win32Api.WS_POPUP) | Win32Api.WS_CHILD;
-            Win32Api.SetWindowLong(helper.Handle, Win32Api.GWL_STYLE, style);
+            // Apply transparent + layered + toolwindow styles (enables click pass-through
+            // and WPF Opacity fading). Do NOT add WS_CHILD — that breaks WPF rendering.
+            RemoveBorderAndSetTransparent(helper.Handle);
 
-            // Prevent taskbar icon, mark as tool window
-            int exStyle = Win32Api.GetWindowLong(helper.Handle, Win32Api.GWL_EXSTYLE);
-            exStyle = exStyle | Win32Api.WS_EX_TOOLWINDOW;
-            Win32Api.SetWindowLong(helper.Handle, Win32Api.GWL_EXSTYLE, exStyle);
-
-            // Size to fill WorkerW using physical screen metrics
+            // Size to fill WorkerW using physical screen metrics (DPI-safe)
             int screenW = Win32Api.GetSystemMetrics(Win32Api.SM_CXSCREEN);
             int screenH = Win32Api.GetSystemMetrics(Win32Api.SM_CYSCREEN);
             Win32Api.SetWindowPos(helper.Handle, IntPtr.Zero, 0, 0, screenW, screenH,
@@ -1269,17 +1265,9 @@ namespace ProductivityWallpaper.Services
             if (workerw == IntPtr.Zero) return;
 
             Win32Api.SetParent(idleHelper.Handle, workerw);
+            RemoveBorderAndSetTransparent(idleHelper.Handle);
 
-            // Set WS_CHILD style for proper child window behavior
-            int style = Win32Api.GetWindowLong(idleHelper.Handle, Win32Api.GWL_STYLE);
-            style = (style & ~Win32Api.WS_POPUP) | Win32Api.WS_CHILD;
-            Win32Api.SetWindowLong(idleHelper.Handle, Win32Api.GWL_STYLE, style);
-
-            int exStyle = Win32Api.GetWindowLong(idleHelper.Handle, Win32Api.GWL_EXSTYLE);
-            exStyle = exStyle | Win32Api.WS_EX_TOOLWINDOW;
-            Win32Api.SetWindowLong(idleHelper.Handle, Win32Api.GWL_EXSTYLE, exStyle);
-
-            // Size and position at bottom z-order
+            // Size at bottom z-order using physical screen metrics
             int screenW = Win32Api.GetSystemMetrics(Win32Api.SM_CXSCREEN);
             int screenH = Win32Api.GetSystemMetrics(Win32Api.SM_CYSCREEN);
             Win32Api.SetWindowPos(idleHelper.Handle, Win32Api.HWND_BOTTOM, 0, 0, screenW, screenH,
@@ -1295,12 +1283,14 @@ namespace ProductivityWallpaper.Services
 
             Win32Api.SetParent(uiHelper.Handle, workerw);
 
-            // Set WS_CHILD style (remove popup)
+            // UI layer: remove popup/visible but do NOT add WS_EX_TRANSPARENT
+            // (the interactive UI window needs to remain hit-test visible for its own rendering,
+            // even though actual mouse input is handled by the global mouse hook).
             int style = Win32Api.GetWindowLong(uiHelper.Handle, Win32Api.GWL_STYLE);
-            style = (style & ~Win32Api.WS_POPUP) | Win32Api.WS_CHILD;
+            style = style & ~Win32Api.WS_POPUP & ~Win32Api.WS_VISIBLE;
             Win32Api.SetWindowLong(uiHelper.Handle, Win32Api.GWL_STYLE, style);
 
-            // Size to fill WorkerW
+            // Size to fill WorkerW at top z-order
             int screenW = Win32Api.GetSystemMetrics(Win32Api.SM_CXSCREEN);
             int screenH = Win32Api.GetSystemMetrics(Win32Api.SM_CYSCREEN);
             Win32Api.SetWindowPos(uiHelper.Handle, Win32Api.HWND_TOP, 0, 0, screenW, screenH,
@@ -1316,15 +1306,7 @@ namespace ProductivityWallpaper.Services
             if (workerw == IntPtr.Zero) return;
 
             Win32Api.SetParent(actionHelper.Handle, workerw);
-
-            // Set WS_CHILD style
-            int style = Win32Api.GetWindowLong(actionHelper.Handle, Win32Api.GWL_STYLE);
-            style = (style & ~Win32Api.WS_POPUP) | Win32Api.WS_CHILD;
-            Win32Api.SetWindowLong(actionHelper.Handle, Win32Api.GWL_STYLE, style);
-
-            int exStyle = Win32Api.GetWindowLong(actionHelper.Handle, Win32Api.GWL_EXSTYLE);
-            exStyle = exStyle | Win32Api.WS_EX_TOOLWINDOW;
-            Win32Api.SetWindowLong(actionHelper.Handle, Win32Api.GWL_EXSTYLE, exStyle);
+            RemoveBorderAndSetTransparent(actionHelper.Handle);
 
             // Size and position — Z-Order: UI > Action > Idle
             int screenW = Win32Api.GetSystemMetrics(Win32Api.SM_CXSCREEN);
@@ -1345,51 +1327,92 @@ namespace ProductivityWallpaper.Services
         /// Works on both Windows 10 and Windows 11.
         /// 
         /// Desktop shell hierarchy after sending 0x052C to Progman:
-        ///   Progman (or a WorkerW) ← contains SHELLDLL_DefView (desktop icons)
-        ///   WorkerW               ← wallpaper render target (created by 0x052C)
         ///
-        /// The target WorkerW is always the NEXT top-level WorkerW in Z-order
-        /// after the window that contains SHELLDLL_DefView.
-        /// 
-        /// IMPORTANT: Never parent to Progman directly — that places the wallpaper window
-        /// above SHELLDLL_DefView (icons), covering the desktop icons and taskbar.
+        /// Win10 layout (standard):
+        ///   Progman → contains SHELLDLL_DefView (desktop icons)
+        ///   WorkerW → wallpaper render target (created by 0x052C, top-level sibling)
+        ///
+        /// Win11 layout (alternate, some builds):
+        ///   Progman
+        ///     SHELLDLL_DefView → desktop icons (stays as child of Progman)
+        ///     WorkerW          → wallpaper render target (child of Progman, not top-level!)
+        ///
+        /// Algorithm (from Lively Wallpaper / SpineViewer):
+        ///   1. Send 0x052C to Progman to spawn a WorkerW.
+        ///   2. Enumerate top-level windows to find the one containing SHELLDLL_DefView.
+        ///   3. Get the next top-level WorkerW sibling → wallpaper target (Win10 path).
+        ///   4. If not found, look for WorkerW as a child of Progman → (Win11 path).
+        ///
+        /// IMPORTANT: Never parent wallpaper directly to Progman unless using the child
+        /// WorkerW — parenting above SHELLDLL_DefView covers desktop icons.
         /// </summary>
         private IntPtr FindWorkerW()
         {
             IntPtr progman = Win32Api.FindWindow("Progman", null);
+            if (progman == IntPtr.Zero)
+            {
+                System.Diagnostics.Debug.WriteLine("[WallpaperService] FindWorkerW: Progman not found");
+                return IntPtr.Zero;
+            }
 
             // Send the undocumented 0x052C message to Progman to spawn a WorkerW behind the icons.
-            // This works on both Win10 and Win11.
-            Win32Api.SendMessageTimeout(progman, 0x052C, UIntPtr.Zero, IntPtr.Zero, 0x0, 1000, out _);
+            // wParam=0xD, lParam=0x1 matches Lively Wallpaper / SpineViewer convention.
+            Win32Api.SendMessageTimeout(progman, 0x052C, new UIntPtr(0xD), new IntPtr(0x1), 0x0, 1000, out _);
 
-            // Find the top-level window that contains SHELLDLL_DefView (desktop icons).
-            // Then find the next WorkerW sibling in Z-order — that's our wallpaper target.
+            // Strategy 1: Find the top-level window that contains SHELLDLL_DefView,
+            // then get the next WorkerW sibling in Z-order — standard Win10 path.
             IntPtr workerw = IntPtr.Zero;
             Win32Api.EnumWindows((hwnd, lParam) =>
             {
                 if (Win32Api.FindWindowEx(hwnd, IntPtr.Zero, "SHELLDLL_DefView", null) != IntPtr.Zero)
                 {
-                    // The next WorkerW after this window in Z-order is the wallpaper target
                     workerw = Win32Api.FindWindowEx(IntPtr.Zero, hwnd, "WorkerW", null);
                 }
                 return true;
             }, IntPtr.Zero);
 
-            // Win11 retry: On some Win11 builds the WorkerW may not be immediately available
-            // after 0x052C. Retry once with a brief delay.
+            if (workerw != IntPtr.Zero)
+            {
+                System.Diagnostics.Debug.WriteLine($"[WallpaperService] FindWorkerW: Found via top-level sibling: 0x{workerw:X8}");
+                return workerw;
+            }
+
+            // Strategy 2 (Win11 fallback): On some Win11 builds, the WorkerW is created
+            // as a child of Progman rather than a top-level sibling.
+            // Spy++ layout on affected Win11:
+            //   Progman
+            //     SHELLDLL_DefView
+            //       SysListView32
+            //     WorkerW         <-- target is a child of Progman
+            workerw = Win32Api.FindWindowEx(progman, IntPtr.Zero, "WorkerW", null);
+            if (workerw != IntPtr.Zero)
+            {
+                System.Diagnostics.Debug.WriteLine($"[WallpaperService] FindWorkerW: Found as Progman child (Win11 path): 0x{workerw:X8}");
+                return workerw;
+            }
+
+            // Strategy 3: Retry with delay — shell may not have processed 0x052C yet.
+            System.Threading.Thread.Sleep(150);
+            Win32Api.SendMessageTimeout(progman, 0x052C, new UIntPtr(0xD), new IntPtr(0x1), 0x0, 1000, out _);
+
+            Win32Api.EnumWindows((hwnd, lParam) =>
+            {
+                if (Win32Api.FindWindowEx(hwnd, IntPtr.Zero, "SHELLDLL_DefView", null) != IntPtr.Zero)
+                {
+                    workerw = Win32Api.FindWindowEx(IntPtr.Zero, hwnd, "WorkerW", null);
+                }
+                return true;
+            }, IntPtr.Zero);
+
             if (workerw == IntPtr.Zero)
             {
-                System.Threading.Thread.Sleep(100);
-                Win32Api.SendMessageTimeout(progman, 0x052C, UIntPtr.Zero, IntPtr.Zero, 0x0, 1000, out _);
-                Win32Api.EnumWindows((hwnd, lParam) =>
-                {
-                    if (Win32Api.FindWindowEx(hwnd, IntPtr.Zero, "SHELLDLL_DefView", null) != IntPtr.Zero)
-                    {
-                        workerw = Win32Api.FindWindowEx(IntPtr.Zero, hwnd, "WorkerW", null);
-                    }
-                    return true;
-                }, IntPtr.Zero);
+                workerw = Win32Api.FindWindowEx(progman, IntPtr.Zero, "WorkerW", null);
             }
+
+            if (workerw != IntPtr.Zero)
+                System.Diagnostics.Debug.WriteLine($"[WallpaperService] FindWorkerW: Found after retry: 0x{workerw:X8}");
+            else
+                System.Diagnostics.Debug.WriteLine("[WallpaperService] FindWorkerW: FAILED — WorkerW not found after all strategies");
 
             return workerw;
         }
