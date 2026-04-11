@@ -1,25 +1,25 @@
-﻿using Size = System.Drawing.Size;
-using Application = System.Windows.Application;
-using MediaType = ProductivityWallpaper.Models.MediaType;
-using MediaPlayer = LibVLCSharp.Shared.MediaPlayer;
-
+﻿using LibVLCSharp.Shared;
+using Microsoft.Win32;
+using ProductivityWallpaper.Models;
+using ProductivityWallpaper.Views;
 using System;
 using System.Collections.Generic;
+using System.Drawing;
+using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Interop;
-using System.Windows.Threading;
-using ProductivityWallpaper.Models;
-using System.Drawing;
-using System.Drawing.Imaging;
-using Microsoft.Win32;
-using ProductivityWallpaper.Views;
-using LibVLCSharp.Shared;
-using System.Windows.Media.Animation;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
+using System.Windows.Threading;
+using Application = System.Windows.Application;
+using MediaPlayer = LibVLCSharp.Shared.MediaPlayer;
+using MediaType = ProductivityWallpaper.Models.MediaType;
+using Size = System.Drawing.Size;
 
 namespace ProductivityWallpaper.Services
 {
@@ -958,13 +958,15 @@ namespace ProductivityWallpaper.Services
 
             Win32Api.SetParent(helper.Handle, workerw);
 
-            // Remove popup style (do NOT add WS_CHILD — breaks WPF rendering)
+            // 修复：保留 WS_POPUP，移除边框，添加 TOOLWINDOW
             int style = Win32Api.GetWindowLong(helper.Handle, Win32Api.GWL_STYLE);
-            style = style & ~Win32Api.WS_POPUP & ~Win32Api.WS_VISIBLE;
+            style = style & ~0x00C00000 & ~0x00040000;
             Win32Api.SetWindowLong(helper.Handle, Win32Api.GWL_STYLE, style);
 
-            // Use WorkerW's actual client rect for sizing — this gives physical pixels
-            // regardless of DPI scaling, ensuring the overlay covers the full screen
+            int exStyle = Win32Api.GetWindowLong(helper.Handle, Win32Api.GWL_EXSTYLE);
+            exStyle |= Win32Api.WS_EX_TOOLWINDOW;
+            Win32Api.SetWindowLong(helper.Handle, Win32Api.GWL_EXSTYLE, exStyle);
+
             int screenW, screenH;
             if (Win32Api.GetClientRect(workerw, out var rect))
             {
@@ -973,7 +975,6 @@ namespace ProductivityWallpaper.Services
             }
             else
             {
-                // Fallback to GetSystemMetrics which returns physical pixels for Per-Monitor DPI Aware apps
                 screenW = Win32Api.GetSystemMetrics(Win32Api.SM_CXSCREEN);
                 screenH = Win32Api.GetSystemMetrics(Win32Api.SM_CYSCREEN);
             }
@@ -1279,17 +1280,18 @@ namespace ProductivityWallpaper.Services
 
             var uiHelper = new WindowInteropHelper(uiWin);
             IntPtr workerw = FindWorkerW();
-
             Win32Api.SetParent(uiHelper.Handle, workerw);
 
-            // UI layer: remove popup/visible but do NOT add WS_EX_TRANSPARENT
-            // (the interactive UI window needs to remain hit-test visible for its own rendering,
-            // even though actual mouse input is handled by the global mouse hook).
+            // 修复：保留 WS_POPUP，移除边框，添加 TOOLWINDOW 防止出现在 Alt+Tab
             int style = Win32Api.GetWindowLong(uiHelper.Handle, Win32Api.GWL_STYLE);
-            style = style & ~Win32Api.WS_POPUP & ~Win32Api.WS_VISIBLE;
+            style = style & ~0x00C00000 & ~0x00040000; // 去除 Caption 和 ThickFrame
             Win32Api.SetWindowLong(uiHelper.Handle, Win32Api.GWL_STYLE, style);
 
-            // Size to fill WorkerW at top z-order
+            int exStyle = Win32Api.GetWindowLong(uiHelper.Handle, Win32Api.GWL_EXSTYLE);
+            exStyle |= Win32Api.WS_EX_TOOLWINDOW;
+            Win32Api.SetWindowLong(uiHelper.Handle, Win32Api.GWL_EXSTYLE, exStyle);
+
+            // 设置位置和尺寸
             int screenW = Win32Api.GetSystemMetrics(Win32Api.SM_CXSCREEN);
             int screenH = Win32Api.GetSystemMetrics(Win32Api.SM_CYSCREEN);
             Win32Api.SetWindowPos(uiHelper.Handle, Win32Api.HWND_TOP, 0, 0, screenW, screenH,
@@ -1348,19 +1350,14 @@ namespace ProductivityWallpaper.Services
         private IntPtr FindWorkerW()
         {
             IntPtr progman = Win32Api.FindWindow("Progman", null);
-            if (progman == IntPtr.Zero)
-            {
-                System.Diagnostics.Debug.WriteLine("[WallpaperService] FindWorkerW: Progman not found");
-                return IntPtr.Zero;
-            }
+            if (progman == IntPtr.Zero) return IntPtr.Zero;
 
-            // Send the undocumented 0x052C message to Progman to spawn a WorkerW behind the icons.
-            // wParam=0xD, lParam=0x1 matches Lively Wallpaper / SpineViewer convention.
+            // 1. 发送 0x052C 指令，强制 DWM 在图标层（SHELLDLL_DefView）后面分离出一个 WorkerW 壁纸层
             Win32Api.SendMessageTimeout(progman, 0x052C, new UIntPtr(0xD), new IntPtr(0x1), 0x0, 1000, out _);
 
-            // Strategy 1: Find the top-level window that contains SHELLDLL_DefView,
-            // then get the next WorkerW sibling in Z-order — standard Win10 path.
             IntPtr workerw = IntPtr.Zero;
+
+            // 2. 策略A：寻找包含图标层(SHELLDLL_DefView)的 WorkerW，它的下一个兄弟节点就是壁纸层 (经典策略)
             Win32Api.EnumWindows((hwnd, lParam) =>
             {
                 if (Win32Api.FindWindowEx(hwnd, IntPtr.Zero, "SHELLDLL_DefView", null) != IntPtr.Zero)
@@ -1370,48 +1367,24 @@ namespace ProductivityWallpaper.Services
                 return true;
             }, IntPtr.Zero);
 
-            if (workerw != IntPtr.Zero)
-            {
-                System.Diagnostics.Debug.WriteLine($"[WallpaperService] FindWorkerW: Found via top-level sibling: 0x{workerw:X8}");
-                return workerw;
-            }
+            if (workerw != IntPtr.Zero) return workerw;
 
-            // Strategy 2 (Win11 fallback): On some Win11 builds, the WorkerW is created
-            // as a child of Progman rather than a top-level sibling.
-            // Spy++ layout on affected Win11:
-            //   Progman
-            //     SHELLDLL_DefView
-            //       SysListView32
-            //     WorkerW         <-- target is a child of Progman
-            workerw = Win32Api.FindWindowEx(progman, IntPtr.Zero, "WorkerW", null);
-            if (workerw != IntPtr.Zero)
-            {
-                System.Diagnostics.Debug.WriteLine($"[WallpaperService] FindWorkerW: Found as Progman child (Win11 path): 0x{workerw:X8}");
-                return workerw;
-            }
-
-            // Strategy 3: Retry with delay — shell may not have processed 0x052C yet.
-            System.Threading.Thread.Sleep(150);
-            Win32Api.SendMessageTimeout(progman, 0x052C, new UIntPtr(0xD), new IntPtr(0x1), 0x0, 1000, out _);
-
+            // 3. 策略B：Win11 新版 Explorer 变体。直接遍历寻找名为 WorkerW 且其内部【不包含】图标层的干净句柄
             Win32Api.EnumWindows((hwnd, lParam) =>
             {
-                if (Win32Api.FindWindowEx(hwnd, IntPtr.Zero, "SHELLDLL_DefView", null) != IntPtr.Zero)
+                StringBuilder sb = new StringBuilder(256);
+                Win32Api.GetClassName(hwnd, sb, sb.Capacity);
+                if (sb.ToString() == "WorkerW")
                 {
-                    workerw = Win32Api.FindWindowEx(IntPtr.Zero, hwnd, "WorkerW", null);
+                    // 如果这个 WorkerW 里没有 SHELLDLL_DefView，那它就是因为 0x052C 刚被剥离出来的纯净壁纸层
+                    if (Win32Api.FindWindowEx(hwnd, IntPtr.Zero, "SHELLDLL_DefView", null) == IntPtr.Zero)
+                    {
+                        workerw = hwnd;
+                        return false; // 找到，停止枚举
+                    }
                 }
                 return true;
             }, IntPtr.Zero);
-
-            if (workerw == IntPtr.Zero)
-            {
-                workerw = Win32Api.FindWindowEx(progman, IntPtr.Zero, "WorkerW", null);
-            }
-
-            if (workerw != IntPtr.Zero)
-                System.Diagnostics.Debug.WriteLine($"[WallpaperService] FindWorkerW: Found after retry: 0x{workerw:X8}");
-            else
-                System.Diagnostics.Debug.WriteLine("[WallpaperService] FindWorkerW: FAILED — WorkerW not found after all strategies");
 
             return workerw;
         }
@@ -1420,8 +1393,16 @@ namespace ProductivityWallpaper.Services
         {
             int style = Win32Api.GetWindowLong(hwnd, Win32Api.GWL_STYLE);
             int exStyle = Win32Api.GetWindowLong(hwnd, Win32Api.GWL_EXSTYLE);
-            style = style & ~Win32Api.WS_POPUP & ~Win32Api.WS_VISIBLE;
-            exStyle = exStyle | Win32Api.WS_EX_TRANSPARENT | Win32Api.WS_EX_LAYERED | Win32Api.WS_EX_TOOLWINDOW;
+
+            // 【致命修复】WPF 必须保留 WS_POPUP 才能正常调用底层 DirectX 渲染！
+            // 坚决不能加 WS_CHILD。移除标题栏和边框样式即可。
+            style = style & ~0x00C00000; // 移除 WS_CAPTION
+            style = style & ~0x00040000; // 移除 WS_THICKFRAME
+
+            // 必须添加 WS_EX_TOOLWINDOW，确保它绝对不会出现在 Alt+Tab 和任务栏中
+            // 配合 WS_EX_LAYERED 让 WPF 的透明度生效
+            exStyle = exStyle | Win32Api.WS_EX_TOOLWINDOW | Win32Api.WS_EX_LAYERED;
+
             Win32Api.SetWindowLong(hwnd, Win32Api.GWL_STYLE, style);
             Win32Api.SetWindowLong(hwnd, Win32Api.GWL_EXSTYLE, exStyle);
         }
