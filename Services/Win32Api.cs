@@ -56,6 +56,7 @@ namespace ProductivityWallpaper.Services
         public const uint SWP_NOMOVE = 0x0002;
         public const uint SWP_NOZORDER = 0x0004;
         public const uint SWP_NOACTIVATE = 0x0010;
+        public const uint SWP_FRAMECHANGED = 0x0020;  // Forces recalculation of non-client area after style change
         public const uint SWP_SHOWWINDOW = 0x0040;
 
         // --- Hook 相关 API ---
@@ -75,6 +76,17 @@ namespace ProductivityWallpaper.Services
 
         [DllImport("user32.dll")]
         public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+        [DllImport("user32.dll")]
+        public static extern bool IsWindowVisible(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        public static extern bool SetLayeredWindowAttributes(IntPtr hwnd, uint crKey, byte bAlpha, uint dwFlags);
+
+        public const uint LWA_ALPHA = 0x02;
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr GetParent(IntPtr hWnd);
 
         public const int SW_HIDE = 0;
         public const int SW_SHOW = 5;
