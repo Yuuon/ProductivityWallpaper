@@ -273,9 +273,9 @@ namespace ProductivityWallpaper.ViewModels
         // --- Slideshow Properties (for Theme Preview left panel) ---
 
         /// <summary>
-        /// All wallpaper image/thumbnail paths from Desktop Background schemes, used for slideshow.
+        /// All wallpaper image/thumbnail paths from Desktop Background schemes, with their display modes.
         /// </summary>
-        private readonly List<string> _slideshowPaths = new();
+        private readonly List<(string Path, Models.DisplayMode Mode)> _slideshowItems = new();
 
         /// <summary>
         /// Timer for cycling through slideshow images.
@@ -298,6 +298,12 @@ namespace ProductivityWallpaper.ViewModels
         /// </summary>
         [ObservableProperty]
         private bool _hasSlideshowContent;
+
+        /// <summary>
+        /// The display mode of the current slideshow image (Fill/Center/Tile).
+        /// </summary>
+        [ObservableProperty]
+        private Models.DisplayMode _slideshowDisplayMode = Models.DisplayMode.Fill;
 
         public Dictionary<FeatureType, ObservableCollection<SchemeModel>> SchemesByFeature => _schemesByFeature;
         public ObservableCollection<SchemeModel> DesktopBackgroundSchemes => _schemesByFeature[FeatureType.DesktopBackground];
@@ -360,7 +366,7 @@ namespace ProductivityWallpaper.ViewModels
         private void StartSlideshow()
         {
             StopSlideshow();
-            _slideshowPaths.Clear();
+            _slideshowItems.Clear();
 
             if (CurrentTheme == null)
             {
@@ -369,10 +375,13 @@ namespace ProductivityWallpaper.ViewModels
             }
 
             var library = CurrentTheme.ResourceLibrary;
+            var addedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             // Collect image/video file paths from all Desktop Background schemes
             foreach (var scheme in DesktopBackgroundSchemes)
             {
+                var schemeDisplayMode = scheme.DesktopBackgroundMedia.DisplayMode;
+
                 foreach (var mediaId in scheme.DesktopBackgroundMedia.MediaIds)
                 {
                     var entry = library.GetById(mediaId);
@@ -399,8 +408,8 @@ namespace ProductivityWallpaper.ViewModels
                             displayPath = entry.SourcePath;
                     }
 
-                    if (displayPath != null && !_slideshowPaths.Contains(displayPath))
-                        _slideshowPaths.Add(displayPath);
+                    if (displayPath != null && addedPaths.Add(displayPath))
+                        _slideshowItems.Add((displayPath, schemeDisplayMode));
                 }
             }
 
@@ -418,21 +427,23 @@ namespace ProductivityWallpaper.ViewModels
                         else if (!string.IsNullOrEmpty(item.FilePath) && System.IO.File.Exists(item.FilePath))
                             displayPath = item.FilePath;
 
-                        if (displayPath != null && !_slideshowPaths.Contains(displayPath))
-                            _slideshowPaths.Add(displayPath);
+                        if (displayPath != null && addedPaths.Add(displayPath))
+                            _slideshowItems.Add((displayPath, item.DisplayMode));
                     }
                 }
             }
 
-            HasSlideshowContent = _slideshowPaths.Count > 0;
+            HasSlideshowContent = _slideshowItems.Count > 0;
 
             if (HasSlideshowContent)
             {
                 _slideshowIndex = 0;
-                CurrentSlideshowImagePath = _slideshowPaths[0];
+                var first = _slideshowItems[0];
+                CurrentSlideshowImagePath = first.Path;
+                SlideshowDisplayMode = first.Mode;
 
                 // Start cycling timer if multiple images
-                if (_slideshowPaths.Count > 1)
+                if (_slideshowItems.Count > 1)
                 {
                     _slideshowTimer = new DispatcherTimer
                     {
@@ -464,9 +475,11 @@ namespace ProductivityWallpaper.ViewModels
         /// </summary>
         private void OnSlideshowTick(object? sender, EventArgs e)
         {
-            if (_slideshowPaths.Count == 0) return;
-            _slideshowIndex = (_slideshowIndex + 1) % _slideshowPaths.Count;
-            CurrentSlideshowImagePath = _slideshowPaths[_slideshowIndex];
+            if (_slideshowItems.Count == 0) return;
+            _slideshowIndex = (_slideshowIndex + 1) % _slideshowItems.Count;
+            var item = _slideshowItems[_slideshowIndex];
+            CurrentSlideshowImagePath = item.Path;
+            SlideshowDisplayMode = item.Mode;
         }
 
         // --- Constructors ---

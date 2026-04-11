@@ -5,10 +5,12 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:vm="clr-namespace:ProductivityWallpaper.ViewModels"
              xmlns:models="clr-namespace:ProductivityWallpaper.Models"
+             xmlns:converters="clr-namespace:ProductivityWallpaper.Converters"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:CreatorViewModel}">
 
     <UserControl.Resources>
+        <converters:DisplayModeToStretchConverter x:Key="DisplayModeToStretchConverter"/>
         <!-- Scheme Item Template for Submenu -->
         <DataTemplate x:Key="SchemeItemTemplate" DataType="{x:Type models:SchemeModel}">
             <Button Command="{Binding DataContext.SelectSchemeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
@@ -872,10 +874,18 @@
                                 
                                 <!-- Wallpaper Slideshow (shown when slideshow content is available) -->
                                 <Grid Visibility="{Binding HasSlideshowContent, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                    <Image Source="{Binding CurrentSlideshowImagePath}"
-                                           Stretch="UniformToFill"
-                                           HorizontalAlignment="Center"
-                                           VerticalAlignment="Center"/>
+                                    <!-- Viewbox maintains the screen aspect ratio (like MouseClickView) -->
+                                    <Viewbox Stretch="Uniform" Margin="8">
+                                        <Grid x:Name="SlideshowContainer"
+                                              Width="1920"
+                                              Height="1080"
+                                              Background="#222222">
+                                            <Image Source="{Binding CurrentSlideshowImagePath}"
+                                                   Stretch="{Binding SlideshowDisplayMode, Converter={StaticResource DisplayModeToStretchConverter}}"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"/>
+                                        </Grid>
+                                    </Viewbox>
                                     
                                     <!-- Slideshow indicator overlay (bottom-center) -->
                                     <Border Background="#60000000"

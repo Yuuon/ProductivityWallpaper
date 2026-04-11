@@ -10,6 +10,25 @@ namespace ProductivityWallpaper.Views
         public CreatorView()
         {
             InitializeComponent();
+            Loaded += OnLoaded;
+        }
+
+        private void OnLoaded(object sender, RoutedEventArgs e)
+        {
+            // Set slideshow container to match actual screen aspect ratio
+            // Use a reference width of 1920 and compute height from screen ratio
+            if (SlideshowContainer != null)
+            {
+                double screenW = SystemParameters.PrimaryScreenWidth;
+                double screenH = SystemParameters.PrimaryScreenHeight;
+                if (screenW > 0 && screenH > 0)
+                {
+                    double referenceWidth = 1920;
+                    double referenceHeight = referenceWidth * (screenH / screenW);
+                    SlideshowContainer.Width = referenceWidth;
+                    SlideshowContainer.Height = referenceHeight;
+                }
+            }
         }
         
         private void ThemeNameTextBox_LostFocus(object sender, System.Windows.RoutedEventArgs e)

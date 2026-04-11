@@ -43,6 +43,7 @@ namespace ProductivityWallpaper.Services
 
         public const int WS_VISIBLE = 0x10000000;
         public const int WS_POPUP = unchecked((int)0x80000000);
+        public const int WS_CHILD = 0x40000000;
 
         public const int WS_EX_LAYERED = 0x80000;
         public const int WS_EX_TRANSPARENT = 0x20;
@@ -53,7 +54,9 @@ namespace ProductivityWallpaper.Services
         public static readonly IntPtr HWND_TOP = new IntPtr(0);
         public const uint SWP_NOSIZE = 0x0001;
         public const uint SWP_NOMOVE = 0x0002;
+        public const uint SWP_NOZORDER = 0x0004;
         public const uint SWP_NOACTIVATE = 0x0010;
+        public const uint SWP_SHOWWINDOW = 0x0040;
 
         // --- Hook 相关 API ---
         public delegate IntPtr LowLevelMouseProc(int nCode, IntPtr wParam, IntPtr lParam);

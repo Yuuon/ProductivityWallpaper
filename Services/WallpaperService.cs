@@ -337,15 +337,7 @@ namespace ProductivityWallpaper.Services
             // 防止拉大后先显示黑屏再出画面。
             await Task.Delay(100);
 
-            // 5. [瞬间展开] 手动将窗口设置为全屏尺寸
-            var helper = new WindowInteropHelper(_actionVideoWindow);
-            // Use physical screen dimensions for SetWindowPos (DPI-safe)
-            int screenW = Win32Api.GetSystemMetrics(Win32Api.SM_CXSCREEN);
-            int screenH = Win32Api.GetSystemMetrics(Win32Api.SM_CYSCREEN);
-
-            // 使用 SetWindowPos 瞬间拉伸，跳过“最大化”动画
-            // 参数说明: HWND_TOP, x=0, y=0, w=ScreenW, h=ScreenH, NOACTIVATE
-            Win32Api.SetWindowPos(helper.Handle, Win32Api.HWND_TOP, 0, 0, screenW, screenH, Win32Api.SWP_NOACTIVATE);
+            // InjectActionLayer already handles full-screen expansion via SetWindowPos
 
             // 8. 后台重置 Idle (保持不变)
             ResetIdleVideoInBackground();
@@ -383,16 +375,17 @@ namespace ProductivityWallpaper.Services
                 imageWindow.Show();
 
                 // Inject into WorkerW at topmost Z-order
-                InjectDynamicWallpaper(imageWindow);
+                bool injected = InjectDynamicWallpaper(imageWindow);
+                if (!injected)
+                {
+                    imageWindow.StopAndClose();
+                    return;
+                }
 
                 // Brief delay for rendering
                 await Task.Delay(50);
 
-                // Expand to full screen
-                var helper = new WindowInteropHelper(imageWindow);
-                int screenW = Win32Api.GetSystemMetrics(Win32Api.SM_CXSCREEN);
-                int screenH = Win32Api.GetSystemMetrics(Win32Api.SM_CYSCREEN);
-                Win32Api.SetWindowPos(helper.Handle, Win32Api.HWND_TOP, 0, 0, screenW, screenH, Win32Api.SWP_NOACTIVATE);
+                // InjectDynamicWallpaper already handles full-screen expansion
 
                 // Fade in
                 await FadeWindowAsync(imageWindow, 0, 1, 300);
@@ -522,7 +515,12 @@ namespace ProductivityWallpaper.Services
             CleanupCurrentWallpaper();
             var videoWin = CreateHiddenVideoWindow(path);
             videoWin.Show();
-            InjectDynamicWallpaper(videoWin);
+            bool injected = InjectDynamicWallpaper(videoWin);
+            if (!injected)
+            {
+                videoWin.StopAndClose();
+                return;
+            }
             FadeWindowAsync(videoWin, 0, 1, 500);
             _idleVideoWindow = videoWin;
         }
@@ -720,17 +718,20 @@ namespace ProductivityWallpaper.Services
                 newWindow.Show();
 
                 // Inject into WorkerW (below desktop icons)
-                InjectDynamicWallpaper(newWindow);
+                bool injected = InjectDynamicWallpaper(newWindow);
+                if (!injected)
+                {
+                    // Injection failed — close the orphaned window to prevent it from covering the screen
+                    System.Diagnostics.Debug.WriteLine("[WallpaperService] Injection failed, closing orphaned window");
+                    if (newWindow is VideoPlayerWindow vpw2)
+                        vpw2.StopAndClose();
+                    else
+                        newWindow.Close();
+                    return;
+                }
 
                 // Wait for content to buffer (100ms for video, less for image)
                 await Task.Delay(mediaItem.Type == MediaFileType.Video ? 100 : 50);
-
-                // Expand to full screen
-                var helper = new WindowInteropHelper(newWindow);
-                int screenW = Win32Api.GetSystemMetrics(Win32Api.SM_CXSCREEN);
-                int screenH = Win32Api.GetSystemMetrics(Win32Api.SM_CYSCREEN);
-                Win32Api.SetWindowPos(helper.Handle, Win32Api.HWND_TOP,
-                    0, 0, screenW, screenH, Win32Api.SWP_NOACTIVATE);
 
                 // Fade in the new window
                 await FadeWindowAsync(newWindow, 0, 1, 500);
@@ -957,12 +958,10 @@ namespace ProductivityWallpaper.Services
 
             Win32Api.SetParent(helper.Handle, workerw);
 
-            // Remove popup style, keep child window style
+            // Set WS_CHILD style (remove popup)
             int style = Win32Api.GetWindowLong(helper.Handle, Win32Api.GWL_STYLE);
-            style = style & ~Win32Api.WS_POPUP & ~Win32Api.WS_VISIBLE;
+            style = (style & ~Win32Api.WS_POPUP) | Win32Api.WS_CHILD;
             Win32Api.SetWindowLong(helper.Handle, Win32Api.GWL_STYLE, style);
-
-            overlay.WindowState = WindowState.Maximized;
 
             // Use WorkerW's actual client rect for sizing — this gives physical pixels
             // regardless of DPI scaling, ensuring the overlay covers the full screen
@@ -980,7 +979,7 @@ namespace ProductivityWallpaper.Services
             }
 
             Win32Api.SetWindowPos(helper.Handle, Win32Api.HWND_TOP, 0, 0,
-                screenW, screenH, Win32Api.SWP_NOACTIVATE);
+                screenW, screenH, Win32Api.SWP_NOACTIVATE | Win32Api.SWP_SHOWWINDOW);
         }
 
         private void HandleThemeClick(System.Windows.Point screenPoint,
@@ -1227,15 +1226,40 @@ namespace ProductivityWallpaper.Services
 
         // --- 注入与层级控制 ---
 
-        private void InjectDynamicWallpaper(Window playerWindow)
+        /// <summary>
+        /// Injects a wallpaper window into the WorkerW behind the desktop icons.
+        /// Uses SetParent + WS_CHILD style to properly nest the window.
+        /// Returns true if injection succeeded, false if WorkerW not found.
+        /// </summary>
+        private bool InjectDynamicWallpaper(Window playerWindow)
         {
             var helper = new WindowInteropHelper(playerWindow);
             IntPtr workerw = FindWorkerW();
-            if (workerw == IntPtr.Zero) return;
+            if (workerw == IntPtr.Zero)
+            {
+                System.Diagnostics.Debug.WriteLine("[WallpaperService] FindWorkerW returned null — injection skipped");
+                return false;
+            }
 
             Win32Api.SetParent(helper.Handle, workerw);
-            RemoveBorderAndSetTransparent(helper.Handle);
-            playerWindow.WindowState = WindowState.Maximized;
+
+            // Set WS_CHILD style (remove popup) for proper child window behavior
+            int style = Win32Api.GetWindowLong(helper.Handle, Win32Api.GWL_STYLE);
+            style = (style & ~Win32Api.WS_POPUP) | Win32Api.WS_CHILD;
+            Win32Api.SetWindowLong(helper.Handle, Win32Api.GWL_STYLE, style);
+
+            // Prevent taskbar icon, mark as tool window
+            int exStyle = Win32Api.GetWindowLong(helper.Handle, Win32Api.GWL_EXSTYLE);
+            exStyle = exStyle | Win32Api.WS_EX_TOOLWINDOW;
+            Win32Api.SetWindowLong(helper.Handle, Win32Api.GWL_EXSTYLE, exStyle);
+
+            // Size to fill WorkerW using physical screen metrics
+            int screenW = Win32Api.GetSystemMetrics(Win32Api.SM_CXSCREEN);
+            int screenH = Win32Api.GetSystemMetrics(Win32Api.SM_CYSCREEN);
+            Win32Api.SetWindowPos(helper.Handle, IntPtr.Zero, 0, 0, screenW, screenH,
+                Win32Api.SWP_NOZORDER | Win32Api.SWP_NOACTIVATE | Win32Api.SWP_SHOWWINDOW);
+
+            return true;
         }
 
         private void InjectIdleLayer(Window idleWin)
@@ -1245,9 +1269,21 @@ namespace ProductivityWallpaper.Services
             if (workerw == IntPtr.Zero) return;
 
             Win32Api.SetParent(idleHelper.Handle, workerw);
-            RemoveBorderAndSetTransparent(idleHelper.Handle);
-            Win32Api.SetWindowPos(idleHelper.Handle, Win32Api.HWND_BOTTOM, 0, 0, 0, 0, 0x0013);
-            idleWin.WindowState = WindowState.Maximized;
+
+            // Set WS_CHILD style for proper child window behavior
+            int style = Win32Api.GetWindowLong(idleHelper.Handle, Win32Api.GWL_STYLE);
+            style = (style & ~Win32Api.WS_POPUP) | Win32Api.WS_CHILD;
+            Win32Api.SetWindowLong(idleHelper.Handle, Win32Api.GWL_STYLE, style);
+
+            int exStyle = Win32Api.GetWindowLong(idleHelper.Handle, Win32Api.GWL_EXSTYLE);
+            exStyle = exStyle | Win32Api.WS_EX_TOOLWINDOW;
+            Win32Api.SetWindowLong(idleHelper.Handle, Win32Api.GWL_EXSTYLE, exStyle);
+
+            // Size and position at bottom z-order
+            int screenW = Win32Api.GetSystemMetrics(Win32Api.SM_CXSCREEN);
+            int screenH = Win32Api.GetSystemMetrics(Win32Api.SM_CYSCREEN);
+            Win32Api.SetWindowPos(idleHelper.Handle, Win32Api.HWND_BOTTOM, 0, 0, screenW, screenH,
+                Win32Api.SWP_NOACTIVATE | Win32Api.SWP_SHOWWINDOW);
         }
 
         private void InjectInteractiveLayers(Window idleWin, InteractiveUiWindow uiWin)
@@ -1259,12 +1295,17 @@ namespace ProductivityWallpaper.Services
 
             Win32Api.SetParent(uiHelper.Handle, workerw);
 
+            // Set WS_CHILD style (remove popup)
             int style = Win32Api.GetWindowLong(uiHelper.Handle, Win32Api.GWL_STYLE);
-            style = style & ~Win32Api.WS_POPUP & ~Win32Api.WS_VISIBLE;
+            style = (style & ~Win32Api.WS_POPUP) | Win32Api.WS_CHILD;
             Win32Api.SetWindowLong(uiHelper.Handle, Win32Api.GWL_STYLE, style);
 
-            uiWin.WindowState = WindowState.Maximized;
-            Win32Api.SetWindowPos(uiHelper.Handle, Win32Api.HWND_TOP, 0, 0, 0, 0, 0x0013);
+            // Size to fill WorkerW
+            int screenW = Win32Api.GetSystemMetrics(Win32Api.SM_CXSCREEN);
+            int screenH = Win32Api.GetSystemMetrics(Win32Api.SM_CYSCREEN);
+            Win32Api.SetWindowPos(uiHelper.Handle, Win32Api.HWND_TOP, 0, 0, screenW, screenH,
+                Win32Api.SWP_NOACTIVATE | Win32Api.SWP_SHOWWINDOW);
+
             uiWin.UpdateLayout(SystemParameters.PrimaryScreenWidth, SystemParameters.PrimaryScreenHeight);
         }
 
@@ -1275,16 +1316,27 @@ namespace ProductivityWallpaper.Services
             if (workerw == IntPtr.Zero) return;
 
             Win32Api.SetParent(actionHelper.Handle, workerw);
-            RemoveBorderAndSetTransparent(actionHelper.Handle);
-            actionWin.WindowState = WindowState.Maximized;
 
-            // Z-Order: UI > Action > Idle
-            Win32Api.SetWindowPos(actionHelper.Handle, Win32Api.HWND_TOP, 0, 0, 0, 0, 0x0013);
+            // Set WS_CHILD style
+            int style = Win32Api.GetWindowLong(actionHelper.Handle, Win32Api.GWL_STYLE);
+            style = (style & ~Win32Api.WS_POPUP) | Win32Api.WS_CHILD;
+            Win32Api.SetWindowLong(actionHelper.Handle, Win32Api.GWL_STYLE, style);
+
+            int exStyle = Win32Api.GetWindowLong(actionHelper.Handle, Win32Api.GWL_EXSTYLE);
+            exStyle = exStyle | Win32Api.WS_EX_TOOLWINDOW;
+            Win32Api.SetWindowLong(actionHelper.Handle, Win32Api.GWL_EXSTYLE, exStyle);
+
+            // Size and position — Z-Order: UI > Action > Idle
+            int screenW = Win32Api.GetSystemMetrics(Win32Api.SM_CXSCREEN);
+            int screenH = Win32Api.GetSystemMetrics(Win32Api.SM_CYSCREEN);
+            Win32Api.SetWindowPos(actionHelper.Handle, Win32Api.HWND_TOP, 0, 0, screenW, screenH,
+                Win32Api.SWP_NOACTIVATE | Win32Api.SWP_SHOWWINDOW);
 
             if (uiWin != null)
             {
                 var uiHandle = new WindowInteropHelper(uiWin).Handle;
-                Win32Api.SetWindowPos(uiHandle, Win32Api.HWND_TOP, 0, 0, 0, 0, 0x0013);
+                Win32Api.SetWindowPos(uiHandle, Win32Api.HWND_TOP, 0, 0, 0, 0,
+                    Win32Api.SWP_NOSIZE | Win32Api.SWP_NOMOVE | Win32Api.SWP_NOACTIVATE);
             }
         }
 
