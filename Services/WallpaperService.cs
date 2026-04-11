@@ -1290,41 +1290,53 @@ namespace ProductivityWallpaper.Services
 
         /// <summary>
         /// Finds the WorkerW window behind the desktop icons for wallpaper injection.
-        /// On Windows 10, the classic approach finds the WorkerW sibling of the SHELLDLL_DefView parent.
-        /// On Windows 11 (build 22000+), the shell architecture changed — SHELLDLL_DefView may be
-        /// hosted directly under Progman. In that case, we parent wallpaper windows to Progman itself,
-        /// which sits below the desktop icon layer and the taskbar.
+        /// Works on both Windows 10 and Windows 11.
+        /// 
+        /// Desktop shell hierarchy after sending 0x052C to Progman:
+        ///   Progman (or a WorkerW) ← contains SHELLDLL_DefView (desktop icons)
+        ///   WorkerW               ← wallpaper render target (created by 0x052C)
+        ///
+        /// The target WorkerW is always the NEXT top-level WorkerW in Z-order
+        /// after the window that contains SHELLDLL_DefView.
+        /// 
+        /// IMPORTANT: Never parent to Progman directly — that places the wallpaper window
+        /// above SHELLDLL_DefView (icons), covering the desktop icons and taskbar.
         /// </summary>
         private IntPtr FindWorkerW()
         {
             IntPtr progman = Win32Api.FindWindow("Progman", null);
 
-            // Send the undocumented 0x052C message to Progman to spawn a WorkerW behind the icons
+            // Send the undocumented 0x052C message to Progman to spawn a WorkerW behind the icons.
+            // This works on both Win10 and Win11.
             Win32Api.SendMessageTimeout(progman, 0x052C, UIntPtr.Zero, IntPtr.Zero, 0x0, 1000, out _);
 
-            // Classic Win10 approach: find the WorkerW that is a sibling after the SHELLDLL_DefView parent
+            // Find the top-level window that contains SHELLDLL_DefView (desktop icons).
+            // Then find the next WorkerW sibling in Z-order — that's our wallpaper target.
             IntPtr workerw = IntPtr.Zero;
-            IntPtr shellDefViewParent = IntPtr.Zero;
             Win32Api.EnumWindows((hwnd, lParam) =>
             {
                 if (Win32Api.FindWindowEx(hwnd, IntPtr.Zero, "SHELLDLL_DefView", null) != IntPtr.Zero)
                 {
-                    shellDefViewParent = hwnd;
+                    // The next WorkerW after this window in Z-order is the wallpaper target
                     workerw = Win32Api.FindWindowEx(IntPtr.Zero, hwnd, "WorkerW", null);
                 }
                 return true;
             }, IntPtr.Zero);
 
-            // Win11 fallback: If SHELLDLL_DefView is a child of Progman (not a separate WorkerW),
-            // the classic sibling WorkerW either doesn't exist or doesn't behave correctly.
-            // Use Progman as the parent — it sits below desktop icons and the taskbar.
-            if (workerw == IntPtr.Zero || shellDefViewParent == progman)
+            // Win11 retry: On some Win11 builds the WorkerW may not be immediately available
+            // after 0x052C. Retry once with a brief delay.
+            if (workerw == IntPtr.Zero)
             {
-                IntPtr shellView = Win32Api.FindWindowEx(progman, IntPtr.Zero, "SHELLDLL_DefView", null);
-                if (shellView != IntPtr.Zero)
+                System.Threading.Thread.Sleep(100);
+                Win32Api.SendMessageTimeout(progman, 0x052C, UIntPtr.Zero, IntPtr.Zero, 0x0, 1000, out _);
+                Win32Api.EnumWindows((hwnd, lParam) =>
                 {
-                    return progman;
-                }
+                    if (Win32Api.FindWindowEx(hwnd, IntPtr.Zero, "SHELLDLL_DefView", null) != IntPtr.Zero)
+                    {
+                        workerw = Win32Api.FindWindowEx(IntPtr.Zero, hwnd, "WorkerW", null);
+                    }
+                    return true;
+                }, IntPtr.Zero);
             }
 
             return workerw;

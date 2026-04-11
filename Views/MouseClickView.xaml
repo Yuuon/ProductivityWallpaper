@@ -72,7 +72,7 @@
                 <TextBlock x:Name="RegionNameLabel"
                            Text="{Binding Name}"
                            Foreground="White"
-                           FontSize="18"
+                           FontSize="24"
                            FontWeight="SemiBold"
                            HorizontalAlignment="Center"
                            VerticalAlignment="Bottom"
@@ -98,7 +98,7 @@
                 <TextBox x:Name="RegionNameTextBox"
                          Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                          Foreground="White"
-                         FontSize="18"
+                         FontSize="24"
                          FontWeight="SemiBold"
                          Background="#80000000"
                          BorderThickness="0,0,0,1"
@@ -107,9 +107,9 @@
                          HorizontalAlignment="Center"
                          VerticalAlignment="Bottom"
                          Margin="0,0,0,8"
-                         MinWidth="60"
-                         MaxWidth="200"
-                         Padding="4,2"
+                         MinWidth="80"
+                         MaxWidth="280"
+                         Padding="6,3"
                          LostFocus="RegionNameTextBox_LostFocus"
                          KeyDown="RegionNameTextBox_KeyDown"
                          Visibility="{Binding IsEditingName, Converter={StaticResource BooleanToVisibilityConverter}}"/>
@@ -118,11 +118,11 @@
                 <Button x:Name="DeleteButton"
                         Command="{Binding DataContext.DeleteRegionCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                         CommandParameter="{Binding}"
-                        Width="36"
-                        Height="36"
+                        Width="48"
+                        Height="48"
                         HorizontalAlignment="Right"
                         VerticalAlignment="Top"
-                        Margin="0,6,6,0"
+                        Margin="0,8,8,0"
                         Background="{StaticResource DangerBrush}"
                         BorderThickness="0"
                         Cursor="Hand"
@@ -130,12 +130,12 @@
                     <Button.Template>
                         <ControlTemplate TargetType="Button">
                             <Grid>
-                                <Ellipse x:Name="ButtonBg" Fill="{TemplateBinding Background}" Stroke="White" StrokeThickness="2"/>
+                                <Ellipse x:Name="ButtonBg" Fill="{TemplateBinding Background}" Stroke="White" StrokeThickness="2.5"/>
                                 <Path Data="M6 6L14 14 M14 6L6 14"
                                       Stroke="White"
-                                      StrokeThickness="2.5"
-                                      Width="14"
-                                      Height="14"
+                                      StrokeThickness="3"
+                                      Width="18"
+                                      Height="18"
                                       Stretch="Uniform"
                                       HorizontalAlignment="Center"
                                       VerticalAlignment="Center"/>

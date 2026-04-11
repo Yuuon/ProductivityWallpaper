@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
@@ -269,6 +270,35 @@ namespace ProductivityWallpaper.ViewModels
         [ObservableProperty]
         private object? _configurationContent;
 
+        // --- Slideshow Properties (for Theme Preview left panel) ---
+
+        /// <summary>
+        /// All wallpaper image/thumbnail paths from Desktop Background schemes, used for slideshow.
+        /// </summary>
+        private readonly List<string> _slideshowPaths = new();
+
+        /// <summary>
+        /// Timer for cycling through slideshow images.
+        /// </summary>
+        private DispatcherTimer? _slideshowTimer;
+
+        /// <summary>
+        /// Current index in the slideshow rotation.
+        /// </summary>
+        private int _slideshowIndex;
+
+        /// <summary>
+        /// The currently displayed slideshow image path.
+        /// </summary>
+        [ObservableProperty]
+        private string? _currentSlideshowImagePath;
+
+        /// <summary>
+        /// Whether the slideshow has any content to display.
+        /// </summary>
+        [ObservableProperty]
+        private bool _hasSlideshowContent;
+
         public Dictionary<FeatureType, ObservableCollection<SchemeModel>> SchemesByFeature => _schemesByFeature;
         public ObservableCollection<SchemeModel> DesktopBackgroundSchemes => _schemesByFeature[FeatureType.DesktopBackground];
         public ObservableCollection<SchemeModel> MouseClickSchemes => _schemesByFeature[FeatureType.MouseClick];
@@ -319,6 +349,124 @@ namespace ProductivityWallpaper.ViewModels
             OnPropertyChanged(nameof(ShutdownResourceCount));
             OnPropertyChanged(nameof(BootRestartResourceCount));
             OnPropertyChanged(nameof(ScreenWakeResourceCount));
+        }
+
+        // --- Slideshow Logic ---
+
+        /// <summary>
+        /// Collects wallpaper image paths from all Desktop Background schemes and starts the slideshow.
+        /// Uses SourcePath from ResourceEntry (local editing mode) or ThumbnailPath for display.
+        /// </summary>
+        private void StartSlideshow()
+        {
+            StopSlideshow();
+            _slideshowPaths.Clear();
+
+            if (CurrentTheme == null)
+            {
+                HasSlideshowContent = false;
+                return;
+            }
+
+            var library = CurrentTheme.ResourceLibrary;
+
+            // Collect image/video file paths from all Desktop Background schemes
+            foreach (var scheme in DesktopBackgroundSchemes)
+            {
+                foreach (var mediaId in scheme.DesktopBackgroundMedia.MediaIds)
+                {
+                    var entry = library.GetById(mediaId);
+                    if (entry == null) continue;
+
+                    // For images: prefer SourcePath (local editing), then ThumbnailPath
+                    // For videos: prefer ThumbnailPath (show thumbnail in slideshow)
+                    string? displayPath = null;
+
+                    if (entry.Type == Models.MediaType.Image)
+                    {
+                        // Prefer the actual image file for the slideshow
+                        if (!string.IsNullOrEmpty(entry.SourcePath) && System.IO.File.Exists(entry.SourcePath))
+                            displayPath = entry.SourcePath;
+                        else if (!string.IsNullOrEmpty(entry.ThumbnailPath) && System.IO.File.Exists(entry.ThumbnailPath))
+                            displayPath = entry.ThumbnailPath;
+                    }
+                    else if (entry.Type == Models.MediaType.Video)
+                    {
+                        // Use thumbnail for video files
+                        if (!string.IsNullOrEmpty(entry.ThumbnailPath) && System.IO.File.Exists(entry.ThumbnailPath))
+                            displayPath = entry.ThumbnailPath;
+                        else if (!string.IsNullOrEmpty(entry.SourcePath) && System.IO.File.Exists(entry.SourcePath))
+                            displayPath = entry.SourcePath;
+                    }
+
+                    if (displayPath != null && !_slideshowPaths.Contains(displayPath))
+                        _slideshowPaths.Add(displayPath);
+                }
+            }
+
+            // Also look for media items in cached ViewModels (covers unsaved items during editing)
+            foreach (var kvp in _schemeViewModelCache)
+            {
+                if (kvp.Value is MediaConfigurationViewModel mediaVm &&
+                    mediaVm.StorageKeyPrefix == "DesktopBackground")
+                {
+                    foreach (var item in mediaVm.ImageVideoItems)
+                    {
+                        string? displayPath = null;
+                        if (!string.IsNullOrEmpty(item.ThumbnailPath) && System.IO.File.Exists(item.ThumbnailPath))
+                            displayPath = item.ThumbnailPath;
+                        else if (!string.IsNullOrEmpty(item.FilePath) && System.IO.File.Exists(item.FilePath))
+                            displayPath = item.FilePath;
+
+                        if (displayPath != null && !_slideshowPaths.Contains(displayPath))
+                            _slideshowPaths.Add(displayPath);
+                    }
+                }
+            }
+
+            HasSlideshowContent = _slideshowPaths.Count > 0;
+
+            if (HasSlideshowContent)
+            {
+                _slideshowIndex = 0;
+                CurrentSlideshowImagePath = _slideshowPaths[0];
+
+                // Start cycling timer if multiple images
+                if (_slideshowPaths.Count > 1)
+                {
+                    _slideshowTimer = new DispatcherTimer
+                    {
+                        Interval = TimeSpan.FromSeconds(4)
+                    };
+                    _slideshowTimer.Tick += OnSlideshowTick;
+                    _slideshowTimer.Start();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Stops the slideshow timer and clears state.
+        /// </summary>
+        private void StopSlideshow()
+        {
+            if (_slideshowTimer != null)
+            {
+                _slideshowTimer.Tick -= OnSlideshowTick;
+                _slideshowTimer.Stop();
+                _slideshowTimer = null;
+            }
+            CurrentSlideshowImagePath = null;
+            HasSlideshowContent = false;
+        }
+
+        /// <summary>
+        /// Named handler for slideshow timer tick — advances to the next image.
+        /// </summary>
+        private void OnSlideshowTick(object? sender, EventArgs e)
+        {
+            if (_slideshowPaths.Count == 0) return;
+            _slideshowIndex = (_slideshowIndex + 1) % _slideshowPaths.Count;
+            CurrentSlideshowImagePath = _slideshowPaths[_slideshowIndex];
         }
 
         // --- Constructors ---
@@ -711,10 +859,17 @@ namespace ProductivityWallpaper.ViewModels
             ConfigurationContent = null;
             HasPreviewContent = false;
 
+            // Stop slideshow when navigating away from ThemePreview
+            if (featureName != "ThemePreview")
+            {
+                StopSlideshow();
+            }
+
             // ThemePreview and OpenApp have no feature VM
             if (featureName == "ThemePreview")
             {
                 RefreshOverviewCounts();
+                StartSlideshow();
                 NavigationMonitorService.LogNavigation("ThemePreview", null);
                 return;
             }
@@ -1478,6 +1633,7 @@ namespace ProductivityWallpaper.ViewModels
         /// </summary>
         public void Dispose()
         {
+            StopSlideshow();
             _autoSaveTimer?.Stop();
             _autoSaveTimer?.Dispose();
 
