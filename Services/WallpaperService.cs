@@ -14,7 +14,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
-using System.Windows.Media.Animation;
+
 using System.Windows.Threading;
 using Application = System.Windows.Application;
 using MediaPlayer = LibVLCSharp.Shared.MediaPlayer;
@@ -65,6 +65,10 @@ namespace ProductivityWallpaper.Services
 
         // Track Media objects for disposal during cleanup
         private readonly List<Media> _activeMediaObjects = new();
+
+        // Cached WorkerW handle — FindWorkerW is expensive (sends 0x052C to Explorer).
+        // We find it once and reuse. Invalidated during CleanupCurrentWallpaper.
+        private IntPtr _cachedWorkerW = IntPtr.Zero;
 
         public WallpaperService()
         {
@@ -223,12 +227,16 @@ namespace ProductivityWallpaper.Services
             // 注入
             InjectInteractiveLayers(_idleVideoWindow, _currentUiWindow);
 
-            // 使用淡入效果显示初始壁纸 (更平滑)
-            FadeWindowAsync(_idleVideoWindow, 0, 1, 500);
-            FadeWindowAsync(_currentUiWindow, 0, 1, 500);
+            // Don't use WPF Opacity animation — it doesn't work after SetParent into WorkerW.
+            // Set opacity directly to 1 for both windows.
+            _idleVideoWindow.Opacity = 1;
+            _currentUiWindow.Opacity = 1;
 
             // 启动 Hook
             _mouseHook = new MouseHookService();
+            
+            // Enable sweep detection for interactive wallpaper mode (needs mouse move processing)
+            _mouseHook.EnableSweepDetection = true;
             
             // 设置横扫速度阈值（如果配置中有）
             if (config.SweepSpeedThreshold > 0)
@@ -346,9 +354,7 @@ namespace ProductivityWallpaper.Services
             int remainingTime = (int)durationMs - 500 - 300;
             if (remainingTime > 0) await Task.Delay(remainingTime);
 
-            // 10. 淡出并关闭
-            await FadeWindowAsync(_actionVideoWindow, 1, 0, 300);
-
+            // 10. Close — don't use WPF Opacity fade in WorkerW context
             if (_actionVideoWindow != null)
             {
                 _actionVideoWindow.Visibility = Visibility.Hidden;
@@ -385,16 +391,11 @@ namespace ProductivityWallpaper.Services
                 // Brief delay for rendering
                 await Task.Delay(50);
 
-                // InjectDynamicWallpaper already handles full-screen expansion
-
-                // Fade in
-                await FadeWindowAsync(imageWindow, 0, 1, 300);
+                // Ensure full opacity — don't use WPF Opacity animation in WorkerW context
+                imageWindow.Opacity = 1;
 
                 // Display for the specified duration
                 await Task.Delay(displayDurationMs);
-
-                // Fade out
-                await FadeWindowAsync(imageWindow, 1, 0, 300);
 
                 imageWindow.StopAndClose();
             }
@@ -444,36 +445,6 @@ namespace ProductivityWallpaper.Services
             }
         }
 
-        // --- 动画辅助方法 ---
-        private Task FadeWindowAsync(Window? window, double from, double to, int durationMs)
-        {
-            if (window == null) return Task.CompletedTask;
-
-            var tcs = new TaskCompletionSource<bool>();
-
-            // 必须在 UI 线程执行动画
-            Application.Current.Dispatcher.Invoke(() =>
-            {
-                var anim = new DoubleAnimation
-                {
-                    From = from,
-                    To = to,
-                    Duration = new Duration(TimeSpan.FromMilliseconds(durationMs)),
-                    FillBehavior = FillBehavior.HoldEnd
-                };
-
-                anim.Completed += (s, e) =>
-                {
-                    window.Opacity = to; // 确保动画结束后属性值正确固定
-                    tcs.SetResult(true);
-                };
-
-                window.BeginAnimation(Window.OpacityProperty, anim);
-            });
-
-            return tcs.Task;
-        }
-
         private VideoPlayerWindow CreateHiddenVideoWindow(string path)
         {
             var win = new VideoPlayerWindow(path);
@@ -497,19 +468,6 @@ namespace ProductivityWallpaper.Services
             return win;
         }
 
-        private void EnableLayeredWindow(Window window)
-        {
-            var helper = new WindowInteropHelper(window);
-            helper.EnsureHandle(); // 关键：强制创建句柄，但不显示窗口
-
-            IntPtr hwnd = helper.Handle;
-            int exStyle = Win32Api.GetWindowLong(hwnd, Win32Api.GWL_EXSTYLE);
-
-            // 添加 WS_EX_LAYERED (0x80000) 和 WS_EX_TRANSPARENT (0x20)
-            // 这样 WPF 的 Opacity 属性就能在 AllowsTransparency="False" 的情况下生效了
-            Win32Api.SetWindowLong(hwnd, Win32Api.GWL_EXSTYLE, exStyle | Win32Api.WS_EX_LAYERED | Win32Api.WS_EX_TRANSPARENT);
-        }
-
         public void ApplyVideoWallpaper(string path, int monitorIndex)
         {
             CleanupCurrentWallpaper();
@@ -521,7 +479,8 @@ namespace ProductivityWallpaper.Services
                 videoWin.StopAndClose();
                 return;
             }
-            FadeWindowAsync(videoWin, 0, 1, 500);
+            // Don't use WPF Opacity animation — it doesn't work after SetParent into WorkerW
+            videoWin.Opacity = 1;
             _idleVideoWindow = videoWin;
         }
 
@@ -733,8 +692,14 @@ namespace ProductivityWallpaper.Services
                 // Wait for content to buffer (100ms for video, less for image)
                 await Task.Delay(mediaItem.Type == MediaFileType.Video ? 100 : 50);
 
-                // Fade in the new window
-                await FadeWindowAsync(newWindow, 0, 1, 500);
+                // CRITICAL: Do NOT use WPF's Window.Opacity animation for WorkerW-injected windows.
+                // After SetParent into WorkerW, WPF's DWM-based Opacity property doesn't work correctly.
+                // Setting Opacity=0 makes the window invisible, and the animation back to 1 never
+                // visually takes effect. VLC video shows through because HwndHost bypasses WPF Opacity,
+                // but WPF-rendered content (Image, Background) stays invisible — causing the
+                // "transparent edges around video" and "image wallpaper shows nothing" symptoms.
+                // Instead, ensure full opacity and use direct Win32 calls if fade is needed.
+                newWindow.Opacity = 1;
 
                 // Close the old background window
                 var oldWindow = _currentBackgroundWindow;
@@ -742,7 +707,6 @@ namespace ProductivityWallpaper.Services
 
                 if (oldWindow != null)
                 {
-                    await FadeWindowAsync(oldWindow, 1, 0, 300);
                     CloseBackgroundWindow(oldWindow);
                 }
 
@@ -1143,6 +1107,9 @@ namespace ProductivityWallpaper.Services
             _activeMouseClickScheme = null;
             _regionAudioIndex.Clear();
 
+            // Invalidate WorkerW cache — next ApplyTheme will rediscover it
+            _cachedWorkerW = IntPtr.Zero;
+
             // Stop mouse hook first to prevent new callbacks — unsubscribe named handlers
             if (_mouseHook != null)
             {
@@ -1348,6 +1315,26 @@ namespace ProductivityWallpaper.Services
 
         /// <summary>
         /// Finds the WorkerW window behind the desktop icons for wallpaper injection.
+        /// Uses a cache to avoid repeatedly sending 0x052C to Explorer, which destabilizes
+        /// the shell and causes system lag over time.
+        /// </summary>
+        private IntPtr FindWorkerW()
+        {
+            // Check cache first — avoid expensive shell IPC on every injection
+            if (_cachedWorkerW != IntPtr.Zero && Win32Api.IsWindowVisible(_cachedWorkerW))
+            {
+                System.Diagnostics.Debug.WriteLine($"[FindWorkerW] Using cached WorkerW=0x{_cachedWorkerW:X8}");
+                return _cachedWorkerW;
+            }
+
+            _cachedWorkerW = IntPtr.Zero;
+            IntPtr result = FindWorkerWCore();
+            _cachedWorkerW = result;
+            return result;
+        }
+
+        /// <summary>
+        /// Core WorkerW discovery logic. Called once and cached.
         /// Works on both Windows 10 and Windows 11.
         ///
         /// Desktop shell hierarchy after sending 0x052C to Progman:
@@ -1372,7 +1359,7 @@ namespace ProductivityWallpaper.Services
         ///   3. Strategy B: Find WorkerW as a CHILD of the DefView parent (Win11 Progman-child case).
         ///   4. Strategy C: Retry with delay if neither worked.
         /// </summary>
-        private IntPtr FindWorkerW()
+        private IntPtr FindWorkerWCore()
         {
             IntPtr progman = Win32Api.FindWindow("Progman", null);
             if (progman == IntPtr.Zero)
@@ -1435,9 +1422,11 @@ namespace ProductivityWallpaper.Services
             System.Diagnostics.Debug.WriteLine("[FindWorkerW] Strategy B failed");
 
             // --- Strategy C: Retry — shell may not have processed 0x052C yet ---
-            System.Threading.Thread.Sleep(200);
+            // Use SpinWait instead of Thread.Sleep to avoid blocking the UI thread for 300ms.
+            // SpinWait yields the thread without fully sleeping, allowing message pump processing.
+            System.Threading.SpinWait.SpinUntil(() => false, 100);
             Win32Api.SendMessageTimeout(progman, 0x052C, new UIntPtr(0xD), new IntPtr(0x1), 0x0, 1000, out _);
-            System.Threading.Thread.Sleep(100);
+            System.Threading.SpinWait.SpinUntil(() => false, 50);
 
             // Retry Strategy A
             Win32Api.EnumWindows((hwnd, lParam) =>

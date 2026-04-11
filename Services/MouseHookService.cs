@@ -17,6 +17,14 @@ namespace ProductivityWallpaper.Services
         public int TrackingPointCount { get; set; } = 5; // 追踪点数，默认 5
         public int SweepCooldownMs { get; set; } = 500; // 横扫冷却期（毫秒），默认 500
 
+        /// <summary>
+        /// Controls whether WM_MOUSEMOVE messages are processed for sweep detection.
+        /// When false (default), only click events are processed — dramatically reducing
+        /// hook overhead since WM_MOUSEMOVE fires hundreds of times per second globally.
+        /// Only enable when sweep detection is actually needed (e.g., interactive wallpaper mode).
+        /// </summary>
+        public bool EnableSweepDetection { get; set; } = false;
+
         private IntPtr _hookId = IntPtr.Zero;
         private Win32Api.LowLevelMouseProc _proc;
 
@@ -74,7 +82,9 @@ namespace ProductivityWallpaper.Services
                     // 如果必须拦截，这里需要改逻辑。
                 }
                 // WM_MOUSEMOVE (0x0200) - 处理鼠标移动，检测横扫
-                else if (msg == 0x0200)
+                // Only process when sweep detection is enabled to avoid massive overhead
+                // (WM_MOUSEMOVE fires hundreds of times per second globally)
+                else if (msg == 0x0200 && EnableSweepDetection)
                 {
                     Win32Api.MSLLHOOKSTRUCT hookStruct = Marshal.PtrToStructure<Win32Api.MSLLHOOKSTRUCT>(lParam);
                     var currentPoint = new System.Windows.Point(hookStruct.pt.x, hookStruct.pt.y);
