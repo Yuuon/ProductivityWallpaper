@@ -234,24 +234,16 @@ namespace ProductivityWallpaper.Services
 
             // 启动 Hook
             _mouseHook = new MouseHookService();
-            
-            // Enable sweep detection for interactive wallpaper mode (needs mouse move processing)
-            _mouseHook.EnableSweepDetection = true;
-            
-            // 设置横扫速度阈值（如果配置中有）
-            if (config.SweepSpeedThreshold > 0)
-            {
-                _mouseHook.SweepSpeedThreshold = config.SweepSpeedThreshold;
-            }
 
-            // 鼠标点击事件
+            // 鼠标点击事件 — use BeginInvoke to avoid blocking the global hook chain.
+            // Invoke blocks until UI thread finishes, stalling all mouse input system-wide.
             _mouseHook.OnMouseClick += (screenPoint) =>
             {
                 if (_currentUiWindow != null)
                 {
-                    Application.Current.Dispatcher.Invoke(() =>
+                    Application.Current.Dispatcher.BeginInvoke(() =>
                     {
-                        var trigger = _currentUiWindow.GetTriggerAtPoint(screenPoint);
+                        var trigger = _currentUiWindow?.GetTriggerAtPoint(screenPoint);
                         if (trigger != null)
                         {
                             // 播放音频（如果有配置）
@@ -260,31 +252,10 @@ namespace ProductivityWallpaper.Services
                                 var audioPath = Path.Combine(item.FilePath, trigger.Audio);
                                 PlayAudio(audioPath);
                             }
-                            _currentUiWindow.SimulateClickIfHit(screenPoint);
+                            _currentUiWindow?.SimulateClickIfHit(screenPoint);
                         }
                     });
                 }
-            };
-
-            // 横扫检测事件
-            _mouseHook.OnMouseSweep += (screenPoint) =>
-            {
-                Application.Current.Dispatcher.Invoke(() =>
-                {
-                    // 如果正在播放 Action 视频，则忽略横扫
-                    if (_actionVideoWindow != null) return;
-
-                    // 如果配置了横扫视频，则播放
-                    if (!string.IsNullOrEmpty(config.SweepActionVideo))
-                    {
-                        var sweepPath = Path.Combine(item.FilePath, config.SweepActionVideo);
-                        if (File.Exists(sweepPath))
-                        {
-                            System.Diagnostics.Debug.WriteLine("Mouse sweep detected! Playing sweep video.");
-                            PlayActionVideo(sweepPath);
-                        }
-                    }
-                });
             };
 
             _mouseHook.Start();
@@ -902,7 +873,10 @@ namespace ProductivityWallpaper.Services
             var settings = _activeWallpaperSettings;
             if (resolver == null || settings == null) return;
 
-            Application.Current.Dispatcher.Invoke(() =>
+            // BeginInvoke (not Invoke) — global mouse hooks run on every mouse event system-wide.
+            // Invoke blocks until UI thread finishes, stalling the hook chain and causing
+            // system-wide mouse lag when HandleThemeClick takes time (e.g., creating windows).
+            Application.Current.Dispatcher.BeginInvoke(() =>
             {
                 HandleThemeClick(screenPoint, resolver, settings);
             });
@@ -922,10 +896,10 @@ namespace ProductivityWallpaper.Services
 
             Win32Api.SetParent(helper.Handle, workerw);
 
-            // Remove popup and border, keep visible, add toolwindow
+            // Replace WS_POPUP with WS_CHILD — required for DWM to composite inside WorkerW
             int style = Win32Api.GetWindowLong(helper.Handle, Win32Api.GWL_STYLE);
             style = style & ~Win32Api.WS_POPUP & ~0x00C00000 & ~0x00040000;
-            style = style | Win32Api.WS_VISIBLE;
+            style = style | Win32Api.WS_CHILD | Win32Api.WS_VISIBLE;
             Win32Api.SetWindowLong(helper.Handle, Win32Api.GWL_STYLE, style);
 
             int exStyle = Win32Api.GetWindowLong(helper.Handle, Win32Api.GWL_EXSTYLE);
@@ -1271,10 +1245,10 @@ namespace ProductivityWallpaper.Services
             IntPtr workerw = FindWorkerW();
             Win32Api.SetParent(uiHelper.Handle, workerw);
 
-            // UI overlay: remove popup and border, keep visible, add toolwindow
+            // UI overlay: replace WS_POPUP with WS_CHILD for DWM compositing inside WorkerW
             int style = Win32Api.GetWindowLong(uiHelper.Handle, Win32Api.GWL_STYLE);
             style = style & ~Win32Api.WS_POPUP & ~0x00C00000 & ~0x00040000;
-            style = style | Win32Api.WS_VISIBLE;
+            style = style | Win32Api.WS_CHILD | Win32Api.WS_VISIBLE;
             Win32Api.SetWindowLong(uiHelper.Handle, Win32Api.GWL_STYLE, style);
 
             int exStyle = Win32Api.GetWindowLong(uiHelper.Handle, Win32Api.GWL_EXSTYLE);
@@ -1471,16 +1445,18 @@ namespace ProductivityWallpaper.Services
         }
 
         /// <summary>
-        /// Strips borders and popup style from a window parented into WorkerW.
+        /// Strips borders/popup style and sets WS_CHILD on a window parented into WorkerW.
         /// 
-        /// CRITICAL NOTES:
-        /// - WS_POPUP MUST be removed after SetParent — keeping WS_POPUP on a parented window
-        ///   creates an "owned popup" which doesn't participate in the parent's client area on Win11.
-        /// - WS_CHILD must NOT be added — WPF's HwndSource/DirectX rendering breaks with WS_CHILD.
-        /// - WS_EX_LAYERED is NOT added here — WPF manages it internally through Window.Opacity.
-        ///   Manually adding WS_EX_LAYERED without calling SetLayeredWindowAttributes causes
-        ///   the window to be invisible (layered window with no alpha configured).
-        /// - WS_EX_TOOLWINDOW hides the window from Alt+Tab and taskbar.
+        /// CRITICAL: WS_CHILD is REQUIRED for WPF content to render inside WorkerW.
+        /// Without WS_CHILD, DWM treats the window as an "overlapped owned" window and
+        /// skips compositing for it inside WorkerW. VLC video still shows because HwndHost
+        /// renders via native DirectX (bypasses DWM), but all WPF-rendered content
+        /// (Image controls, Background="Black") becomes invisible — causing:
+        ///   - "image wallpaper shows nothing"
+        ///   - "transparent edges around video" (Background="Black" not rendering)
+        /// 
+        /// Adding WS_CHILD tells DWM to properly composite the child window, so WPF
+        /// rendering works correctly inside the WorkerW desktop hierarchy.
         /// </summary>
         private void RemoveBorderAndSetTransparent(IntPtr hwnd)
         {
@@ -1489,18 +1465,15 @@ namespace ProductivityWallpaper.Services
 
             System.Diagnostics.Debug.WriteLine($"[RemoveBorder] Before: style=0x{style:X8}, exStyle=0x{exStyle:X8}");
 
-            // Remove WS_POPUP — required for proper parent-child relationship after SetParent.
-            // Remove WS_CAPTION (0x00C00000) and WS_THICKFRAME (0x00040000) — removes title bar and resize border.
-            // Remove WS_BORDER (0x00800000) — removes thin border.
-            // Ensure WS_VISIBLE is set.
+            // Replace WS_POPUP with WS_CHILD — required for DWM to composite WPF content
+            // inside WorkerW. Remove borders. Ensure WS_VISIBLE.
             style = style & ~Win32Api.WS_POPUP;
             style = style & ~0x00C00000;  // WS_CAPTION
             style = style & ~0x00040000;  // WS_THICKFRAME
             style = style & ~0x00800000;  // WS_BORDER
-            style = style | Win32Api.WS_VISIBLE;
+            style = style | Win32Api.WS_CHILD | Win32Api.WS_VISIBLE;
 
-            // Add WS_EX_TOOLWINDOW — hides from Alt+Tab and taskbar.
-            // Do NOT add WS_EX_LAYERED — let WPF manage it through Window.Opacity.
+            // WS_EX_TOOLWINDOW hides from Alt+Tab and taskbar.
             exStyle = exStyle | Win32Api.WS_EX_TOOLWINDOW;
 
             Win32Api.SetWindowLong(hwnd, Win32Api.GWL_STYLE, style);
