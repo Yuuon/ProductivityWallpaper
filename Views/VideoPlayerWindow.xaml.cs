@@ -10,6 +10,12 @@ namespace ProductivityWallpaper.Views
         private MediaPlayer? _mediaPlayer;
         private bool _isStopping;
 
+        /// <summary>
+        /// Maximum time to wait for UI thread to detach VideoView.MediaPlayer during StopAndClose.
+        /// If the UI thread doesn't respond within this time, disposal proceeds anyway.
+        /// </summary>
+        private const int UiCleanupTimeoutMs = 3000;
+
         public VideoPlayerWindow(string videoPath, bool muted = true)
         {
             InitializeComponent();
@@ -96,7 +102,7 @@ namespace ProductivityWallpaper.Views
                     // Wait for UI thread to finish detaching VideoView.MediaPlayer.
                     // Without this wait, Dispose below would run while VLC's native renderer
                     // still references the player surface → AccessViolationException.
-                    uiCleanupDone.Wait(3000);
+                    uiCleanupDone.Wait(UiCleanupTimeoutMs);
                 }
                 catch
                 {
