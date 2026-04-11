@@ -946,7 +946,6 @@ namespace ProductivityWallpaper.Services
 
         /// <summary>
         /// Injects the click region overlay window into WorkerW at the topmost Z-order.
-        /// Injects the click region overlay window into WorkerW at the topmost Z-order.
         /// This is the same pattern used by InjectInteractiveLayers for the old InteractiveUiWindow.
         /// The overlay sits above the wallpaper content but below desktop icons.
         /// Uses WorkerW's actual client rect for sizing (DPI-safe).
