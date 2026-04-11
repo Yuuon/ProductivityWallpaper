@@ -88,6 +88,9 @@ namespace ProductivityWallpaper.Services
         [DllImport("user32.dll")]
         public static extern IntPtr GetParent(IntPtr hWnd);
 
+        [DllImport("user32.dll")]
+        public static extern IntPtr WindowFromPoint(POINT Point);
+
         public const int SW_HIDE = 0;
         public const int SW_SHOW = 5;
 

@@ -50,10 +50,13 @@ namespace ProductivityWallpaper.Views
         /// 2. Stop VLC on ThreadPool (NOT on UI thread — VLC callbacks fire on native threads,
         ///    calling Stop from UI while native thread renders causes AccessViolationException)
         /// 3. Only AFTER Stop() returns, detach VideoView.MediaPlayer on UI thread
-        /// 4. Close the window and dispose resources
+        /// 4. WAIT for UI thread to finish step 3 before proceeding
+        /// 5. Only AFTER VideoView is detached, dispose player resources
         /// 
-        /// Setting VideoView.MediaPlayer = null while VLC is still rendering causes
-        /// AccessViolationException that CANNOT be caught in .NET 8 (corrupted state exception).
+        /// Steps 4-5 are critical: BeginInvoke is non-blocking, so without waiting,
+        /// player.Dispose() runs while VideoView.MediaPlayer still references the player.
+        /// VLC's native renderer tries to access the freed surface → AccessViolationException.
+        /// This causes "freeze and crash a few seconds after action video ends."
         /// </summary>
         public void StopAndClose()
         {
@@ -70,7 +73,7 @@ namespace ProductivityWallpaper.Views
             // there is no visible surface, reducing the chance of native thread conflicts
             try { this.Visibility = Visibility.Hidden; } catch { }
 
-            // STEP 2-4: All VLC cleanup on ThreadPool to avoid native callback thread conflicts
+            // STEP 2-5: All VLC cleanup on ThreadPool to avoid native callback thread conflicts
             System.Threading.ThreadPool.QueueUserWorkItem(_ =>
             {
                 // STEP 2: Stop playback (blocks until VLC native rendering thread stops)
@@ -79,18 +82,29 @@ namespace ProductivityWallpaper.Views
                 // Brief pause for native thread to fully wind down
                 System.Threading.Thread.Sleep(50);
 
-                // STEP 3: Now VLC is stopped — safe to detach VideoView and close window on UI thread
+                // STEP 3-4: Detach VideoView and close window on UI thread, then WAIT for completion
+                var uiCleanupDone = new System.Threading.ManualResetEventSlim(false);
                 try
                 {
                     Application.Current?.Dispatcher?.BeginInvoke(() =>
                     {
                         try { VideoView.MediaPlayer = null; } catch { }
                         try { this.Close(); } catch { }
+                        uiCleanupDone.Set();
                     });
-                }
-                catch { /* App may be shutting down */ }
 
-                // STEP 4: Dispose player resources
+                    // Wait for UI thread to finish detaching VideoView.MediaPlayer.
+                    // Without this wait, Dispose below would run while VLC's native renderer
+                    // still references the player surface → AccessViolationException.
+                    uiCleanupDone.Wait(3000);
+                }
+                catch
+                {
+                    // App may be shutting down — UI thread not available
+                    uiCleanupDone.Set();
+                }
+
+                // STEP 5: Dispose player resources — safe now because VideoView is detached
                 try { player?.Dispose(); } catch { }
                 try { libvlc?.Dispose(); } catch { }
             });

@@ -241,6 +241,9 @@ namespace ProductivityWallpaper.Services
             {
                 if (_currentUiWindow != null)
                 {
+                    // Check desktop visibility first — don't trigger through other windows
+                    if (!IsDesktopAtPoint(screenPoint)) return;
+
                     Application.Current.Dispatcher.BeginInvoke(() =>
                     {
                         var trigger = _currentUiWindow?.GetTriggerAtPoint(screenPoint);
@@ -873,6 +876,12 @@ namespace ProductivityWallpaper.Services
             var settings = _activeWallpaperSettings;
             if (resolver == null || settings == null) return;
 
+            // Check if the click is actually on the desktop — not through another window.
+            // The global mouse hook (WH_MOUSE_LL) fires for ALL clicks system-wide.
+            // Without this check, clicking in a browser/app that overlaps a trigger zone
+            // would still trigger the wallpaper action.
+            if (!IsDesktopAtPoint(screenPoint)) return;
+
             // BeginInvoke (not Invoke) — global mouse hooks run on every mouse event system-wide.
             // Invoke blocks until UI thread finishes, stalling the hook chain and causing
             // system-wide mouse lag when HandleThemeClick takes time (e.g., creating windows).
@@ -896,10 +905,10 @@ namespace ProductivityWallpaper.Services
 
             Win32Api.SetParent(helper.Handle, workerw);
 
-            // Replace WS_POPUP with WS_CHILD — required for DWM to composite inside WorkerW
+            // Remove popup and border, keep visible. Do NOT add WS_CHILD.
             int style = Win32Api.GetWindowLong(helper.Handle, Win32Api.GWL_STYLE);
             style = style & ~Win32Api.WS_POPUP & ~0x00C00000 & ~0x00040000;
-            style = style | Win32Api.WS_CHILD | Win32Api.WS_VISIBLE;
+            style = style | Win32Api.WS_VISIBLE;
             Win32Api.SetWindowLong(helper.Handle, Win32Api.GWL_STYLE, style);
 
             int exStyle = Win32Api.GetWindowLong(helper.Handle, Win32Api.GWL_EXSTYLE);
@@ -920,6 +929,8 @@ namespace ProductivityWallpaper.Services
 
             Win32Api.SetWindowPos(helper.Handle, Win32Api.HWND_TOP, 0, 0,
                 screenW, screenH, Win32Api.SWP_NOACTIVATE | Win32Api.SWP_SHOWWINDOW | Win32Api.SWP_FRAMECHANGED);
+
+            ForceSoftwareRendering(helper.Handle);
         }
 
         private void HandleThemeClick(System.Windows.Point screenPoint,
@@ -1213,6 +1224,16 @@ namespace ProductivityWallpaper.Services
             // 4. Ensure the window is shown (belt and suspenders)
             Win32Api.ShowWindow(hwnd, Win32Api.SW_SHOW);
 
+            // 5. CRITICAL: Force software rendering for WPF content inside WorkerW.
+            // WPF normally renders via DirectX/DWM compositor. After SetParent into WorkerW,
+            // DWM doesn't properly redirect the WPF D3D rendering surface — causing:
+            //   - Video plays (VLC HwndHost has its own native DirectX surface, bypasses WPF)
+            //   - But WPF content (Image, Background="Black") is invisible
+            // Switching to software rendering makes WPF use GDI (BitBlt to window DC),
+            // which works reliably in any window context, including WorkerW children.
+            // VLC HwndHost rendering is unaffected by this setting (per MSDN).
+            ForceSoftwareRendering(hwnd);
+
             // Verify injection
             IntPtr actualParent = Win32Api.GetParent(hwnd);
             bool isVisible = Win32Api.IsWindowVisible(hwnd);
@@ -1235,6 +1256,8 @@ namespace ProductivityWallpaper.Services
             int screenH = Win32Api.GetSystemMetrics(Win32Api.SM_CYSCREEN);
             Win32Api.SetWindowPos(idleHelper.Handle, Win32Api.HWND_BOTTOM, 0, 0, screenW, screenH,
                 Win32Api.SWP_NOACTIVATE | Win32Api.SWP_SHOWWINDOW | Win32Api.SWP_FRAMECHANGED);
+
+            ForceSoftwareRendering(idleHelper.Handle);
         }
 
         private void InjectInteractiveLayers(Window idleWin, InteractiveUiWindow uiWin)
@@ -1245,10 +1268,11 @@ namespace ProductivityWallpaper.Services
             IntPtr workerw = FindWorkerW();
             Win32Api.SetParent(uiHelper.Handle, workerw);
 
-            // UI overlay: replace WS_POPUP with WS_CHILD for DWM compositing inside WorkerW
+            // UI overlay: remove popup and border, keep visible, add toolwindow
+            // Do NOT add WS_CHILD — see RemoveBorderAndSetTransparent comments.
             int style = Win32Api.GetWindowLong(uiHelper.Handle, Win32Api.GWL_STYLE);
             style = style & ~Win32Api.WS_POPUP & ~0x00C00000 & ~0x00040000;
-            style = style | Win32Api.WS_CHILD | Win32Api.WS_VISIBLE;
+            style = style | Win32Api.WS_VISIBLE;
             Win32Api.SetWindowLong(uiHelper.Handle, Win32Api.GWL_STYLE, style);
 
             int exStyle = Win32Api.GetWindowLong(uiHelper.Handle, Win32Api.GWL_EXSTYLE);
@@ -1260,6 +1284,8 @@ namespace ProductivityWallpaper.Services
             int screenH = Win32Api.GetSystemMetrics(Win32Api.SM_CYSCREEN);
             Win32Api.SetWindowPos(uiHelper.Handle, Win32Api.HWND_TOP, 0, 0, screenW, screenH,
                 Win32Api.SWP_NOACTIVATE | Win32Api.SWP_SHOWWINDOW | Win32Api.SWP_FRAMECHANGED);
+
+            ForceSoftwareRendering(uiHelper.Handle);
 
             uiWin.UpdateLayout(SystemParameters.PrimaryScreenWidth, SystemParameters.PrimaryScreenHeight);
         }
@@ -1278,6 +1304,8 @@ namespace ProductivityWallpaper.Services
             int screenH = Win32Api.GetSystemMetrics(Win32Api.SM_CYSCREEN);
             Win32Api.SetWindowPos(actionHelper.Handle, Win32Api.HWND_TOP, 0, 0, screenW, screenH,
                 Win32Api.SWP_NOACTIVATE | Win32Api.SWP_SHOWWINDOW | Win32Api.SWP_FRAMECHANGED);
+
+            ForceSoftwareRendering(actionHelper.Handle);
 
             if (uiWin != null)
             {
@@ -1445,18 +1473,99 @@ namespace ProductivityWallpaper.Services
         }
 
         /// <summary>
-        /// Strips borders/popup style and sets WS_CHILD on a window parented into WorkerW.
+        /// Forces WPF software rendering on a window injected into WorkerW.
         /// 
-        /// CRITICAL: WS_CHILD is REQUIRED for WPF content to render inside WorkerW.
-        /// Without WS_CHILD, DWM treats the window as an "overlapped owned" window and
-        /// skips compositing for it inside WorkerW. VLC video still shows because HwndHost
-        /// renders via native DirectX (bypasses DWM), but all WPF-rendered content
-        /// (Image controls, Background="Black") becomes invisible — causing:
-        ///   - "image wallpaper shows nothing"
-        ///   - "transparent edges around video" (Background="Black" not rendering)
+        /// WHY THIS IS NEEDED:
+        /// WPF normally renders via DirectX through DWM (Desktop Window Manager) compositor.
+        /// After SetParent into WorkerW, DWM doesn't properly redirect the WPF D3D rendering
+        /// surface — the WPF compositor writes to a DWM composition surface that doesn't
+        /// get presented inside the WorkerW context. This causes:
+        ///   - VLC video visible (HwndHost creates its own native DirectX surface, bypasses WPF compositor)
+        ///   - WPF Background="Black" invisible (rendered by WPF compositor → lost)
+        ///   - WPF Image control invisible (rendered by WPF compositor → lost)
+        ///   - Result: video plays but edges are transparent; image wallpaper shows nothing.
+        ///
+        /// SOLUTION:
+        /// RenderMode.SoftwareOnly switches WPF from DirectX to GDI rendering. WPF's software
+        /// rasterizer draws to an in-memory bitmap, then BitBlt's it to the window's device context.
+        /// GDI painting (BitBlt) works reliably in any window context, including WorkerW children,
+        /// because it goes directly to the window's surface without DWM compositor involvement.
+        ///
+        /// Per MSDN: "HwndHost-hosted content (e.g., VLC VideoView) is NOT affected by this setting."
+        /// So VLC continues using its own hardware-accelerated DirectX rendering.
+        /// </summary>
+        private static void ForceSoftwareRendering(IntPtr hwnd)
+        {
+            try
+            {
+                var hwndSource = HwndSource.FromHwnd(hwnd);
+                if (hwndSource?.CompositionTarget is System.Windows.Interop.HwndTarget hwndTarget)
+                {
+                    hwndTarget.RenderMode = System.Windows.Interop.RenderMode.SoftwareOnly;
+                    System.Diagnostics.Debug.WriteLine($"[ForceSoftwareRendering] Set SoftwareOnly on hwnd=0x{hwnd:X8}");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[ForceSoftwareRendering] Failed for hwnd=0x{hwnd:X8}: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Checks whether the desktop is visible at the given screen point.
+        /// Uses WindowFromPoint to find the topmost window at the coordinates, then walks
+        /// up the parent chain looking for desktop-related windows (WorkerW, Progman, etc.).
+        /// Returns false if an application window is at that point (blocking the desktop).
         /// 
-        /// Adding WS_CHILD tells DWM to properly composite the child window, so WPF
-        /// rendering works correctly inside the WorkerW desktop hierarchy.
+        /// This prevents click regions from triggering when the user clicks on a regular
+        /// window that happens to overlap with a trigger zone.
+        /// </summary>
+        private static bool IsDesktopAtPoint(System.Windows.Point screenPoint)
+        {
+            var pt = new Win32Api.POINT { x = (int)screenPoint.X, y = (int)screenPoint.Y };
+            IntPtr hwnd = Win32Api.WindowFromPoint(pt);
+            if (hwnd == IntPtr.Zero) return false;
+
+            // Walk up the parent chain — if any ancestor is a desktop-related window,
+            // the click is on the desktop area.
+            IntPtr current = hwnd;
+            while (current != IntPtr.Zero)
+            {
+                var sb = new System.Text.StringBuilder(64);
+                Win32Api.GetClassName(current, sb, sb.Capacity);
+                string className = sb.ToString();
+
+                // Desktop-related window classes:
+                // "WorkerW"          - wallpaper render target (where our windows are injected)
+                // "Progman"          - program manager (desktop host)
+                // "SHELLDLL_DefView" - desktop icon container
+                // "SysListView32"    - desktop icon list view
+                // "#32769"           - desktop window class
+                if (className == "WorkerW" || className == "Progman" ||
+                    className == "SHELLDLL_DefView" || className == "SysListView32" ||
+                    className == "#32769")
+                {
+                    return true;
+                }
+
+                current = Win32Api.GetParent(current);
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Strips borders/popup style from a window parented into WorkerW.
+        /// 
+        /// IMPORTANT: Do NOT add WS_CHILD here. While WS_CHILD is the "correct" Win32 style
+        /// for a parented window, it breaks WPF's DirectX/DWM rendering pipeline. WPF's
+        /// HwndSource was designed for WS_POPUP or WS_OVERLAPPED windows. Adding WS_CHILD
+        /// changes the DWM compositing path and causes WPF content to not render.
+        /// 
+        /// The real visibility fix is ForceSoftwareRendering() — see that method's comments.
+        /// 
+        /// SetParent alone handles the parent-child relationship for containment within WorkerW.
+        /// The window will be behind desktop icons because WorkerW itself is behind SHELLDLL_DefView.
         /// </summary>
         private void RemoveBorderAndSetTransparent(IntPtr hwnd)
         {
@@ -1465,13 +1574,14 @@ namespace ProductivityWallpaper.Services
 
             System.Diagnostics.Debug.WriteLine($"[RemoveBorder] Before: style=0x{style:X8}, exStyle=0x{exStyle:X8}");
 
-            // Replace WS_POPUP with WS_CHILD — required for DWM to composite WPF content
-            // inside WorkerW. Remove borders. Ensure WS_VISIBLE.
+            // Remove WS_POPUP — required for proper parent relationship after SetParent.
+            // Remove borders (WS_CAPTION, WS_THICKFRAME, WS_BORDER).
+            // Ensure WS_VISIBLE. Do NOT add WS_CHILD — breaks WPF rendering.
             style = style & ~Win32Api.WS_POPUP;
             style = style & ~0x00C00000;  // WS_CAPTION
             style = style & ~0x00040000;  // WS_THICKFRAME
             style = style & ~0x00800000;  // WS_BORDER
-            style = style | Win32Api.WS_CHILD | Win32Api.WS_VISIBLE;
+            style = style | Win32Api.WS_VISIBLE;
 
             // WS_EX_TOOLWINDOW hides from Alt+Tab and taskbar.
             exStyle = exStyle | Win32Api.WS_EX_TOOLWINDOW;
