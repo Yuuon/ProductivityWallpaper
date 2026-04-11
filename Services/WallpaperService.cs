@@ -1288,18 +1288,46 @@ namespace ProductivityWallpaper.Services
             }
         }
 
+        /// <summary>
+        /// Finds the WorkerW window behind the desktop icons for wallpaper injection.
+        /// On Windows 10, the classic approach finds the WorkerW sibling of the SHELLDLL_DefView parent.
+        /// On Windows 11 (build 22000+), the shell architecture changed — SHELLDLL_DefView may be
+        /// hosted directly under Progman. In that case, we parent wallpaper windows to Progman itself,
+        /// which sits below the desktop icon layer and the taskbar.
+        /// </summary>
         private IntPtr FindWorkerW()
         {
             IntPtr progman = Win32Api.FindWindow("Progman", null);
+
+            // Send the undocumented 0x052C message to Progman to spawn a WorkerW behind the icons
             Win32Api.SendMessageTimeout(progman, 0x052C, UIntPtr.Zero, IntPtr.Zero, 0x0, 1000, out _);
 
+            // Classic Win10 approach: find the WorkerW that is a sibling after the SHELLDLL_DefView parent
             IntPtr workerw = IntPtr.Zero;
+            IntPtr shellDefViewParent = IntPtr.Zero;
             Win32Api.EnumWindows((hwnd, lParam) =>
             {
                 if (Win32Api.FindWindowEx(hwnd, IntPtr.Zero, "SHELLDLL_DefView", null) != IntPtr.Zero)
+                {
+                    shellDefViewParent = hwnd;
                     workerw = Win32Api.FindWindowEx(IntPtr.Zero, hwnd, "WorkerW", null);
+                }
                 return true;
             }, IntPtr.Zero);
+
+            // Win11 fallback: If SHELLDLL_DefView is a child of Progman (not a WorkerW),
+            // then the classic sibling WorkerW either doesn't exist or doesn't behave correctly.
+            // In this case, use Progman as the parent — it sits below desktop icons and the taskbar.
+            if (workerw == IntPtr.Zero ||
+                (shellDefViewParent != IntPtr.Zero && shellDefViewParent == progman))
+            {
+                // Verify Progman owns SHELLDLL_DefView (Win11 layout)
+                IntPtr shellView = Win32Api.FindWindowEx(progman, IntPtr.Zero, "SHELLDLL_DefView", null);
+                if (shellView != IntPtr.Zero)
+                {
+                    return progman;
+                }
+            }
 
             return workerw;
         }

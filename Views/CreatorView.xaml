@@ -864,7 +864,7 @@
                             </Grid>
                         </Border>
                         
-                        <!-- Right: Theme Preview Configuration -->
+                        <!-- Right: Theme Overview - Feature Summary Buttons -->
                         <Border Grid.Column="1"
                                 Background="{StaticResource BackgroundBlockBrush}"
                                 BorderBrush="{StaticResource BorderLineBrush}"
@@ -872,15 +872,223 @@
                                 CornerRadius="10">
                             <Grid>
                                 <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="*"/>
                                     <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
                                 
-                                <!-- Config content -->
-                                <ContentControl Grid.Row="0" Content="{Binding ConfigurationContent}"/>
+                                <!-- Header -->
+                                <TextBlock Grid.Row="0"
+                                           Text="{DynamicResource Creator_OverviewHeader}"
+                                           Foreground="{StaticResource TextPrimaryBrush}"
+                                           FontSize="14"
+                                           FontWeight="SemiBold"
+                                           Margin="16,16,16,8"/>
+                                
+                                <!-- Feature Summary Buttons -->
+                                <ScrollViewer Grid.Row="1" 
+                                              VerticalScrollBarVisibility="Auto"
+                                              Margin="12,0,12,0">
+                                    <StackPanel>
+                                        <!-- Wallpaper -->
+                                        <Button Command="{Binding SelectFeatureCommand}" CommandParameter="DesktopBackground"
+                                                Margin="0,4" Height="42" Cursor="Hand">
+                                            <Button.Style>
+                                                <Style TargetType="Button">
+                                                    <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+                                                    <Setter Property="BorderThickness" Value="0"/>
+                                                    <Setter Property="Template">
+                                                        <Setter.Value>
+                                                            <ControlTemplate TargetType="Button">
+                                                                <Border Background="{TemplateBinding Background}"
+                                                                        CornerRadius="21"
+                                                                        Padding="16,0">
+                                                                    <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                                                </Border>
+                                                            </ControlTemplate>
+                                                        </Setter.Value>
+                                                    </Setter>
+                                                    <Style.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter Property="Background" Value="{StaticResource SchemeSelectedBrush}"/>
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                            <StackPanel Orientation="Horizontal">
+                                                <Path Data="M4 4h7V2H2v9h2V4zm0 12H2v6h9v-2H4v-4zm16-12v4h2V2h-9v2h7zm0 12h-4v2h6v-6h-2v4zM13.5 6.5C13.5 7.88 12.38 9 11 9 9.62 9 8.5 7.88 8.5 6.5 8.5 5.12 9.62 4 11 4c1.38 0 2.5 1.12 2.5 2.5zM5 17c0-2.67 5.33-4 8-4h.67C14.89 15.44 16 18.24 16 20H5v-3zm13-2l-2.25 2.25L18 19.5l4-4-4-4-2.25 2.25L18 16z"
+                                                      Fill="{StaticResource AccentBrush}"
+                                                      Width="18" Height="18"
+                                                      Stretch="Uniform"
+                                                      Margin="0,0,10,0"/>
+                                                <TextBlock Foreground="{StaticResource TextPrimaryBrush}" FontSize="13" VerticalAlignment="Center">
+                                                    <Run Text="{DynamicResource Creator_Feature_DesktopBackground}"/>
+                                                    <Run Text="{Binding WallpaperResourceCount, StringFormat='({0})', Mode=OneWay}"
+                                                         Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </Button>
+                                        
+                                        <!-- Mouse Click -->
+                                        <Button Command="{Binding SelectFeatureCommand}" CommandParameter="MouseClick"
+                                                Margin="0,4" Height="42" Cursor="Hand">
+                                            <Button.Style>
+                                                <Style TargetType="Button">
+                                                    <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+                                                    <Setter Property="BorderThickness" Value="0"/>
+                                                    <Setter Property="Template">
+                                                        <Setter.Value>
+                                                            <ControlTemplate TargetType="Button">
+                                                                <Border Background="{TemplateBinding Background}"
+                                                                        CornerRadius="21"
+                                                                        Padding="16,0">
+                                                                    <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                                                </Border>
+                                                            </ControlTemplate>
+                                                        </Setter.Value>
+                                                    </Setter>
+                                                    <Style.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter Property="Background" Value="{StaticResource SchemeSelectedBrush}"/>
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                            <StackPanel Orientation="Horizontal">
+                                                <Path Data="M13 1.07V9h7c0-4.08-2.69-7.51-7-7.93zM4 15c0 4.42 3.58 8 8 8s8-3.58 8-8v-4H4v4zm7-13.93C6.69 1.56 4 4.92 4 9h7V1.07z"
+                                                      Fill="{StaticResource AccentBrush}"
+                                                      Width="18" Height="18"
+                                                      Stretch="Uniform"
+                                                      Margin="0,0,10,0"/>
+                                                <TextBlock Foreground="{StaticResource TextPrimaryBrush}" FontSize="13" VerticalAlignment="Center">
+                                                    <Run Text="{DynamicResource Creator_Feature_MouseClick}"/>
+                                                    <Run Text="{Binding MouseClickResourceCount, StringFormat='({0})', Mode=OneWay}"
+                                                         Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </Button>
+                                        
+                                        <!-- Shutdown -->
+                                        <Button Command="{Binding SelectFeatureCommand}" CommandParameter="Shutdown"
+                                                Margin="0,4" Height="42" Cursor="Hand">
+                                            <Button.Style>
+                                                <Style TargetType="Button">
+                                                    <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+                                                    <Setter Property="BorderThickness" Value="0"/>
+                                                    <Setter Property="Template">
+                                                        <Setter.Value>
+                                                            <ControlTemplate TargetType="Button">
+                                                                <Border Background="{TemplateBinding Background}"
+                                                                        CornerRadius="21"
+                                                                        Padding="16,0">
+                                                                    <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                                                </Border>
+                                                            </ControlTemplate>
+                                                        </Setter.Value>
+                                                    </Setter>
+                                                    <Style.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter Property="Background" Value="{StaticResource SchemeSelectedBrush}"/>
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                            <StackPanel Orientation="Horizontal">
+                                                <Path Data="M13 3h-2v10h2V3zm4.83 2.17l-1.42 1.42C17.99 7.86 19 9.81 19 12c0 3.87-3.13 7-7 7s-7-3.13-7-7c0-2.19 1.01-4.14 2.58-5.42L6.17 5.17C4.23 6.82 3 9.26 3 12c0 4.97 4.03 9 9 9s9-4.03 9-9c0-2.74-1.23-5.18-3.17-6.83z"
+                                                      Fill="{StaticResource AccentBrush}"
+                                                      Width="18" Height="18"
+                                                      Stretch="Uniform"
+                                                      Margin="0,0,10,0"/>
+                                                <TextBlock Foreground="{StaticResource TextPrimaryBrush}" FontSize="13" VerticalAlignment="Center">
+                                                    <Run Text="{DynamicResource Creator_Feature_Shutdown}"/>
+                                                    <Run Text="{Binding ShutdownResourceCount, StringFormat='({0})', Mode=OneWay}"
+                                                         Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </Button>
+                                        
+                                        <!-- Boot/Restart -->
+                                        <Button Command="{Binding SelectFeatureCommand}" CommandParameter="BootRestart"
+                                                Margin="0,4" Height="42" Cursor="Hand">
+                                            <Button.Style>
+                                                <Style TargetType="Button">
+                                                    <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+                                                    <Setter Property="BorderThickness" Value="0"/>
+                                                    <Setter Property="Template">
+                                                        <Setter.Value>
+                                                            <ControlTemplate TargetType="Button">
+                                                                <Border Background="{TemplateBinding Background}"
+                                                                        CornerRadius="21"
+                                                                        Padding="16,0">
+                                                                    <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                                                </Border>
+                                                            </ControlTemplate>
+                                                        </Setter.Value>
+                                                    </Setter>
+                                                    <Style.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter Property="Background" Value="{StaticResource SchemeSelectedBrush}"/>
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                            <StackPanel Orientation="Horizontal">
+                                                <Path Data="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"
+                                                      Fill="{StaticResource AccentBrush}"
+                                                      Width="18" Height="18"
+                                                      Stretch="Uniform"
+                                                      Margin="0,0,10,0"/>
+                                                <TextBlock Foreground="{StaticResource TextPrimaryBrush}" FontSize="13" VerticalAlignment="Center">
+                                                    <Run Text="{DynamicResource Creator_Feature_BootRestart}"/>
+                                                    <Run Text="{Binding BootRestartResourceCount, StringFormat='({0})', Mode=OneWay}"
+                                                         Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </Button>
+                                        
+                                        <!-- Screen Wake -->
+                                        <Button Command="{Binding SelectFeatureCommand}" CommandParameter="ScreenWake"
+                                                Margin="0,4" Height="42" Cursor="Hand">
+                                            <Button.Style>
+                                                <Style TargetType="Button">
+                                                    <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+                                                    <Setter Property="BorderThickness" Value="0"/>
+                                                    <Setter Property="Template">
+                                                        <Setter.Value>
+                                                            <ControlTemplate TargetType="Button">
+                                                                <Border Background="{TemplateBinding Background}"
+                                                                        CornerRadius="21"
+                                                                        Padding="16,0">
+                                                                    <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                                                </Border>
+                                                            </ControlTemplate>
+                                                        </Setter.Value>
+                                                    </Setter>
+                                                    <Style.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter Property="Background" Value="{StaticResource SchemeSelectedBrush}"/>
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                            <StackPanel Orientation="Horizontal">
+                                                <Path Data="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9zm0 16c-3.86 0-7-3.14-7-7s3.14-7 7-7 7 3.14 7 7-3.14 7-7 7zm1-11h-2v3H8v2h3v3h2v-3h3v-2h-3V8z"
+                                                      Fill="{StaticResource AccentBrush}"
+                                                      Width="18" Height="18"
+                                                      Stretch="Uniform"
+                                                      Margin="0,0,10,0"/>
+                                                <TextBlock Foreground="{StaticResource TextPrimaryBrush}" FontSize="13" VerticalAlignment="Center">
+                                                    <Run Text="{DynamicResource Creator_Feature_ScreenWake}"/>
+                                                    <Run Text="{Binding ScreenWakeResourceCount, StringFormat='({0})', Mode=OneWay}"
+                                                         Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </Button>
+                                    </StackPanel>
+                                </ScrollViewer>
                                 
                                 <!-- Export Theme Package section -->
-                                <StackPanel Grid.Row="1" Margin="16,8,16,16">
+                                <StackPanel Grid.Row="2" Margin="16,8,16,16">
                                     <Button Command="{Binding ExportThemeCommand}"
                                             Height="36"
                                             Style="{StaticResource PrimaryButtonStyle}">

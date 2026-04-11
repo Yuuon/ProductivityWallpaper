@@ -68,27 +68,61 @@
                     </Rectangle.Style>
                 </Rectangle>
                 
-                <!-- Region Name Label -->
-                <TextBlock Text="{Binding Name}"
+                <!-- Region Name Label (click to rename) -->
+                <TextBlock x:Name="RegionNameLabel"
+                           Text="{Binding Name}"
                            Foreground="White"
-                           FontSize="12"
+                           FontSize="18"
+                           FontWeight="SemiBold"
                            HorizontalAlignment="Center"
                            VerticalAlignment="Bottom"
-                           Margin="0,0,0,4">
+                           Margin="0,0,0,8"
+                           Cursor="Hand"
+                           MouseLeftButtonDown="RegionNameLabel_MouseLeftButtonDown">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Visible"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsEditingName}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
                     <TextBlock.Effect>
-                        <DropShadowEffect ShadowDepth="1" BlurRadius="2" Color="Black"/>
+                        <DropShadowEffect ShadowDepth="1" BlurRadius="3" Color="Black"/>
                     </TextBlock.Effect>
                 </TextBlock>
+                
+                <!-- Region Name TextBox (for inline editing) -->
+                <TextBox x:Name="RegionNameTextBox"
+                         Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         Foreground="White"
+                         FontSize="18"
+                         FontWeight="SemiBold"
+                         Background="#80000000"
+                         BorderThickness="0,0,0,1"
+                         BorderBrush="{StaticResource AccentBrush}"
+                         CaretBrush="White"
+                         HorizontalAlignment="Center"
+                         VerticalAlignment="Bottom"
+                         Margin="0,0,0,8"
+                         MinWidth="60"
+                         MaxWidth="200"
+                         Padding="4,2"
+                         LostFocus="RegionNameTextBox_LostFocus"
+                         KeyDown="RegionNameTextBox_KeyDown"
+                         Visibility="{Binding IsEditingName, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                 
                 <!-- Delete Button (top-right corner inside the region) -->
                 <Button x:Name="DeleteButton"
                         Command="{Binding DataContext.DeleteRegionCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                         CommandParameter="{Binding}"
-                        Width="24"
-                        Height="24"
+                        Width="36"
+                        Height="36"
                         HorizontalAlignment="Right"
                         VerticalAlignment="Top"
-                        Margin="0,4,4,0"
+                        Margin="0,6,6,0"
                         Background="{StaticResource DangerBrush}"
                         BorderThickness="0"
                         Cursor="Hand"
@@ -96,12 +130,12 @@
                     <Button.Template>
                         <ControlTemplate TargetType="Button">
                             <Grid>
-                                <Ellipse x:Name="ButtonBg" Fill="{TemplateBinding Background}" Stroke="White" StrokeThickness="1.5"/>
+                                <Ellipse x:Name="ButtonBg" Fill="{TemplateBinding Background}" Stroke="White" StrokeThickness="2"/>
                                 <Path Data="M6 6L14 14 M14 6L6 14"
                                       Stroke="White"
-                                      StrokeThickness="2"
-                                      Width="10"
-                                      Height="10"
+                                      StrokeThickness="2.5"
+                                      Width="14"
+                                      Height="14"
                                       Stretch="Uniform"
                                       HorizontalAlignment="Center"
                                       VerticalAlignment="Center"/>

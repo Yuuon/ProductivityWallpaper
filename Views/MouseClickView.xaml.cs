@@ -550,5 +550,73 @@ namespace ProductivityWallpaper.Views
         }
 
         #endregion
+
+        #region Region Name Inline Editing
+
+        /// <summary>
+        /// When the region name label is clicked, switch to editing mode.
+        /// </summary>
+        private void RegionNameLabel_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is System.Windows.Controls.TextBlock textBlock &&
+                textBlock.DataContext is ClickRegionModel region)
+            {
+                region.IsEditingName = true;
+                e.Handled = true;
+
+                // Focus the TextBox after it becomes visible
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    // Find the sibling TextBox in the same template
+                    var parent = VisualTreeHelper.GetParent(textBlock);
+                    if (parent is System.Windows.Controls.Grid grid)
+                    {
+                        foreach (var child in LogicalTreeHelper.GetChildren(grid))
+                        {
+                            if (child is System.Windows.Controls.TextBox tb &&
+                                tb.Name == "RegionNameTextBox")
+                            {
+                                tb.Focus();
+                                tb.SelectAll();
+                                break;
+                            }
+                        }
+                    }
+                }), System.Windows.Threading.DispatcherPriority.Input);
+            }
+        }
+
+        /// <summary>
+        /// When the region name TextBox loses focus, commit the edit.
+        /// </summary>
+        private void RegionNameTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (sender is System.Windows.Controls.TextBox textBox &&
+                textBox.DataContext is ClickRegionModel region)
+            {
+                region.IsEditingName = false;
+            }
+        }
+
+        /// <summary>
+        /// When Enter is pressed in the region name TextBox, commit the edit.
+        /// When Escape is pressed, cancel editing.
+        /// </summary>
+        private void RegionNameTextBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (sender is System.Windows.Controls.TextBox textBox &&
+                textBox.DataContext is ClickRegionModel region)
+            {
+                if (e.Key == Key.Enter || e.Key == Key.Escape)
+                {
+                    region.IsEditingName = false;
+                    // Move focus away to trigger LostFocus
+                    System.Windows.Input.Keyboard.ClearFocus();
+                    e.Handled = true;
+                }
+            }
+        }
+
+        #endregion
     }
 }

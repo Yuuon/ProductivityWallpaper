@@ -37,6 +37,12 @@ namespace ProductivityWallpaper.Models
         private bool _isSelected;
 
         /// <summary>
+        /// Whether the region name is currently being edited inline.
+        /// </summary>
+        [ObservableProperty]
+        private bool _isEditingName;
+
+        /// <summary>
         /// The click action for this region (visual + audio IDs).
         /// Uses ID-based references to ThemeResourceLibrary.
         /// </summary>

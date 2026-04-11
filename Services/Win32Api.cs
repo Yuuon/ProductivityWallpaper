@@ -93,6 +93,10 @@ namespace ProductivityWallpaper.Services
             public IntPtr dwExtraInfo;
         }
 
+        // --- Window Class Name ---
+        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        public static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
+
         // --- Screen Metrics ---
         [DllImport("user32.dll")]
         public static extern int GetSystemMetrics(int nIndex);

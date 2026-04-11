@@ -119,6 +119,9 @@ Go create your exclusive theme~</system:String>
     <system:String x:Key="Creator_EmptyPreview_zh">这里空空如也
 去创作你的专属主题吧~</system:String>
     
+    <system:String x:Key="Creator_OverviewHeader">Schemes &amp; Resources</system:String>
+    <system:String x:Key="Creator_OverviewHeader_zh">方案与资源</system:String>
+    
     <!-- Feature Names -->
     <system:String x:Key="Creator_Feature_ThemePreview">Theme Preview</system:String>
     <system:String x:Key="Creator_Feature_ThemePreview_zh">主题预览</system:String>

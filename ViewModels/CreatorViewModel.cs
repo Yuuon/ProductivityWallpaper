@@ -276,6 +276,51 @@ namespace ProductivityWallpaper.ViewModels
         public ObservableCollection<SchemeModel> BootRestartSchemes => _schemesByFeature[FeatureType.BootRestart];
         public ObservableCollection<SchemeModel> ScreenWakeSchemes => _schemesByFeature[FeatureType.ScreenWake];
 
+        // --- Overview Resource Counts (for Theme Preview panel) ---
+
+        /// <summary>
+        /// Gets the total number of media resources across all Desktop Background schemes.
+        /// </summary>
+        public int WallpaperResourceCount => DesktopBackgroundSchemes
+            .Sum(s => s.DesktopBackgroundMedia.MediaIds.Count + s.BackgroundAudio.MediaIds.Count);
+
+        /// <summary>
+        /// Gets the total number of click regions across all Mouse Click schemes.
+        /// </summary>
+        public int MouseClickResourceCount => MouseClickSchemes
+            .Sum(s => s.ClickRegions.Count);
+
+        /// <summary>
+        /// Gets the total number of media resources across all Shutdown schemes.
+        /// </summary>
+        public int ShutdownResourceCount => ShutdownSchemes
+            .Sum(s => s.EventMedia.MediaIds.Count);
+
+        /// <summary>
+        /// Gets the total number of media resources across all Boot/Restart schemes.
+        /// </summary>
+        public int BootRestartResourceCount => BootRestartSchemes
+            .Sum(s => s.EventMedia.MediaIds.Count);
+
+        /// <summary>
+        /// Gets the total number of media resources across all Screen Wake schemes.
+        /// </summary>
+        public int ScreenWakeResourceCount => ScreenWakeSchemes
+            .Sum(s => s.EventMedia.MediaIds.Count);
+
+        /// <summary>
+        /// Refreshes all overview resource count properties.
+        /// Called when navigating to ThemePreview or after scheme changes.
+        /// </summary>
+        private void RefreshOverviewCounts()
+        {
+            OnPropertyChanged(nameof(WallpaperResourceCount));
+            OnPropertyChanged(nameof(MouseClickResourceCount));
+            OnPropertyChanged(nameof(ShutdownResourceCount));
+            OnPropertyChanged(nameof(BootRestartResourceCount));
+            OnPropertyChanged(nameof(ScreenWakeResourceCount));
+        }
+
         // --- Constructors ---
         public CreatorViewModel() : this(null, null)
         {
@@ -669,6 +714,7 @@ namespace ProductivityWallpaper.ViewModels
             // ThemePreview and OpenApp have no feature VM
             if (featureName == "ThemePreview")
             {
+                RefreshOverviewCounts();
                 NavigationMonitorService.LogNavigation("ThemePreview", null);
                 return;
             }
