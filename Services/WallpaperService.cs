@@ -283,11 +283,16 @@ namespace ProductivityWallpaper.Services
         }
 
         // --- 播放动作视频 (核心优化：淡入淡出 + 缓冲) ---
+        // Flag to prevent re-entry while the previous action video is still cleaning up.
+        private bool _isActionVideoClosing;
+
         private async void PlayActionVideo(string videoPath)
         {
-            if (_actionVideoWindow != null) return;
+            // Guard: only one action video at a time.
+            // Also guard against re-entry while the previous action video's async cleanup is in progress.
+            if (_actionVideoWindow != null || _isActionVideoClosing) return;
 
-            // 1. 获取时长 (保持不变)
+            // 1. 获取时长
             long durationMs = 3000;
             if (_tempLibVLC != null)
             {
@@ -302,49 +307,66 @@ namespace ProductivityWallpaper.Services
                 catch { }
             }
 
-            // 1. 创建窗口 (此时它是 1x1 大小，位于 -32000)
+            // 2. 创建窗口 (此时它是 1x1 大小，位于 -32000)
             _actionVideoWindow = CreateHiddenVideoWindow(videoPath);
 
-            // 2. 显示窗口
-            // 这一步是为了让 HwndHost 初始化。
-            // 因为它是 1x1 像素且在屏幕外，用户完全看不到任何“弹窗”或“闪烁”。
+            // 3. 显示窗口 — HwndHost 初始化需要 Show()
             _actionVideoWindow.Show();
 
-            // 3. 挂载到桌面
-            // 此时窗口变成了 WorkerW 的子窗口，但它仍然是 1x1 像素
-            InjectActionLayer(_actionVideoWindow, _idleVideoWindow, _currentUiWindow);
+            // 4. 挂载到桌面 — 窗口变成 WorkerW 的子窗口
+            bool injected = InjectActionLayer(_actionVideoWindow, _idleVideoWindow, _currentUiWindow);
 
-            // 4. [缓冲等待]
-            // 此时 VLC 开始加载视频。我们在它还是 1x1 的时候等待一小会儿。
-            // 防止拉大后先显示黑屏再出画面。
+            // If injection failed, try invalidating cache and retrying once
+            if (!injected)
+            {
+                System.Diagnostics.Debug.WriteLine("[PlayActionVideo] First injection failed, invalidating cache and retrying...");
+                _cachedWorkerW = IntPtr.Zero;
+                injected = InjectActionLayer(_actionVideoWindow, _idleVideoWindow, _currentUiWindow);
+            }
+
+            if (!injected)
+            {
+                System.Diagnostics.Debug.WriteLine("[PlayActionVideo] Injection failed after retry, aborting");
+                try { _actionVideoWindow.StopAndClose(); } catch { }
+                _actionVideoWindow = null;
+                return;
+            }
+
+            // 5. [缓冲等待] — VLC 在 1x1 时加载视频
             await Task.Delay(100);
 
-            // InjectActionLayer already handles full-screen expansion via SetWindowPos
-
-            // 8. 后台重置 Idle (保持不变)
+            // 6. 后台重置 Idle
             ResetIdleVideoInBackground();
 
-            // 9. 等待播放结束
+            // 7. 等待播放结束
             int remainingTime = (int)durationMs - 500 - 300;
             if (remainingTime > 0) await Task.Delay(remainingTime);
 
-            // 10. Close — don't use WPF Opacity fade in WorkerW context
+            // 8. Close — use _isActionVideoClosing flag to prevent re-entry during async cleanup
             if (_actionVideoWindow != null)
             {
-                _actionVideoWindow.Visibility = Visibility.Hidden;
-                try { _actionVideoWindow.StopAndClose(); } catch { }
+                _isActionVideoClosing = true;
+                var actionWin = _actionVideoWindow;
                 _actionVideoWindow = null;
+
+                try { actionWin.Visibility = Visibility.Hidden; } catch { }
+                try { actionWin.StopAndClose(); } catch { }
+
+                // Give StopAndClose time to process: ThreadPool.Stop() + BeginInvoke(Close).
+                await Task.Delay(200);
+                _isActionVideoClosing = false;
             }
         }
 
         /// <summary>
         /// Displays a full-screen image overlay for a set duration (default 3 seconds) on click region trigger.
         /// Uses the same anti-flicker pattern as PlayActionVideo: create hidden → show → inject → expand.
+        /// Also uses _isActionVideoClosing guard for synchronization with action video cleanup.
         /// </summary>
         private async void PlayActionImage(string imagePath, int displayDurationMs = 3000)
         {
             // Reuse _actionVideoWindow field as guard (null = no action playing)
-            if (_actionVideoWindow != null) return;
+            if (_actionVideoWindow != null || _isActionVideoClosing) return;
 
             Window? actionWindow = null;
             try
@@ -354,8 +376,15 @@ namespace ProductivityWallpaper.Services
 
                 imageWindow.Show();
 
-                // Inject into WorkerW at topmost Z-order
-                bool injected = InjectDynamicWallpaper(imageWindow);
+                // Inject into WorkerW — use InjectActionLayer for proper Z-order (above background)
+                bool injected = InjectActionLayer(imageWindow, _idleVideoWindow, _currentUiWindow);
+                if (!injected)
+                {
+                    // Retry with cache invalidation
+                    _cachedWorkerW = IntPtr.Zero;
+                    injected = InjectActionLayer(imageWindow, _idleVideoWindow, _currentUiWindow);
+                }
+
                 if (!injected)
                 {
                     imageWindow.StopAndClose();
@@ -364,9 +393,6 @@ namespace ProductivityWallpaper.Services
 
                 // Brief delay for rendering
                 await Task.Delay(50);
-
-                // Ensure full opacity — don't use WPF Opacity animation in WorkerW context
-                imageWindow.Opacity = 1;
 
                 // Display for the specified duration
                 await Task.Delay(displayDurationMs);
@@ -905,10 +931,10 @@ namespace ProductivityWallpaper.Services
 
             Win32Api.SetParent(helper.Handle, workerw);
 
-            // Remove popup and border, keep visible. Do NOT add WS_CHILD.
+            // Remove popup and border, add WS_CHILD, keep visible.
             int style = Win32Api.GetWindowLong(helper.Handle, Win32Api.GWL_STYLE);
             style = style & ~Win32Api.WS_POPUP & ~0x00C00000 & ~0x00040000;
-            style = style | Win32Api.WS_VISIBLE;
+            style = style | Win32Api.WS_CHILD | Win32Api.WS_VISIBLE;
             Win32Api.SetWindowLong(helper.Handle, Win32Api.GWL_STYLE, style);
 
             int exStyle = Win32Api.GetWindowLong(helper.Handle, Win32Api.GWL_EXSTYLE);
@@ -930,7 +956,7 @@ namespace ProductivityWallpaper.Services
             Win32Api.SetWindowPos(helper.Handle, Win32Api.HWND_TOP, 0, 0,
                 screenW, screenH, Win32Api.SWP_NOACTIVATE | Win32Api.SWP_SHOWWINDOW | Win32Api.SWP_FRAMECHANGED);
 
-            ForceSoftwareRendering(helper.Handle);
+            SetupNativeBlackBackground(helper.Handle);
         }
 
         private void HandleThemeClick(System.Windows.Point screenPoint,
@@ -1143,6 +1169,7 @@ namespace ProductivityWallpaper.Services
                 try { _actionVideoWindow.StopAndClose(); } catch { }
                 _actionVideoWindow = null;
             }
+            _isActionVideoClosing = false;
 
             if (_idleVideoWindow != null)
             {
@@ -1183,9 +1210,9 @@ namespace ProductivityWallpaper.Services
         /// <summary>
         /// Injects a wallpaper window into the WorkerW behind the desktop icons.
         /// 
-        /// Uses SetParent + RemoveBorderAndSetTransparent (removes WS_POPUP, no WS_CHILD).
-        /// After style changes, uses SetWindowPos with SWP_FRAMECHANGED to force the window
-        /// to recalculate its frame, which is required after SetWindowLong changes.
+        /// Uses SetParent + WS_CHILD style for proper parent-child relationship.
+        /// After injection, sets up native GDI painting to ensure content is visible
+        /// (WPF's DirectX rendering doesn't work inside WorkerW).
         /// 
         /// Returns true if injection succeeded, false if WorkerW not found.
         /// </summary>
@@ -1207,7 +1234,7 @@ namespace ProductivityWallpaper.Services
             IntPtr result = Win32Api.SetParent(hwnd, workerw);
             System.Diagnostics.Debug.WriteLine($"[InjectDynamicWallpaper] SetParent result: 0x{result:X8}");
 
-            // 2. Change styles: remove popup/border, keep visible, add toolwindow
+            // 2. Change styles: remove popup/border, add WS_CHILD, add toolwindow
             RemoveBorderAndSetTransparent(hwnd);
 
             // 3. Size to fill the screen using physical pixels (DPI-safe).
@@ -1221,25 +1248,29 @@ namespace ProductivityWallpaper.Services
             Win32Api.SetWindowPos(hwnd, IntPtr.Zero, 0, 0, screenW, screenH,
                 Win32Api.SWP_NOZORDER | Win32Api.SWP_NOACTIVATE | Win32Api.SWP_SHOWWINDOW | Win32Api.SWP_FRAMECHANGED);
 
-            // 4. Ensure the window is shown (belt and suspenders)
+            // 4. Ensure the window is shown
             Win32Api.ShowWindow(hwnd, Win32Api.SW_SHOW);
 
-            // 5. CRITICAL: Force software rendering for WPF content inside WorkerW.
-            // WPF normally renders via DirectX/DWM compositor. After SetParent into WorkerW,
-            // DWM doesn't properly redirect the WPF D3D rendering surface — causing:
-            //   - Video plays (VLC HwndHost has its own native DirectX surface, bypasses WPF)
-            //   - But WPF content (Image, Background="Black") is invisible
-            // Switching to software rendering makes WPF use GDI (BitBlt to window DC),
-            // which works reliably in any window context, including WorkerW children.
-            // VLC HwndHost rendering is unaffected by this setting (per MSDN).
-            ForceSoftwareRendering(hwnd);
+            // 5. Clear WPF size constraints so WPF layout uses the actual window size
+            ClearWpfSizeConstraints(playerWindow);
+
+            // 6. Set up native GDI painting based on window type.
+            //    This bypasses WPF's broken DirectX/DWM rendering inside WorkerW.
+            if (playerWindow is ImagePlayerWindow imageWindow)
+            {
+                SetupNativeImagePainting(hwnd, imageWindow);
+            }
+            else
+            {
+                SetupNativeBlackBackground(hwnd);
+            }
 
             // Verify injection
             IntPtr actualParent = Win32Api.GetParent(hwnd);
             bool isVisible = Win32Api.IsWindowVisible(hwnd);
             System.Diagnostics.Debug.WriteLine($"[InjectDynamicWallpaper] Verification: parent=0x{actualParent:X8} (expected 0x{workerw:X8}), visible={isVisible}");
 
-            return true;
+            return actualParent == workerw;
         }
 
         private void InjectIdleLayer(Window idleWin)
@@ -1257,7 +1288,12 @@ namespace ProductivityWallpaper.Services
             Win32Api.SetWindowPos(idleHelper.Handle, Win32Api.HWND_BOTTOM, 0, 0, screenW, screenH,
                 Win32Api.SWP_NOACTIVATE | Win32Api.SWP_SHOWWINDOW | Win32Api.SWP_FRAMECHANGED);
 
-            ForceSoftwareRendering(idleHelper.Handle);
+            ClearWpfSizeConstraints(idleWin);
+
+            if (idleWin is ImagePlayerWindow imageWindow)
+                SetupNativeImagePainting(idleHelper.Handle, imageWindow);
+            else
+                SetupNativeBlackBackground(idleHelper.Handle);
         }
 
         private void InjectInteractiveLayers(Window idleWin, InteractiveUiWindow uiWin)
@@ -1268,11 +1304,10 @@ namespace ProductivityWallpaper.Services
             IntPtr workerw = FindWorkerW();
             Win32Api.SetParent(uiHelper.Handle, workerw);
 
-            // UI overlay: remove popup and border, keep visible, add toolwindow
-            // Do NOT add WS_CHILD — see RemoveBorderAndSetTransparent comments.
+            // UI overlay: remove popup and border, add WS_CHILD, keep visible, add toolwindow
             int style = Win32Api.GetWindowLong(uiHelper.Handle, Win32Api.GWL_STYLE);
             style = style & ~Win32Api.WS_POPUP & ~0x00C00000 & ~0x00040000;
-            style = style | Win32Api.WS_VISIBLE;
+            style = style | Win32Api.WS_CHILD | Win32Api.WS_VISIBLE;
             Win32Api.SetWindowLong(uiHelper.Handle, Win32Api.GWL_STYLE, style);
 
             int exStyle = Win32Api.GetWindowLong(uiHelper.Handle, Win32Api.GWL_EXSTYLE);
@@ -1285,18 +1320,24 @@ namespace ProductivityWallpaper.Services
             Win32Api.SetWindowPos(uiHelper.Handle, Win32Api.HWND_TOP, 0, 0, screenW, screenH,
                 Win32Api.SWP_NOACTIVATE | Win32Api.SWP_SHOWWINDOW | Win32Api.SWP_FRAMECHANGED);
 
-            ForceSoftwareRendering(uiHelper.Handle);
+            SetupNativeBlackBackground(uiHelper.Handle);
 
             uiWin.UpdateLayout(SystemParameters.PrimaryScreenWidth, SystemParameters.PrimaryScreenHeight);
         }
 
-        private void InjectActionLayer(Window actionWin, Window? idleWin, InteractiveUiWindow? uiWin)
+        private bool InjectActionLayer(Window actionWin, Window? idleWin, InteractiveUiWindow? uiWin)
         {
             var actionHelper = new WindowInteropHelper(actionWin);
             IntPtr workerw = FindWorkerW();
-            if (workerw == IntPtr.Zero) return;
+            if (workerw == IntPtr.Zero)
+            {
+                System.Diagnostics.Debug.WriteLine("[InjectActionLayer] FindWorkerW returned null");
+                return false;
+            }
 
-            Win32Api.SetParent(actionHelper.Handle, workerw);
+            IntPtr setParentResult = Win32Api.SetParent(actionHelper.Handle, workerw);
+            System.Diagnostics.Debug.WriteLine($"[InjectActionLayer] SetParent result: 0x{setParentResult:X8}");
+
             RemoveBorderAndSetTransparent(actionHelper.Handle);
 
             // Size and position — Z-Order: UI > Action > Idle
@@ -1305,7 +1346,12 @@ namespace ProductivityWallpaper.Services
             Win32Api.SetWindowPos(actionHelper.Handle, Win32Api.HWND_TOP, 0, 0, screenW, screenH,
                 Win32Api.SWP_NOACTIVATE | Win32Api.SWP_SHOWWINDOW | Win32Api.SWP_FRAMECHANGED);
 
-            ForceSoftwareRendering(actionHelper.Handle);
+            ClearWpfSizeConstraints(actionWin);
+
+            if (actionWin is ImagePlayerWindow imageWindow)
+                SetupNativeImagePainting(actionHelper.Handle, imageWindow);
+            else
+                SetupNativeBlackBackground(actionHelper.Handle);
 
             if (uiWin != null)
             {
@@ -1313,6 +1359,12 @@ namespace ProductivityWallpaper.Services
                 Win32Api.SetWindowPos(uiHandle, Win32Api.HWND_TOP, 0, 0, 0, 0,
                     Win32Api.SWP_NOSIZE | Win32Api.SWP_NOMOVE | Win32Api.SWP_NOACTIVATE);
             }
+
+            // Verify injection succeeded
+            IntPtr actualParent = Win32Api.GetParent(actionHelper.Handle);
+            bool injected = actualParent == workerw;
+            System.Diagnostics.Debug.WriteLine($"[InjectActionLayer] Verification: parent=0x{actualParent:X8} (expected 0x{workerw:X8}), injected={injected}");
+            return injected;
         }
 
         /// <summary>
@@ -1473,42 +1525,166 @@ namespace ProductivityWallpaper.Services
         }
 
         /// <summary>
-        /// Forces WPF software rendering on a window injected into WorkerW.
+        /// Sets up native GDI painting for a window injected into WorkerW.
         /// 
         /// WHY THIS IS NEEDED:
-        /// WPF normally renders via DirectX through DWM (Desktop Window Manager) compositor.
-        /// After SetParent into WorkerW, DWM doesn't properly redirect the WPF D3D rendering
-        /// surface — the WPF compositor writes to a DWM composition surface that doesn't
-        /// get presented inside the WorkerW context. This causes:
-        ///   - VLC video visible (HwndHost creates its own native DirectX surface, bypasses WPF compositor)
-        ///   - WPF Background="Black" invisible (rendered by WPF compositor → lost)
-        ///   - WPF Image control invisible (rendered by WPF compositor → lost)
-        ///   - Result: video plays but edges are transparent; image wallpaper shows nothing.
+        /// WPF renders via DirectX through DWM (Desktop Window Manager). After SetParent into
+        /// WorkerW, DWM doesn't properly redirect the WPF D3D rendering surface — WPF content
+        /// (Background="Black", Image controls) is invisible. VLC video shows because HwndHost
+        /// creates its own native DirectX surface, bypassing WPF compositor.
         ///
         /// SOLUTION:
-        /// RenderMode.SoftwareOnly switches WPF from DirectX to GDI rendering. WPF's software
-        /// rasterizer draws to an in-memory bitmap, then BitBlt's it to the window's device context.
-        /// GDI painting (BitBlt) works reliably in any window context, including WorkerW children,
-        /// because it goes directly to the window's surface without DWM compositor involvement.
+        /// Instead of trying to fix WPF's rendering inside WorkerW (which doesn't work reliably
+        /// with SoftwareRendering or any other WPF API), we paint directly on the native Win32
+        /// window surface using GDI. We hook WM_ERASEBKGND on the HwndSource to fill the
+        /// background with black. This uses the same GDI BitBlt path that Windows Explorer itself
+        /// uses for WorkerW content.
         ///
-        /// Per MSDN: "HwndHost-hosted content (e.g., VLC VideoView) is NOT affected by this setting."
-        /// So VLC continues using its own hardware-accelerated DirectX rendering.
+        /// For image windows, we additionally hook WM_PAINT to draw the image via System.Drawing.
         /// </summary>
-        private static void ForceSoftwareRendering(IntPtr hwnd)
+        private static void SetupNativeBlackBackground(IntPtr hwnd)
         {
             try
             {
-                var hwndSource = HwndSource.FromHwnd(hwnd);
-                if (hwndSource?.CompositionTarget is System.Windows.Interop.HwndTarget hwndTarget)
+                var hwndSource = System.Windows.Interop.HwndSource.FromHwnd(hwnd);
+                if (hwndSource == null)
                 {
-                    hwndTarget.RenderMode = System.Windows.Interop.RenderMode.SoftwareOnly;
-                    System.Diagnostics.Debug.WriteLine($"[ForceSoftwareRendering] Set SoftwareOnly on hwnd=0x{hwnd:X8}");
+                    System.Diagnostics.Debug.WriteLine($"[SetupNativeBlackBackground] No HwndSource for 0x{hwnd:X8}");
+                    return;
                 }
+
+                hwndSource.AddHook((IntPtr h, int msg, IntPtr wParam, IntPtr lParam, ref bool handled) =>
+                {
+                    if (msg == Win32Api.WM_ERASEBKGND)
+                    {
+                        IntPtr hdc = wParam;
+                        Win32Api.GetClientRect(h, out var rect);
+                        IntPtr brush = Win32Api.GetStockObject(Win32Api.BLACK_BRUSH);
+                        Win32Api.FillRect(hdc, ref rect, brush);
+                        // Don't DeleteObject on stock objects
+                        handled = true;
+                        return new IntPtr(1); // Background erased
+                    }
+                    return IntPtr.Zero;
+                });
+
+                // Force an immediate repaint so the black background shows right away
+                Win32Api.InvalidateRect(hwnd, IntPtr.Zero, true);
+
+                System.Diagnostics.Debug.WriteLine($"[SetupNativeBlackBackground] Hooked WM_ERASEBKGND on 0x{hwnd:X8}");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[ForceSoftwareRendering] Failed for hwnd=0x{hwnd:X8}: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[SetupNativeBlackBackground] Failed: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Sets up native GDI image painting for an ImagePlayerWindow injected into WorkerW.
+        /// This paints the image directly on the Win32 surface via System.Drawing, bypassing
+        /// WPF's invisible DirectX rendering.
+        /// 
+        /// Handles both WM_ERASEBKGND (black background) and WM_PAINT (image drawing).
+        /// Also hooks WM_SIZE and WM_DISPLAYCHANGE to repaint on resize.
+        /// </summary>
+        private static void SetupNativeImagePainting(IntPtr hwnd, ImagePlayerWindow imageWindow)
+        {
+            try
+            {
+                var hwndSource = System.Windows.Interop.HwndSource.FromHwnd(hwnd);
+                if (hwndSource == null) return;
+
+                hwndSource.AddHook((IntPtr h, int msg, IntPtr wParam, IntPtr lParam, ref bool handled) =>
+                {
+                    if (msg == Win32Api.WM_ERASEBKGND)
+                    {
+                        // Paint black background via GDI (fills letterbox areas)
+                        IntPtr hdc = wParam;
+                        Win32Api.GetClientRect(h, out var rect);
+                        IntPtr brush = Win32Api.GetStockObject(Win32Api.BLACK_BRUSH);
+                        Win32Api.FillRect(hdc, ref rect, brush);
+                        handled = true;
+                        return new IntPtr(1);
+                    }
+
+                    if (msg == Win32Api.WM_PAINT)
+                    {
+                        // Paint the image via GDI+ (System.Drawing)
+                        var bitmap = imageWindow.GetGdiBitmap();
+                        if (bitmap != null)
+                        {
+                            Win32Api.BeginPaint(h, out var ps);
+                            try
+                            {
+                                Win32Api.GetClientRect(h, out var clientRect);
+                                int clientW = clientRect.right - clientRect.left;
+                                int clientH = clientRect.bottom - clientRect.top;
+
+                                if (clientW > 0 && clientH > 0)
+                                {
+                                    using (var g = System.Drawing.Graphics.FromHdc(ps.hdc))
+                                    {
+                                        g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                                        g.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighQuality;
+
+                                        // Calculate UniformToFill scaling (same as WPF's Stretch.UniformToFill)
+                                        double scaleX = (double)clientW / bitmap.Width;
+                                        double scaleY = (double)clientH / bitmap.Height;
+                                        double scale = Math.Max(scaleX, scaleY); // UniformToFill = max
+
+                                        int drawW = (int)(bitmap.Width * scale);
+                                        int drawH = (int)(bitmap.Height * scale);
+                                        int drawX = (clientW - drawW) / 2;
+                                        int drawY = (clientH - drawH) / 2;
+
+                                        // Fill background black first (for any uncovered edges)
+                                        g.Clear(System.Drawing.Color.Black);
+                                        g.DrawImage(bitmap, drawX, drawY, drawW, drawH);
+                                    }
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                System.Diagnostics.Debug.WriteLine($"[NativeImagePaint] Error: {ex.Message}");
+                            }
+                            finally
+                            {
+                                Win32Api.EndPaint(h, ref ps);
+                            }
+                            handled = true;
+                            return IntPtr.Zero;
+                        }
+                    }
+
+                    if (msg == Win32Api.WM_SIZE || msg == Win32Api.WM_DISPLAYCHANGE)
+                    {
+                        // Force repaint on size change
+                        Win32Api.InvalidateRect(h, IntPtr.Zero, true);
+                    }
+
+                    return IntPtr.Zero;
+                });
+
+                // Force initial paint
+                Win32Api.InvalidateRect(hwnd, IntPtr.Zero, true);
+
+                System.Diagnostics.Debug.WriteLine($"[SetupNativeImagePainting] Hooked WM_PAINT+WM_ERASEBKGND on 0x{hwnd:X8}");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[SetupNativeImagePainting] Failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Clears WPF's explicit Width/Height after injection so WPF uses the actual
+        /// native window size for layout. Without this, WPF might fight SetWindowPos
+        /// by trying to maintain the original 1x1 pixel size from CreateHidden*Window.
+        /// </summary>
+        private static void ClearWpfSizeConstraints(Window window)
+        {
+            window.ClearValue(Window.WidthProperty);
+            window.ClearValue(Window.HeightProperty);
         }
 
         /// <summary>
@@ -1555,17 +1731,16 @@ namespace ProductivityWallpaper.Services
         }
 
         /// <summary>
-        /// Strips borders/popup style from a window parented into WorkerW.
+        /// Strips borders/popup style and adds WS_CHILD for a window parented into WorkerW.
         /// 
-        /// IMPORTANT: Do NOT add WS_CHILD here. While WS_CHILD is the "correct" Win32 style
-        /// for a parented window, it breaks WPF's DirectX/DWM rendering pipeline. WPF's
-        /// HwndSource was designed for WS_POPUP or WS_OVERLAPPED windows. Adding WS_CHILD
-        /// changes the DWM compositing path and causes WPF content to not render.
+        /// WS_CHILD is the correct Win32 style for a SetParent'd window. Without it,
+        /// the window is treated as an "owned" window with independent Z-order, which causes
+        /// the second action video to pop out as an independent window (SetParent doesn't
+        /// "stick" properly when the window lacks WS_CHILD).
         /// 
-        /// The real visibility fix is ForceSoftwareRendering() — see that method's comments.
-        /// 
-        /// SetParent alone handles the parent-child relationship for containment within WorkerW.
-        /// The window will be behind desktop icons because WorkerW itself is behind SHELLDLL_DefView.
+        /// WPF rendering inside WorkerW is handled separately by native GDI painting
+        /// (SetupNativeBlackBackground / SetupNativeImagePainting) — we don't rely on WPF's
+        /// DirectX/DWM pipeline for visibility.
         /// </summary>
         private void RemoveBorderAndSetTransparent(IntPtr hwnd)
         {
@@ -1574,14 +1749,14 @@ namespace ProductivityWallpaper.Services
 
             System.Diagnostics.Debug.WriteLine($"[RemoveBorder] Before: style=0x{style:X8}, exStyle=0x{exStyle:X8}");
 
-            // Remove WS_POPUP — required for proper parent relationship after SetParent.
-            // Remove borders (WS_CAPTION, WS_THICKFRAME, WS_BORDER).
-            // Ensure WS_VISIBLE. Do NOT add WS_CHILD — breaks WPF rendering.
+            // Remove WS_POPUP (incompatible with WS_CHILD) and all border styles.
+            // Add WS_CHILD for proper parent-child relationship inside WorkerW.
+            // Add WS_VISIBLE so the window is shown.
             style = style & ~Win32Api.WS_POPUP;
             style = style & ~0x00C00000;  // WS_CAPTION
             style = style & ~0x00040000;  // WS_THICKFRAME
             style = style & ~0x00800000;  // WS_BORDER
-            style = style | Win32Api.WS_VISIBLE;
+            style = style | Win32Api.WS_CHILD | Win32Api.WS_VISIBLE;
 
             // WS_EX_TOOLWINDOW hides from Alt+Tab and taskbar.
             exStyle = exStyle | Win32Api.WS_EX_TOOLWINDOW;

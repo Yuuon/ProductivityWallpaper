@@ -134,6 +134,56 @@ namespace ProductivityWallpaper.Services
             public int bottom;
         }
 
+        // --- GDI Painting APIs (for native background/image painting inside WorkerW) ---
+        // WPF renders via DirectX/DWM which doesn't work after SetParent into WorkerW.
+        // These APIs allow direct GDI painting on the native window surface, bypassing WPF.
+
+        [DllImport("gdi32.dll")]
+        public static extern IntPtr GetStockObject(int fnObject);
+
+        [DllImport("user32.dll")]
+        public static extern int FillRect(IntPtr hDC, ref RECT lprc, IntPtr hbr);
+
+        [DllImport("gdi32.dll")]
+        public static extern IntPtr CreateSolidBrush(int crColor);
+
+        [DllImport("gdi32.dll")]
+        public static extern bool DeleteObject(IntPtr hObject);
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr GetDC(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        public static extern int ReleaseDC(IntPtr hWnd, IntPtr hDC);
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr BeginPaint(IntPtr hwnd, out PAINTSTRUCT lpPaint);
+
+        [DllImport("user32.dll")]
+        public static extern bool EndPaint(IntPtr hwnd, ref PAINTSTRUCT lpPaint);
+
+        [DllImport("user32.dll")]
+        public static extern bool InvalidateRect(IntPtr hWnd, IntPtr lpRect, bool bErase);
+
+        public const int BLACK_BRUSH = 4;
+
+        public const int WM_ERASEBKGND = 0x0014;
+        public const int WM_PAINT = 0x000F;
+        public const int WM_SIZE = 0x0005;
+        public const int WM_DISPLAYCHANGE = 0x007E;
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct PAINTSTRUCT
+        {
+            public IntPtr hdc;
+            public bool fErase;
+            public RECT rcPaint;
+            public bool fRestore;
+            public bool fIncUpdate;
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 32)]
+            public byte[] rgbReserved;
+        }
+
         // --- Shell Thumbnail 相关 ---
         [DllImport("shell32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
         public static extern int SHCreateItemFromParsingName(
