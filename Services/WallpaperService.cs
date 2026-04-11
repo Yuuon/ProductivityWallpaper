@@ -1315,13 +1315,11 @@ namespace ProductivityWallpaper.Services
                 return true;
             }, IntPtr.Zero);
 
-            // Win11 fallback: If SHELLDLL_DefView is a child of Progman (not a WorkerW),
-            // then the classic sibling WorkerW either doesn't exist or doesn't behave correctly.
-            // In this case, use Progman as the parent — it sits below desktop icons and the taskbar.
-            if (workerw == IntPtr.Zero ||
-                (shellDefViewParent != IntPtr.Zero && shellDefViewParent == progman))
+            // Win11 fallback: If SHELLDLL_DefView is a child of Progman (not a separate WorkerW),
+            // the classic sibling WorkerW either doesn't exist or doesn't behave correctly.
+            // Use Progman as the parent — it sits below desktop icons and the taskbar.
+            if (workerw == IntPtr.Zero || shellDefViewParent == progman)
             {
-                // Verify Progman owns SHELLDLL_DefView (Win11 layout)
                 IntPtr shellView = Win32Api.FindWindowEx(progman, IntPtr.Zero, "SHELLDLL_DefView", null);
                 if (shellView != IntPtr.Zero)
                 {
