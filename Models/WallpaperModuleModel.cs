@@ -64,10 +64,6 @@ namespace ProductivityWallpaper.Models
     {
         public string IdleVideo { get; set; } = string.Empty; // 待机视频
         public List<InteractionTrigger> Triggers { get; set; } = new();
-
-        // 横扫特效配置
-        public string SweepActionVideo { get; set; } = string.Empty; // 横扫时播放的视频
-        public double SweepSpeedThreshold { get; set; } = 3000; // 横扫速度阈值（像素/秒）
     }
 
     public class InteractionTrigger

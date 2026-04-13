@@ -1,4 +1,7 @@
 using LibVLCSharp.Shared;
+using System;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using Application = System.Windows.Application;
 
@@ -43,57 +46,93 @@ namespace ProductivityWallpaper.Views
         }
 
         /// <summary>
+        /// Pauses or resumes video playback.
+        /// Used by PlaybackMonitorService for fullscreen auto-pause.
+        /// </summary>
+        public void SetPause(bool pause)
+        {
+            try { _mediaPlayer?.SetPause(pause); } catch { }
+        }
+
+        /// <summary>
         /// Safely stops VLC playback and closes the window.
+        /// Returns a Task that completes only when VLC is fully stopped and the window is closed.
         /// 
-        /// CRITICAL: The sequence must be:
-        /// 1. Hide window (stops native VLC rendering demand)
+        /// CRITICAL SEQUENCE:
+        /// 1. Hide window first (stops native VLC rendering demand immediately)
         /// 2. Stop VLC on ThreadPool (NOT on UI thread — VLC callbacks fire on native threads,
         ///    calling Stop from UI while native thread renders causes AccessViolationException)
-        /// 3. Only AFTER Stop() returns, detach VideoView.MediaPlayer on UI thread
-        /// 4. Close the window and dispose resources
+        /// 3. Wait for native rendering thread to fully wind down (50ms safety margin)
+        /// 4. Only AFTER Stop() returns, detach VideoView.MediaPlayer on UI thread
+        /// 5. Close the window and dispose VLC resources
         /// 
-        /// Setting VideoView.MediaPlayer = null while VLC is still rendering causes
-        /// AccessViolationException that CANNOT be caught in .NET 8 (corrupted state exception).
+        /// The Task-based design ensures callers can properly await VLC shutdown before
+        /// creating new windows, preventing race conditions that cause AccessViolationException.
         /// </summary>
-        public void StopAndClose()
+        public Task StopAndCloseAsync()
         {
-            if (_isStopping) return;
+            if (_isStopping) return Task.CompletedTask;
             _isStopping = true;
 
-            // Capture and null-out references to prevent concurrent access from VLC callbacks
+            // Capture and null-out references IMMEDIATELY to prevent concurrent access from VLC callbacks
             var player = _mediaPlayer;
             var libvlc = _libVLC;
             _mediaPlayer = null;
             _libVLC = null;
 
-            // STEP 1: Hide window immediately — this tells the native rendering pipeline
-            // there is no visible surface, reducing the chance of native thread conflicts
+            // STEP 1: Hide window immediately on UI thread — this tells the native rendering
+            // pipeline there is no visible surface, greatly reducing native thread conflicts
             try { this.Visibility = Visibility.Hidden; } catch { }
 
-            // STEP 2-4: All VLC cleanup on ThreadPool to avoid native callback thread conflicts
-            System.Threading.ThreadPool.QueueUserWorkItem(_ =>
+            var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            // STEP 2-5: All VLC cleanup on ThreadPool to avoid native callback thread conflicts
+            ThreadPool.QueueUserWorkItem(_ =>
             {
-                // STEP 2: Stop playback (blocks until VLC native rendering thread stops)
-                try { player?.Stop(); } catch { }
-
-                // Brief pause for native thread to fully wind down
-                System.Threading.Thread.Sleep(50);
-
-                // STEP 3: Now VLC is stopped — safe to detach VideoView and close window on UI thread
                 try
                 {
-                    Application.Current?.Dispatcher?.BeginInvoke(() =>
-                    {
-                        try { VideoView.MediaPlayer = null; } catch { }
-                        try { this.Close(); } catch { }
-                    });
-                }
-                catch { /* App may be shutting down */ }
+                    // STEP 2: Stop playback (blocks until VLC native rendering thread stops)
+                    try { player?.Stop(); } catch { }
 
-                // STEP 4: Dispose player resources
-                try { player?.Dispose(); } catch { }
-                try { libvlc?.Dispose(); } catch { }
+                    // STEP 3: Safety margin for native thread to fully wind down
+                    Thread.Sleep(50);
+
+                    // STEP 4: Detach VideoView and close window on UI thread (must be synchronous
+                    // within this callback to guarantee ordering before Dispose)
+                    try
+                    {
+                        var dispatcher = Application.Current?.Dispatcher;
+                        if (dispatcher != null && !dispatcher.HasShutdownStarted)
+                        {
+                            dispatcher.Invoke(() =>
+                            {
+                                try { VideoView.MediaPlayer = null; } catch { }
+                                try { this.Close(); } catch { }
+                            });
+                        }
+                    }
+                    catch { /* App may be shutting down */ }
+
+                    // STEP 5: Dispose player resources (after VideoView is detached)
+                    try { player?.Dispose(); } catch { }
+                    try { libvlc?.Dispose(); } catch { }
+                }
+                finally
+                {
+                    tcs.TrySetResult();
+                }
             });
+
+            return tcs.Task;
+        }
+
+        /// <summary>
+        /// Fire-and-forget version for cleanup paths that don't need to await completion.
+        /// Prefer StopAndCloseAsync() in video transition scenarios where timing matters.
+        /// </summary>
+        public void StopAndClose()
+        {
+            _ = StopAndCloseAsync();
         }
     }
 }

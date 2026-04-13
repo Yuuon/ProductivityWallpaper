@@ -35,7 +35,24 @@ namespace ProductivityWallpaper.Views
         {
             InitializeComponent();
             // Auto-recalculate layout when canvas resizes (after injection into WorkerW, maximize, etc.)
-            OverlayCanvas.SizeChanged += (_, _) => UpdateRegionLayout();
+            OverlayCanvas.SizeChanged += OnCanvasSizeChanged;
+        }
+
+        private void OnCanvasSizeChanged(object sender, System.Windows.SizeChangedEventArgs e)
+        {
+            UpdateRegionLayout();
+        }
+
+        /// <summary>
+        /// Cleans up event handler subscriptions to prevent memory leaks.
+        /// Must be called before Close().
+        /// </summary>
+        public void Cleanup()
+        {
+            OverlayCanvas.SizeChanged -= OnCanvasSizeChanged;
+            OverlayCanvas.Children.Clear();
+            _regions.Clear();
+            _rectRegionMap.Clear();
         }
 
         /// <summary>

@@ -36,29 +36,25 @@ namespace ProductivityWallpaper.Views
 
         public void LoadConfig(InteractiveConfig config)
         {
+            // Unsubscribe existing button handlers before clearing
+            CleanupButtons();
             OverlayCanvas.Children.Clear();
             _buttonTriggerMap.Clear();
 
-            // 为了简单，我们假设窗口已经是最大化状态，直接用 ActualWidth/Height
-            // 在实际使用中，需要在 SizeChanged 事件中重绘
-            
             foreach (var trigger in config.Triggers)
             {
                 var btn = new Button
                 {
                     Content = trigger.ButtonText,
-                    Tag = trigger.ActionVideo, // 存 Video Path 或 ID
+                    Tag = trigger.ActionVideo,
                     Background = (SolidColorBrush)new BrushConverter().ConvertFrom(trigger.BackgroundHex),
                     Foreground = (SolidColorBrush)new BrushConverter().ConvertFrom(trigger.TextHex),
                     BorderThickness = new Thickness(0),
                     Cursor = Cursors.Hand
                 };
 
-                // 设置绝对位置 (假设是百分比)
-                // 注意：这里需要外部调用 SetupLayout 来确切定位
-                // 我们先把数据存着
                 btn.DataContext = trigger; 
-                btn.Click += (s, e) => OnTriggerClicked?.Invoke(trigger.ActionVideo);
+                btn.Click += OnButtonClick;
 
                 // 添加鼠标悬停事件
                 btn.MouseEnter += OnButtonMouseEnter;
@@ -68,6 +64,27 @@ namespace ProductivityWallpaper.Views
                 _buttonTriggerMap[btn] = trigger;
 
                 OverlayCanvas.Children.Add(btn);
+            }
+        }
+
+        private void OnButtonClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.DataContext is InteractionTrigger trigger)
+            {
+                OnTriggerClicked?.Invoke(trigger.ActionVideo);
+            }
+        }
+
+        /// <summary>
+        /// Unsubscribes all event handlers from buttons to prevent memory leaks.
+        /// </summary>
+        private void CleanupButtons()
+        {
+            foreach (var btn in _buttonTriggerMap.Keys)
+            {
+                btn.Click -= OnButtonClick;
+                btn.MouseEnter -= OnButtonMouseEnter;
+                btn.MouseLeave -= OnButtonMouseLeave;
             }
         }
 
@@ -295,6 +312,9 @@ namespace ProductivityWallpaper.Views
 
         private void OnWindowClosed(object? sender, EventArgs e)
         {
+            // Clean up all button handlers to prevent memory leaks
+            CleanupButtons();
+            
             // 清理计时器
             _hoverTimer?.Stop();
             _hoverTimer?.Dispose();

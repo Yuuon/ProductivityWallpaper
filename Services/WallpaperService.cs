@@ -5,6 +5,7 @@ using MediaPlayer = LibVLCSharp.Shared.MediaPlayer;
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -23,10 +24,15 @@ using System.Windows.Media;
 
 namespace ProductivityWallpaper.Services
 {
-    public class WallpaperService
+    public class WallpaperService : IDisposable
     {
         private const string MetaFileName = ".wp_meta.json";
         private const string InteractiveConfigName = "config.wallpaper";
+
+        // --- Desktop bridge & performance services ---
+        private readonly DesktopBridgeService _desktopBridge;
+        private readonly PlaybackMonitorService _playbackMonitor;
+        private bool _desktopLayerReady;
 
         // --- Legacy window management ---
         private VideoPlayerWindow? _idleVideoWindow;
@@ -51,6 +57,7 @@ namespace ProductivityWallpaper.Services
         private PlaybackMode _wallpaperPlaybackMode = PlaybackMode.Sequential;
         private PlaybackMode _audioPlaybackMode = PlaybackMode.Sequential;
         private bool _isDynamicWallpaperActive;
+        private bool _isPausedByFullscreen;
         private readonly Random _random = new();
 
         // Click region state for theme-based mode
@@ -62,12 +69,28 @@ namespace ProductivityWallpaper.Services
         private bool _bgAudioEndReachedSubscribed;
         private readonly Dictionary<string, int> _regionAudioIndex = new();
         private const int MinWallpaperDurationSeconds = 5;
+        private const int DesktopRecoveryDelayMs = 500;
 
         // Track Media objects for disposal during cleanup
         private readonly List<Media> _activeMediaObjects = new();
+        private bool _disposed;
+
+        // Named handler references for proper event unsubscription (prevents memory leaks)
+        private Action<string>? _interactiveTriggerHandler;
+        private Action<System.Windows.Point>? _interactiveMouseClickHandler;
 
         public WallpaperService()
         {
+            _desktopBridge = new DesktopBridgeService();
+            _playbackMonitor = new PlaybackMonitorService();
+
+            // Wire up desktop layer recovery
+            _desktopBridge.OnDesktopLayerInvalidated += OnDesktopLayerInvalidated;
+
+            // Wire up fullscreen auto-pause
+            _playbackMonitor.OnFullscreenAppDetected += OnFullscreenAppDetected;
+            _playbackMonitor.OnDesktopVisible += OnDesktopVisible;
+
             try 
             { 
                 _tempLibVLC = new LibVLC();
@@ -75,6 +98,142 @@ namespace ProductivityWallpaper.Services
                 _bgAudioPlayer = new MediaPlayer(_tempLibVLC);
             } 
             catch { }
+        }
+
+        /// <summary>
+        /// Whether the current desktop is in Win11 Raised Desktop mode.
+        /// </summary>
+        public bool IsRaisedDesktop => _desktopBridge.IsRaisedDesktop;
+
+        // --- Fullscreen Auto-Pause Handlers ---
+
+        private void OnFullscreenAppDetected()
+        {
+            if (!_isDynamicWallpaperActive || _isPausedByFullscreen) return;
+            _isPausedByFullscreen = true;
+
+            Application.Current?.Dispatcher.BeginInvoke(() =>
+            {
+                Debug.WriteLine("[WallpaperService] Pausing wallpaper — fullscreen app detected");
+                PausePlayback();
+            });
+        }
+
+        private void OnDesktopVisible()
+        {
+            if (!_isDynamicWallpaperActive || !_isPausedByFullscreen) return;
+            _isPausedByFullscreen = false;
+
+            Application.Current?.Dispatcher.BeginInvoke(() =>
+            {
+                Debug.WriteLine("[WallpaperService] Resuming wallpaper — desktop visible");
+                ResumePlayback();
+            });
+        }
+
+        /// <summary>
+        /// Pauses video playback and wallpaper cycling timer for zero CPU/GPU usage.
+        /// </summary>
+        private void PausePlayback()
+        {
+            _wallpaperCycleTimer?.Stop();
+
+            // Pause the current video if playing
+            if (_currentBackgroundWindow is VideoPlayerWindow vpw)
+            {
+                try { vpw.SetPause(true); } catch { }
+            }
+            if (_idleVideoWindow != null)
+            {
+                try { _idleVideoWindow.SetPause(true); } catch { }
+            }
+
+            // Pause background audio
+            try { _bgAudioPlayer?.SetPause(true); } catch { }
+        }
+
+        /// <summary>
+        /// Resumes video playback and wallpaper cycling timer.
+        /// </summary>
+        private void ResumePlayback()
+        {
+            // Resume the current video
+            if (_currentBackgroundWindow is VideoPlayerWindow vpw)
+            {
+                try { vpw.SetPause(false); } catch { }
+            }
+            if (_idleVideoWindow != null)
+            {
+                try { _idleVideoWindow.SetPause(false); } catch { }
+            }
+
+            // Resume background audio
+            try { _bgAudioPlayer?.SetPause(false); } catch { }
+
+            // Restart the cycle timer
+            if (_wallpaperPlaylist.Count > 1)
+            {
+                _wallpaperCycleTimer?.Start();
+            }
+        }
+
+        // --- Desktop Layer Recovery ---
+
+        private void OnDesktopLayerInvalidated()
+        {
+            Debug.WriteLine("[WallpaperService] Desktop layer invalidated — attempting recovery");
+            Application.Current?.Dispatcher.BeginInvoke(async () =>
+            {
+                // Brief delay for Windows to recreate desktop structures
+                await Task.Delay(DesktopRecoveryDelayMs);
+                
+                if (_isDynamicWallpaperActive)
+                {
+                    // Re-setup the desktop layer
+                    _desktopLayerReady = _desktopBridge.SetupDesktopLayer();
+                    if (_desktopLayerReady)
+                    {
+                        Debug.WriteLine("[WallpaperService] Desktop layer recovered — re-injecting current wallpaper");
+                        // Re-inject the current background window
+                        if (_currentBackgroundWindow != null)
+                        {
+                            var helper = new WindowInteropHelper(_currentBackgroundWindow);
+                            if (helper.Handle != IntPtr.Zero)
+                            {
+                                _desktopBridge.InjectWindow(helper.Handle, asTopmost: false);
+                                var (screenW, screenH) = _desktopBridge.GetScreenDimensions();
+                                Win32Api.SetWindowPos(helper.Handle, Win32Api.HWND_TOP,
+                                    0, 0, screenW, screenH, Win32Api.SWP_NOACTIVATE);
+                            }
+                        }
+
+                        // Re-inject click region overlay if active
+                        if (_clickRegionOverlay != null)
+                        {
+                            var overlayHelper = new WindowInteropHelper(_clickRegionOverlay);
+                            if (overlayHelper.Handle != IntPtr.Zero)
+                            {
+                                _desktopBridge.InjectWindow(overlayHelper.Handle, asTopmost: true);
+                                var (screenW, screenH) = _desktopBridge.GetScreenDimensions();
+                                Win32Api.SetWindowPos(overlayHelper.Handle, Win32Api.HWND_TOP,
+                                    0, 0, screenW, screenH, Win32Api.SWP_NOACTIVATE);
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        /// <summary>
+        /// Ensures the desktop bridge is set up. Returns true if the layer is ready.
+        /// </summary>
+        private bool EnsureDesktopLayer()
+        {
+            if (_desktopLayerReady && _desktopBridge.WorkerW != IntPtr.Zero)
+                return true;
+
+            _desktopLayerReady = _desktopBridge.SetupDesktopLayer();
+            return _desktopLayerReady;
         }
 
         // --- 核心扫描逻辑 ---
@@ -183,6 +342,9 @@ namespace ProductivityWallpaper.Services
             var videoPath = Path.Combine(item.FilePath, config.IdleVideo);
             if (!File.Exists(videoPath)) return;
 
+            // Ensure desktop layer is ready
+            if (!EnsureDesktopLayer()) return;
+
             // 启动 Idle 窗口 (初始透明)
             _idleVideoWindow = CreateHiddenVideoWindow(videoPath);
             _idleVideoWindow.Show();
@@ -196,29 +358,17 @@ namespace ProductivityWallpaper.Services
             _currentUiWindow.LoadConfig(config);
             _currentUiWindow.Show();
 
-            // 点击热区 - 播放对应的视频和音频
-            _currentUiWindow.OnTriggerClicked += (actionVideoName) =>
+            // 点击热区 - 播放对应的视频和音频 (named handler for proper cleanup)
+            var basePath = item.FilePath;
+            _interactiveTriggerHandler = (actionVideoName) =>
             {
-                var actionPath = Path.Combine(item.FilePath, actionVideoName);
+                var actionPath = Path.Combine(basePath, actionVideoName);
                 if (File.Exists(actionPath))
                 {
                     PlayActionVideo(actionPath);
                 }
             };
-
-            // 悬停开始 - 可以在这里添加日志或其他逻辑
-            _currentUiWindow.OnTriggerHoverStart += (trigger) =>
-            {
-                // 悬停提示已在 UI 层处理，这里可以添加额外的逻辑
-                // 例如：播放悬停音效、记录用户行为等
-                System.Diagnostics.Debug.WriteLine($"Hover started on {trigger.Type}: {trigger.HoverText}");
-            };
-
-            // 悬停结束
-            _currentUiWindow.OnTriggerHoverEnd += () =>
-            {
-                System.Diagnostics.Debug.WriteLine("Hover ended");
-            };
+            _currentUiWindow.OnTriggerClicked += _interactiveTriggerHandler;
 
             // 注入
             InjectInteractiveLayers(_idleVideoWindow, _currentUiWindow);
@@ -227,59 +377,39 @@ namespace ProductivityWallpaper.Services
             FadeWindowAsync(_idleVideoWindow, 0, 1, 500);
             FadeWindowAsync(_currentUiWindow, 0, 1, 500);
 
-            // 启动 Hook
+            // 启动 Hook (click only, no sweep)
             _mouseHook = new MouseHookService();
-            
-            // 设置横扫速度阈值（如果配置中有）
-            if (config.SweepSpeedThreshold > 0)
-            {
-                _mouseHook.SweepSpeedThreshold = config.SweepSpeedThreshold;
-            }
 
-            // 鼠标点击事件
-            _mouseHook.OnMouseClick += (screenPoint) =>
+            // 鼠标点击事件 (named handler for proper cleanup)
+            _interactiveMouseClickHandler = (screenPoint) =>
             {
+                // Only handle clicks that target the desktop — ignore clicks on foreground windows
+                if (!_desktopBridge.IsDesktopClick((int)screenPoint.X, (int)screenPoint.Y)) return;
+
                 if (_currentUiWindow != null)
                 {
-                    Application.Current.Dispatcher.Invoke(() =>
+                    Application.Current?.Dispatcher.Invoke(() =>
                     {
-                        var trigger = _currentUiWindow.GetTriggerAtPoint(screenPoint);
+                        var trigger = _currentUiWindow?.GetTriggerAtPoint(screenPoint);
                         if (trigger != null)
                         {
-                            // 播放音频（如果有配置）
                             if (!string.IsNullOrEmpty(trigger.Audio))
                             {
-                                var audioPath = Path.Combine(item.FilePath, trigger.Audio);
+                                var audioPath = Path.Combine(basePath, trigger.Audio);
                                 PlayAudio(audioPath);
                             }
-                            _currentUiWindow.SimulateClickIfHit(screenPoint);
+                            _currentUiWindow?.SimulateClickIfHit(screenPoint);
                         }
                     });
                 }
             };
-
-            // 横扫检测事件
-            _mouseHook.OnMouseSweep += (screenPoint) =>
-            {
-                Application.Current.Dispatcher.Invoke(() =>
-                {
-                    // 如果正在播放 Action 视频，则忽略横扫
-                    if (_actionVideoWindow != null) return;
-
-                    // 如果配置了横扫视频，则播放
-                    if (!string.IsNullOrEmpty(config.SweepActionVideo))
-                    {
-                        var sweepPath = Path.Combine(item.FilePath, config.SweepActionVideo);
-                        if (File.Exists(sweepPath))
-                        {
-                            System.Diagnostics.Debug.WriteLine("Mouse sweep detected! Playing sweep video.");
-                            PlayActionVideo(sweepPath);
-                        }
-                    }
-                });
-            };
+            _mouseHook.OnMouseClick += _interactiveMouseClickHandler;
 
             _mouseHook.Start();
+
+            // Start playback monitoring for auto-pause
+            _isDynamicWallpaperActive = true;
+            _playbackMonitor.Start();
         }
 
         // --- 播放音频 ---
@@ -301,67 +431,93 @@ namespace ProductivityWallpaper.Services
         }
 
         // --- 播放动作视频 (核心优化：淡入淡出 + 缓冲) ---
+        // 
+        // CRITICAL: This method manages the lifecycle of two VLC windows simultaneously:
+        //   1. The action video window (overlay)
+        //   2. The idle video window (must be reset in background while action plays)
+        //
+        // The key safety requirement: NEVER stop/dispose one VLC window while another
+        // is being created or rendered. VLC's native threads share process-level state,
+        // so concurrent Stop()/Dispose() and Play() can corrupt internal state and cause
+        // AccessViolationException that .NET 8 cannot catch.
+        //
+        // Solution: Use _isActionTransitioning guard + await StopAndCloseAsync() to ensure
+        // each VLC lifecycle completes before the next one begins.
+        private bool _isActionTransitioning;
+
         private async void PlayActionVideo(string videoPath)
         {
-            if (_actionVideoWindow != null) return;
+            // Guard: prevent overlapping action video plays.
+            // Safe without Interlocked: this method always runs on the UI thread
+            // (called from click handlers which dispatch to UI thread).
+            if (_isActionTransitioning || _actionVideoWindow != null) return;
+            _isActionTransitioning = true;
 
-            // 1. 获取时长 (保持不变)
-            long durationMs = 3000;
-            if (_tempLibVLC != null)
+            try
             {
-                try
+                long durationMs = 3000;
+                if (_tempLibVLC != null)
                 {
-                    using (var media = new Media(_tempLibVLC, new Uri(videoPath)))
+                    try
                     {
-                        await media.Parse(MediaParseOptions.ParseLocal);
-                        if (media.Duration > 0) durationMs = media.Duration;
+                        using (var media = new Media(_tempLibVLC, new Uri(videoPath)))
+                        {
+                            await media.Parse(MediaParseOptions.ParseLocal);
+                            if (media.Duration > 0) durationMs = media.Duration;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[WallpaperService] Failed to parse action video duration: {ex.Message}");
                     }
                 }
-                catch { }
+
+                _actionVideoWindow = CreateHiddenVideoWindow(videoPath);
+                _actionVideoWindow.Show();
+
+                // Inject into desktop layer (uses DesktopBridge for Win11 compatibility)
+                InjectActionLayer(_actionVideoWindow, _idleVideoWindow, _currentUiWindow);
+
+                await Task.Delay(100);
+
+                // Expand to full screen
+                var helper = new WindowInteropHelper(_actionVideoWindow);
+                var (screenW, screenH) = _desktopBridge.GetScreenDimensions();
+                Win32Api.SetWindowPos(helper.Handle, Win32Api.HWND_TOP, 0, 0, screenW, screenH, Win32Api.SWP_NOACTIVATE);
+
+                // Reset idle video while action video plays (awaited to prevent race)
+                await ResetIdleVideoAsync();
+
+                int remainingTime = (int)durationMs - 500 - 300;
+                if (remainingTime > 0) await Task.Delay(remainingTime);
+
+                // Capture reference before fade (prevents null ref if cleanup runs during fade)
+                var actionWindow = _actionVideoWindow;
+                if (actionWindow != null)
+                {
+                    await FadeWindowAsync(actionWindow, 1, 0, 300);
+                    actionWindow.Visibility = Visibility.Hidden;
+
+                    // CRITICAL: Await full VLC shutdown before clearing reference.
+                    // This ensures VLC's native rendering thread is completely stopped before
+                    // the idle video's VLC instance takes over rendering to the same WorkerW surface.
+                    try { await actionWindow.StopAndCloseAsync(); } catch { }
+                    _actionVideoWindow = null;
+                }
             }
-
-            // 1. 创建窗口 (此时它是 1x1 大小，位于 -32000)
-            _actionVideoWindow = CreateHiddenVideoWindow(videoPath);
-
-            // 2. 显示窗口
-            // 这一步是为了让 HwndHost 初始化。
-            // 因为它是 1x1 像素且在屏幕外，用户完全看不到任何“弹窗”或“闪烁”。
-            _actionVideoWindow.Show();
-
-            // 3. 挂载到桌面
-            // 此时窗口变成了 WorkerW 的子窗口，但它仍然是 1x1 像素
-            InjectActionLayer(_actionVideoWindow, _idleVideoWindow, _currentUiWindow);
-
-            // 4. [缓冲等待]
-            // 此时 VLC 开始加载视频。我们在它还是 1x1 的时候等待一小会儿。
-            // 防止拉大后先显示黑屏再出画面。
-            await Task.Delay(100);
-
-            // 5. [瞬间展开] 手动将窗口设置为全屏尺寸
-            var helper = new WindowInteropHelper(_actionVideoWindow);
-            // Use physical screen dimensions for SetWindowPos (DPI-safe)
-            int screenW = Win32Api.GetSystemMetrics(Win32Api.SM_CXSCREEN);
-            int screenH = Win32Api.GetSystemMetrics(Win32Api.SM_CYSCREEN);
-
-            // 使用 SetWindowPos 瞬间拉伸，跳过“最大化”动画
-            // 参数说明: HWND_TOP, x=0, y=0, w=ScreenW, h=ScreenH, NOACTIVATE
-            Win32Api.SetWindowPos(helper.Handle, Win32Api.HWND_TOP, 0, 0, screenW, screenH, Win32Api.SWP_NOACTIVATE);
-
-            // 8. 后台重置 Idle (保持不变)
-            ResetIdleVideoInBackground();
-
-            // 9. 等待播放结束
-            int remainingTime = (int)durationMs - 500 - 300;
-            if (remainingTime > 0) await Task.Delay(remainingTime);
-
-            // 10. 淡出并关闭
-            await FadeWindowAsync(_actionVideoWindow, 1, 0, 300);
-
-            if (_actionVideoWindow != null)
+            catch (Exception ex)
             {
-                _actionVideoWindow.Visibility = Visibility.Hidden;
-                try { _actionVideoWindow.StopAndClose(); } catch { }
-                _actionVideoWindow = null;
+                Debug.WriteLine($"[WallpaperService] PlayActionVideo error: {ex.Message}");
+                // Emergency cleanup
+                if (_actionVideoWindow != null)
+                {
+                    try { _actionVideoWindow.StopAndClose(); } catch { }
+                    _actionVideoWindow = null;
+                }
+            }
+            finally
+            {
+                _isActionTransitioning = false;
             }
         }
 
@@ -382,16 +538,14 @@ namespace ProductivityWallpaper.Services
 
                 imageWindow.Show();
 
-                // Inject into WorkerW at topmost Z-order
+                // Inject into desktop layer
                 InjectDynamicWallpaper(imageWindow);
 
-                // Brief delay for rendering
                 await Task.Delay(50);
 
                 // Expand to full screen
                 var helper = new WindowInteropHelper(imageWindow);
-                int screenW = Win32Api.GetSystemMetrics(Win32Api.SM_CXSCREEN);
-                int screenH = Win32Api.GetSystemMetrics(Win32Api.SM_CYSCREEN);
+                var (screenW, screenH) = _desktopBridge.GetScreenDimensions();
                 Win32Api.SetWindowPos(helper.Handle, Win32Api.HWND_TOP, 0, 0, screenW, screenH, Win32Api.SWP_NOACTIVATE);
 
                 // Fade in
@@ -422,33 +576,47 @@ namespace ProductivityWallpaper.Services
             }
         }
 
-        private void ResetIdleVideoInBackground()
+        /// <summary>
+        /// Resets the idle video by creating a new window and properly disposing the old one.
+        /// 
+        /// CRITICAL: Must await the old idle window's StopAndCloseAsync() to ensure VLC's
+        /// native rendering thread is fully stopped before the new idle window begins rendering.
+        /// Without this await, two VLC instances render to the same WorkerW surface simultaneously,
+        /// causing AccessViolationException from native thread conflicts.
+        /// </summary>
+        private async Task ResetIdleVideoAsync()
         {
             if (_currentInteractiveItem?.InteractiveConfig != null)
             {
                 var idlePath = Path.Combine(_currentInteractiveItem.FilePath, _currentInteractiveItem.InteractiveConfig.IdleVideo);
                 if (File.Exists(idlePath))
                 {
-                    // 创建新 Idle (透明)
+                    // Create new idle window (hidden, 1x1 at -32000,-32000)
                     var newIdleWindow = CreateHiddenVideoWindow(idlePath);
                     newIdleWindow.Show();
 
-                    // 挂载到最底层
+                    // Inject at bottom Z-order
                     InjectIdleLayer(newIdleWindow);
-
-                    // 因为在 Action 之下，直接设为可见即可，无需动画
-                    // 但为了保险（防止层级偶尔错乱导致的闪烁），也可以淡入或者延时设为1
                     newIdleWindow.Opacity = 1;
 
-                    // 销毁旧 Idle
-                    if (_idleVideoWindow != null)
-                    {
-                        try { _idleVideoWindow.StopAndClose(); } catch { }
-                    }
-
+                    // CRITICAL: Stop old idle AFTER new one is ready, and AWAIT completion.
+                    // This ensures VLC's native threads from the old window are fully stopped
+                    // before we return control to the caller.
+                    var oldIdle = _idleVideoWindow;
                     _idleVideoWindow = newIdleWindow;
+
+                    if (oldIdle != null)
+                    {
+                        try { await oldIdle.StopAndCloseAsync(); } catch { }
+                    }
                 }
             }
+        }
+
+        // Keep synchronous version for non-critical paths (cleanup only)
+        private void ResetIdleVideoInBackground()
+        {
+            _ = ResetIdleVideoAsync();
         }
 
         // --- 动画辅助方法 ---
@@ -520,17 +688,58 @@ namespace ProductivityWallpaper.Services
         public void ApplyVideoWallpaper(string path, int monitorIndex)
         {
             CleanupCurrentWallpaper();
+            if (!EnsureDesktopLayer()) return;
+            
             var videoWin = CreateHiddenVideoWindow(path);
             videoWin.Show();
             InjectDynamicWallpaper(videoWin);
             FadeWindowAsync(videoWin, 0, 1, 500);
             _idleVideoWindow = videoWin;
+            
+            _isDynamicWallpaperActive = true;
+            _playbackMonitor.Start();
         }
 
+        /// <summary>
+        /// Sets a static wallpaper using IDesktopWallpaper COM interface (Windows native).
+        /// This is zero-overhead — Windows renders the wallpaper natively with perfect DPI/HDR support.
+        /// Falls back to SystemParametersInfo if COM interface is unavailable.
+        /// </summary>
         public void SetStaticWallpaper(string path, int monitorIndex = -1)
         {
             CleanupCurrentWallpaper();
-            Win32Api.SystemParametersInfo(Win32Api.SPI_SETDESKWALLPAPER, 0, path, Win32Api.SPIF_UPDATEINIFILE | Win32Api.SPIF_SENDCHANGE);
+            
+            try
+            {
+                // Prefer IDesktopWallpaper COM for native Windows rendering
+                var desktop = (Win32Api.IDesktopWallpaper)new Win32Api.DesktopWallpaperClass();
+                desktop.SetPosition(Win32Api.DesktopWallpaperPosition.Fill);
+                
+                if (monitorIndex >= 0)
+                {
+                    // Set wallpaper for specific monitor
+                    uint count = desktop.GetMonitorDevicePathCount();
+                    if ((uint)monitorIndex < count)
+                    {
+                        string monitorId = desktop.GetMonitorDevicePathAt((uint)monitorIndex);
+                        desktop.SetWallpaper(monitorId, path);
+                    }
+                }
+                else
+                {
+                    // Set wallpaper for all monitors
+                    desktop.SetWallpaper(null, path);
+                }
+                
+                Debug.WriteLine($"[WallpaperService] Static wallpaper set via IDesktopWallpaper COM: {path}");
+            }
+            catch (Exception ex)
+            {
+                // Fallback to legacy SystemParametersInfo
+                Debug.WriteLine($"[WallpaperService] IDesktopWallpaper COM failed ({ex.Message}), falling back to SPI");
+                Win32Api.SystemParametersInfo(Win32Api.SPI_SETDESKWALLPAPER, 0, path,
+                    Win32Api.SPIF_UPDATEINIFILE | Win32Api.SPIF_SENDCHANGE);
+            }
         }
 
         public void SetAutoColorization(bool enabled)
@@ -618,6 +827,13 @@ namespace ProductivityWallpaper.Services
             _currentAudioIndex = -1;
 
             // Show the first wallpaper
+            // Ensure desktop layer is ready
+            if (!EnsureDesktopLayer())
+            {
+                Debug.WriteLine("[WallpaperService] Failed to setup desktop layer");
+                return;
+            }
+
             _isDynamicWallpaperActive = true;
             _currentWallpaperIndex = -1;
             ShowNextWallpaper();
@@ -636,6 +852,9 @@ namespace ProductivityWallpaper.Services
 
             // Set up mouse click regions if a mouse click scheme is active
             SetupMouseClickRegions(manifest, resolver, settings);
+
+            // Start fullscreen detection for auto-pause
+            _playbackMonitor.Start();
         }
 
         /// <summary>
@@ -727,8 +946,7 @@ namespace ProductivityWallpaper.Services
 
                 // Expand to full screen
                 var helper = new WindowInteropHelper(newWindow);
-                int screenW = Win32Api.GetSystemMetrics(Win32Api.SM_CXSCREEN);
-                int screenH = Win32Api.GetSystemMetrics(Win32Api.SM_CYSCREEN);
+                var (screenW, screenH) = _desktopBridge.GetScreenDimensions();
                 Win32Api.SetWindowPos(helper.Handle, Win32Api.HWND_TOP,
                     0, 0, screenW, screenH, Win32Api.SWP_NOACTIVATE);
 
@@ -742,7 +960,11 @@ namespace ProductivityWallpaper.Services
                 if (oldWindow != null)
                 {
                     await FadeWindowAsync(oldWindow, 1, 0, 300);
-                    CloseBackgroundWindow(oldWindow);
+                    try { await CloseBackgroundWindowAsync(oldWindow); }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[WallpaperService] Failed to close old background window: {ex.Message}");
+                    }
                 }
 
                 // Also keep legacy _idleVideoWindow reference updated for action video compatibility
@@ -801,12 +1023,16 @@ namespace ProductivityWallpaper.Services
             return win;
         }
 
-        private static void CloseBackgroundWindow(Window window)
+        /// <summary>
+        /// Closes a background window, awaiting VLC shutdown for video windows.
+        /// This prevents concurrent VLC native threads from conflicting during transitions.
+        /// </summary>
+        private static async Task CloseBackgroundWindowAsync(Window window)
         {
             try
             {
                 if (window is VideoPlayerWindow vpw)
-                    vpw.StopAndClose();
+                    await vpw.StopAndCloseAsync();
                 else if (window is ImagePlayerWindow ipw)
                     ipw.StopAndClose();
                 else
@@ -816,6 +1042,11 @@ namespace ProductivityWallpaper.Services
             {
                 System.Diagnostics.Debug.WriteLine($"[WallpaperService] CloseBackgroundWindow error: {ex.Message}");
             }
+        }
+
+        private static void CloseBackgroundWindow(Window window)
+        {
+            _ = CloseBackgroundWindowAsync(window);
         }
 
         // --- Background Audio ---
@@ -930,12 +1161,19 @@ namespace ProductivityWallpaper.Services
         /// Named handler for mouse clicks in theme-based dynamic wallpaper mode.
         /// Uses stored _activeResolver and _activeWallpaperSettings instead of captured locals
         /// so the handler can be properly unsubscribed during cleanup (preventing memory leaks).
+        /// 
+        /// Checks IsDesktopClick first to ensure no foreground window is covering the click point.
+        /// This prevents accidental triggers when clicking on browsers, popups, or other windows
+        /// that overlap with the desktop click regions.
         /// </summary>
         private void OnThemeMouseClick(System.Windows.Point screenPoint)
         {
             var resolver = _activeResolver;
             var settings = _activeWallpaperSettings;
             if (resolver == null || settings == null) return;
+
+            // Verify the click actually targets the desktop — not a foreground window covering it
+            if (!_desktopBridge.IsDesktopClick((int)screenPoint.X, (int)screenPoint.Y)) return;
 
             Application.Current.Dispatcher.Invoke(() =>
             {
@@ -951,34 +1189,19 @@ namespace ProductivityWallpaper.Services
         /// </summary>
         private void InjectClickRegionOverlay(ClickRegionOverlayWindow overlay)
         {
-            var helper = new WindowInteropHelper(overlay);
-            IntPtr workerw = FindWorkerW();
-            if (workerw == IntPtr.Zero) return;
+            if (!EnsureDesktopLayer()) return;
 
-            Win32Api.SetParent(helper.Handle, workerw);
+            var helper = new WindowInteropHelper(overlay);
 
             // Remove popup style, keep child window style
             int style = Win32Api.GetWindowLong(helper.Handle, Win32Api.GWL_STYLE);
             style = style & ~Win32Api.WS_POPUP & ~Win32Api.WS_VISIBLE;
             Win32Api.SetWindowLong(helper.Handle, Win32Api.GWL_STYLE, style);
 
+            _desktopBridge.InjectWindow(helper.Handle, asTopmost: true);
             overlay.WindowState = WindowState.Maximized;
 
-            // Use WorkerW's actual client rect for sizing — this gives physical pixels
-            // regardless of DPI scaling, ensuring the overlay covers the full screen
-            int screenW, screenH;
-            if (Win32Api.GetClientRect(workerw, out var rect))
-            {
-                screenW = rect.right - rect.left;
-                screenH = rect.bottom - rect.top;
-            }
-            else
-            {
-                // Fallback to GetSystemMetrics which returns physical pixels for Per-Monitor DPI Aware apps
-                screenW = Win32Api.GetSystemMetrics(Win32Api.SM_CXSCREEN);
-                screenH = Win32Api.GetSystemMetrics(Win32Api.SM_CYSCREEN);
-            }
-
+            var (screenW, screenH) = _desktopBridge.GetScreenDimensions();
             Win32Api.SetWindowPos(helper.Handle, Win32Api.HWND_TOP, 0, 0,
                 screenW, screenH, Win32Api.SWP_NOACTIVATE);
         }
@@ -1125,6 +1348,13 @@ namespace ProductivityWallpaper.Services
 
         private void CleanupCurrentWallpaper()
         {
+            // Reset transition guard to allow new actions after cleanup
+            _isActionTransitioning = false;
+
+            // Stop playback monitor and reset pause state
+            _playbackMonitor.Stop();
+            _isPausedByFullscreen = false;
+
             // Stop dynamic wallpaper cycling
             _isDynamicWallpaperActive = false;
             if (_wallpaperCycleTimer != null)
@@ -1142,13 +1372,16 @@ namespace ProductivityWallpaper.Services
             _activeMouseClickScheme = null;
             _regionAudioIndex.Clear();
 
-            // Stop mouse hook first to prevent new callbacks — unsubscribe named handlers
+            // Stop mouse hook first to prevent new callbacks — unsubscribe ALL named handlers
             if (_mouseHook != null)
             {
                 _mouseHook.OnMouseClick -= OnThemeMouseClick;
+                _mouseHook.OnMouseClick -= _interactiveMouseClickHandler;
                 _mouseHook.Stop();
+                _mouseHook.Dispose();
             }
             _mouseHook = null;
+            _interactiveMouseClickHandler = null;
             _activeWallpaperSettings = null;
             _currentInteractiveItem = null;
             _currentConfig = null;
@@ -1174,13 +1407,18 @@ namespace ProductivityWallpaper.Services
 
             if (_currentUiWindow != null)
             {
+                // Unsubscribe named trigger handler to prevent memory leak
+                if (_interactiveTriggerHandler != null)
+                    _currentUiWindow.OnTriggerClicked -= _interactiveTriggerHandler;
+                _interactiveTriggerHandler = null;
                 _currentUiWindow.Close();
                 _currentUiWindow = null;
             }
 
-            // Close click region overlay window
+            // Close click region overlay window (cleanup first to unsubscribe handlers)
             if (_clickRegionOverlay != null)
             {
+                try { _clickRegionOverlay.Cleanup(); } catch { }
                 try { _clickRegionOverlay.Close(); } catch { }
                 _clickRegionOverlay = null;
             }
@@ -1229,24 +1467,23 @@ namespace ProductivityWallpaper.Services
 
         private void InjectDynamicWallpaper(Window playerWindow)
         {
-            var helper = new WindowInteropHelper(playerWindow);
-            IntPtr workerw = FindWorkerW();
-            if (workerw == IntPtr.Zero) return;
+            if (!EnsureDesktopLayer()) return;
 
-            Win32Api.SetParent(helper.Handle, workerw);
+            var helper = new WindowInteropHelper(playerWindow);
             RemoveBorderAndSetTransparent(helper.Handle);
+            _desktopBridge.InjectWindow(helper.Handle, asTopmost: false);
             playerWindow.WindowState = WindowState.Maximized;
         }
 
         private void InjectIdleLayer(Window idleWin)
         {
-            var idleHelper = new WindowInteropHelper(idleWin);
-            IntPtr workerw = FindWorkerW();
-            if (workerw == IntPtr.Zero) return;
+            if (!EnsureDesktopLayer()) return;
 
-            Win32Api.SetParent(idleHelper.Handle, workerw);
+            var idleHelper = new WindowInteropHelper(idleWin);
             RemoveBorderAndSetTransparent(idleHelper.Handle);
-            Win32Api.SetWindowPos(idleHelper.Handle, Win32Api.HWND_BOTTOM, 0, 0, 0, 0, 0x0013);
+            _desktopBridge.InjectWindow(idleHelper.Handle, asTopmost: false);
+            Win32Api.SetWindowPos(idleHelper.Handle, Win32Api.HWND_BOTTOM, 0, 0, 0, 0,
+                Win32Api.SWP_NOMOVE | Win32Api.SWP_NOSIZE | Win32Api.SWP_NOACTIVATE);
             idleWin.WindowState = WindowState.Maximized;
         }
 
@@ -1254,55 +1491,43 @@ namespace ProductivityWallpaper.Services
         {
             InjectIdleLayer(idleWin);
 
+            if (!EnsureDesktopLayer()) return;
+
             var uiHelper = new WindowInteropHelper(uiWin);
-            IntPtr workerw = FindWorkerW();
-
-            Win32Api.SetParent(uiHelper.Handle, workerw);
-
             int style = Win32Api.GetWindowLong(uiHelper.Handle, Win32Api.GWL_STYLE);
             style = style & ~Win32Api.WS_POPUP & ~Win32Api.WS_VISIBLE;
             Win32Api.SetWindowLong(uiHelper.Handle, Win32Api.GWL_STYLE, style);
 
+            _desktopBridge.InjectWindow(uiHelper.Handle, asTopmost: true);
             uiWin.WindowState = WindowState.Maximized;
-            Win32Api.SetWindowPos(uiHelper.Handle, Win32Api.HWND_TOP, 0, 0, 0, 0, 0x0013);
+
+            var (screenW, screenH) = _desktopBridge.GetScreenDimensions();
+            Win32Api.SetWindowPos(uiHelper.Handle, Win32Api.HWND_TOP, 0, 0, screenW, screenH, Win32Api.SWP_NOACTIVATE);
             uiWin.UpdateLayout(SystemParameters.PrimaryScreenWidth, SystemParameters.PrimaryScreenHeight);
         }
 
         private void InjectActionLayer(Window actionWin, Window? idleWin, InteractiveUiWindow? uiWin)
         {
-            var actionHelper = new WindowInteropHelper(actionWin);
-            IntPtr workerw = FindWorkerW();
-            if (workerw == IntPtr.Zero) return;
+            if (!EnsureDesktopLayer()) return;
 
-            Win32Api.SetParent(actionHelper.Handle, workerw);
+            var actionHelper = new WindowInteropHelper(actionWin);
             RemoveBorderAndSetTransparent(actionHelper.Handle);
+            _desktopBridge.InjectWindow(actionHelper.Handle, asTopmost: false);
             actionWin.WindowState = WindowState.Maximized;
 
             // Z-Order: UI > Action > Idle
-            Win32Api.SetWindowPos(actionHelper.Handle, Win32Api.HWND_TOP, 0, 0, 0, 0, 0x0013);
+            Win32Api.SetWindowPos(actionHelper.Handle, Win32Api.HWND_TOP, 0, 0, 0, 0,
+                Win32Api.SWP_NOMOVE | Win32Api.SWP_NOSIZE | Win32Api.SWP_NOACTIVATE);
 
             if (uiWin != null)
             {
                 var uiHandle = new WindowInteropHelper(uiWin).Handle;
-                Win32Api.SetWindowPos(uiHandle, Win32Api.HWND_TOP, 0, 0, 0, 0, 0x0013);
+                Win32Api.SetWindowPos(uiHandle, Win32Api.HWND_TOP, 0, 0, 0, 0,
+                    Win32Api.SWP_NOMOVE | Win32Api.SWP_NOSIZE | Win32Api.SWP_NOACTIVATE);
             }
         }
 
-        private IntPtr FindWorkerW()
-        {
-            IntPtr progman = Win32Api.FindWindow("Progman", null);
-            Win32Api.SendMessageTimeout(progman, 0x052C, UIntPtr.Zero, IntPtr.Zero, 0x0, 1000, out _);
-
-            IntPtr workerw = IntPtr.Zero;
-            Win32Api.EnumWindows((hwnd, lParam) =>
-            {
-                if (Win32Api.FindWindowEx(hwnd, IntPtr.Zero, "SHELLDLL_DefView", null) != IntPtr.Zero)
-                    workerw = Win32Api.FindWindowEx(IntPtr.Zero, hwnd, "WorkerW", null);
-                return true;
-            }, IntPtr.Zero);
-
-            return workerw;
-        }
+        // FindWorkerW is now handled by DesktopBridgeService with Win11 Raised Desktop support
 
         private void RemoveBorderAndSetTransparent(IntPtr hwnd)
         {
@@ -1385,6 +1610,25 @@ namespace ProductivityWallpaper.Services
                 return "";
             }
             catch { return ""; }
+        }
+        public void Dispose()
+        {
+            if (!_disposed)
+            {
+                _disposed = true;
+                CleanupCurrentWallpaper();
+                
+                // Unsubscribe from service events
+                _desktopBridge.OnDesktopLayerInvalidated -= OnDesktopLayerInvalidated;
+                _playbackMonitor.OnFullscreenAppDetected -= OnFullscreenAppDetected;
+                _playbackMonitor.OnDesktopVisible -= OnDesktopVisible;
+                
+                _desktopBridge.Dispose();
+                _playbackMonitor.Dispose();
+                
+                try { _tempLibVLC?.Dispose(); } catch { }
+                _tempLibVLC = null;
+            }
         }
     }
 }
