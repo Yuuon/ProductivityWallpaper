@@ -209,9 +209,9 @@ namespace ProductivityWallpaper.Services
 
             if (asTopmost)
             {
-                // For overlays: place above everything within Progman but still under desktop icons
-                // DefView (icons) is above, so HWND_TOP puts us just under it
-                // Actually in raised desktop, DefView is WS_EX_LAYERED, so we go under it
+                // For overlays (click regions, UI): place just below DefView (desktop icons).
+                // SetWindowPos with hwndInsertAfter=DefView places our window right behind DefView
+                // in the z-order, which means above wallpaper but below icons — exactly what we want.
                 Win32Api.SetWindowPos(windowHandle, _cachedShellDefView,
                     0, 0, 0, 0, Win32Api.SWP_NOMOVE | Win32Api.SWP_NOSIZE | Win32Api.SWP_NOACTIVATE);
             }

@@ -444,7 +444,9 @@ namespace ProductivityWallpaper.Services
 
         private async void PlayActionVideo(string videoPath)
         {
-            // Guard: prevent overlapping action video plays
+            // Guard: prevent overlapping action video plays.
+            // Safe without Interlocked: this method always runs on the UI thread
+            // (called from click handlers which dispatch to UI thread).
             if (_isActionTransitioning || _actionVideoWindow != null) return;
             _isActionTransitioning = true;
 
@@ -461,7 +463,10 @@ namespace ProductivityWallpaper.Services
                             if (media.Duration > 0) durationMs = media.Duration;
                         }
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[WallpaperService] Failed to parse action video duration: {ex.Message}");
+                    }
                 }
 
                 _actionVideoWindow = CreateHiddenVideoWindow(videoPath);
@@ -952,7 +957,11 @@ namespace ProductivityWallpaper.Services
                 if (oldWindow != null)
                 {
                     await FadeWindowAsync(oldWindow, 1, 0, 300);
-                    await CloseBackgroundWindowAsync(oldWindow);
+                    try { await CloseBackgroundWindowAsync(oldWindow); }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[WallpaperService] Failed to close old background window: {ex.Message}");
+                    }
                 }
 
                 // Also keep legacy _idleVideoWindow reference updated for action video compatibility

@@ -84,7 +84,7 @@ namespace ProductivityWallpaper.Views
             // pipeline there is no visible surface, greatly reducing native thread conflicts
             try { this.Visibility = Visibility.Hidden; } catch { }
 
-            var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
             // STEP 2-5: All VLC cleanup on ThreadPool to avoid native callback thread conflicts
             ThreadPool.QueueUserWorkItem(_ =>
@@ -119,7 +119,7 @@ namespace ProductivityWallpaper.Views
                 }
                 finally
                 {
-                    tcs.TrySetResult(true);
+                    tcs.TrySetResult();
                 }
             });
 

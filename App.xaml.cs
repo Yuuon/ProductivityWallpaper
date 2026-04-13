@@ -121,17 +121,26 @@ namespace ProductivityWallpaper
         /// Ensures all services are properly disposed on application exit.
         /// Critical for releasing system hooks (mouse hook, WinEvent hooks)
         /// and VLC/LibVLC native resources that persist beyond GC collection.
+        /// Disposes in reverse dependency order to prevent callbacks into disposed services.
         /// </summary>
         protected override void OnExit(ExitEventArgs e)
         {
             try
             {
-                // Dispose in reverse dependency order
+                // WallpaperService owns DesktopBridgeService and PlaybackMonitorService,
+                // and its Dispose() will clean them up. Dispose it first.
                 var wallpaperService = Services.GetService<WallpaperService>();
                 wallpaperService?.Dispose();
 
                 var mouseHook = Services.GetService<MouseHookService>();
                 mouseHook?.Dispose();
+
+                // Safety net: dispose these explicitly in case WallpaperService.Dispose() missed them
+                var playbackMonitor = Services.GetService<PlaybackMonitorService>();
+                playbackMonitor?.Dispose();
+
+                var desktopBridge = Services.GetService<DesktopBridgeService>();
+                desktopBridge?.Dispose();
             }
             catch (Exception ex)
             {

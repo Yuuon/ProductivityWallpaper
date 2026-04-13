@@ -26,9 +26,14 @@ namespace ProductivityWallpaper.Services
             {
                 _proc = HookCallback;
                 // WH_MOUSE_LL = 14
-                _hookId = Win32Api.SetWindowsHookEx(14, _proc,
-                    Win32Api.GetModuleHandle(Process.GetCurrentProcess().MainModule?.ModuleName),
-                    0);
+                // For low-level hooks, hMod can be IntPtr.Zero on .NET (not required for LL hooks).
+                // Using IntPtr.Zero is safer than GetModuleHandle which can return null in
+                // single-file published apps where MainModule.ModuleName may be null.
+                var moduleName = Process.GetCurrentProcess().MainModule?.ModuleName;
+                var moduleHandle = moduleName != null 
+                    ? Win32Api.GetModuleHandle(moduleName) 
+                    : IntPtr.Zero;
+                _hookId = Win32Api.SetWindowsHookEx(14, _proc, moduleHandle, 0);
             }
         }
 
