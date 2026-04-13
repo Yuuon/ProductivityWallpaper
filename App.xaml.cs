@@ -28,6 +28,8 @@ namespace ProductivityWallpaper
 
             // Services
             services.AddSingleton<LocalizationService>();
+            services.AddSingleton<DesktopBridgeService>();
+            services.AddSingleton<PlaybackMonitorService>();
             services.AddSingleton<WallpaperService>();
             services.AddSingleton<ConfigService>();
             services.AddSingleton<MouseHookService>();

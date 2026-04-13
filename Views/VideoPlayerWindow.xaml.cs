@@ -43,6 +43,15 @@ namespace ProductivityWallpaper.Views
         }
 
         /// <summary>
+        /// Pauses or resumes video playback.
+        /// Used by PlaybackMonitorService for fullscreen auto-pause.
+        /// </summary>
+        public void SetPause(bool pause)
+        {
+            try { _mediaPlayer?.SetPause(pause); } catch { }
+        }
+
+        /// <summary>
         /// Safely stops VLC playback and closes the window.
         /// 
         /// CRITICAL: The sequence must be:
