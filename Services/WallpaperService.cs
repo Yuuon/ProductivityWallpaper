@@ -74,6 +74,10 @@ namespace ProductivityWallpaper.Services
         private readonly List<Media> _activeMediaObjects = new();
         private bool _disposed;
 
+        // Named handler references for proper event unsubscription (prevents memory leaks)
+        private Action<string>? _interactiveTriggerHandler;
+        private Action<System.Windows.Point>? _interactiveMouseClickHandler;
+
         public WallpaperService()
         {
             _desktopBridge = new DesktopBridgeService();
@@ -353,15 +357,17 @@ namespace ProductivityWallpaper.Services
             _currentUiWindow.LoadConfig(config);
             _currentUiWindow.Show();
 
-            // 点击热区 - 播放对应的视频和音频
-            _currentUiWindow.OnTriggerClicked += (actionVideoName) =>
+            // 点击热区 - 播放对应的视频和音频 (named handler for proper cleanup)
+            var basePath = item.FilePath;
+            _interactiveTriggerHandler = (actionVideoName) =>
             {
-                var actionPath = Path.Combine(item.FilePath, actionVideoName);
+                var actionPath = Path.Combine(basePath, actionVideoName);
                 if (File.Exists(actionPath))
                 {
                     PlayActionVideo(actionPath);
                 }
             };
+            _currentUiWindow.OnTriggerClicked += _interactiveTriggerHandler;
 
             // 注入
             InjectInteractiveLayers(_idleVideoWindow, _currentUiWindow);
@@ -373,27 +379,27 @@ namespace ProductivityWallpaper.Services
             // 启动 Hook (click only, no sweep)
             _mouseHook = new MouseHookService();
 
-            // 鼠标点击事件
-            _mouseHook.OnMouseClick += (screenPoint) =>
+            // 鼠标点击事件 (named handler for proper cleanup)
+            _interactiveMouseClickHandler = (screenPoint) =>
             {
                 if (_currentUiWindow != null)
                 {
-                    Application.Current.Dispatcher.Invoke(() =>
+                    Application.Current?.Dispatcher.Invoke(() =>
                     {
-                        var trigger = _currentUiWindow.GetTriggerAtPoint(screenPoint);
+                        var trigger = _currentUiWindow?.GetTriggerAtPoint(screenPoint);
                         if (trigger != null)
                         {
-                            // 播放音频（如果有配置）
                             if (!string.IsNullOrEmpty(trigger.Audio))
                             {
-                                var audioPath = Path.Combine(item.FilePath, trigger.Audio);
+                                var audioPath = Path.Combine(basePath, trigger.Audio);
                                 PlayAudio(audioPath);
                             }
-                            _currentUiWindow.SimulateClickIfHit(screenPoint);
+                            _currentUiWindow?.SimulateClickIfHit(screenPoint);
                         }
                     });
                 }
             };
+            _mouseHook.OnMouseClick += _interactiveMouseClickHandler;
 
             _mouseHook.Start();
 
@@ -1281,13 +1287,16 @@ namespace ProductivityWallpaper.Services
             _activeMouseClickScheme = null;
             _regionAudioIndex.Clear();
 
-            // Stop mouse hook first to prevent new callbacks — unsubscribe named handlers
+            // Stop mouse hook first to prevent new callbacks — unsubscribe ALL named handlers
             if (_mouseHook != null)
             {
                 _mouseHook.OnMouseClick -= OnThemeMouseClick;
+                _mouseHook.OnMouseClick -= _interactiveMouseClickHandler;
                 _mouseHook.Stop();
+                _mouseHook.Dispose();
             }
             _mouseHook = null;
+            _interactiveMouseClickHandler = null;
             _activeWallpaperSettings = null;
             _currentInteractiveItem = null;
             _currentConfig = null;
@@ -1313,13 +1322,18 @@ namespace ProductivityWallpaper.Services
 
             if (_currentUiWindow != null)
             {
+                // Unsubscribe named trigger handler to prevent memory leak
+                if (_interactiveTriggerHandler != null)
+                    _currentUiWindow.OnTriggerClicked -= _interactiveTriggerHandler;
+                _interactiveTriggerHandler = null;
                 _currentUiWindow.Close();
                 _currentUiWindow = null;
             }
 
-            // Close click region overlay window
+            // Close click region overlay window (cleanup first to unsubscribe handlers)
             if (_clickRegionOverlay != null)
             {
+                try { _clickRegionOverlay.Cleanup(); } catch { }
                 try { _clickRegionOverlay.Close(); } catch { }
                 _clickRegionOverlay = null;
             }

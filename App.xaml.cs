@@ -116,5 +116,29 @@ namespace ProductivityWallpaper
             var mainWindow = Services.GetRequiredService<MainWindow>();
             mainWindow.Show();
         }
+
+        /// <summary>
+        /// Ensures all services are properly disposed on application exit.
+        /// Critical for releasing system hooks (mouse hook, WinEvent hooks)
+        /// and VLC/LibVLC native resources that persist beyond GC collection.
+        /// </summary>
+        protected override void OnExit(ExitEventArgs e)
+        {
+            try
+            {
+                // Dispose in reverse dependency order
+                var wallpaperService = Services.GetService<WallpaperService>();
+                wallpaperService?.Dispose();
+
+                var mouseHook = Services.GetService<MouseHookService>();
+                mouseHook?.Dispose();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[App] Error during OnExit cleanup: {ex.Message}");
+            }
+
+            base.OnExit(e);
+        }
     }
 }
