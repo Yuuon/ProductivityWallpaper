@@ -25,6 +25,8 @@ namespace ProductivityWallpaper.Services
         /// </summary>
         public event Action? OnDesktopVisible;
 
+        private const int FullscreenBorderTolerance = 2; // Pixel tolerance for borderless window detection
+
         private IntPtr _winEventHook = IntPtr.Zero;
         private Win32Api.WinEventDelegate? _winEventProc;
         private bool _isFullscreenActive;
@@ -133,12 +135,12 @@ namespace ProductivityWallpaper.Services
             int screenH = Win32Api.GetSystemMetrics(Win32Api.SM_CYSCREEN);
 
             // A window is considered fullscreen if it covers the entire primary screen
-            // Allow a small tolerance (2px) for borderless windows that might be slightly larger
+            // Allow a small tolerance for borderless windows that might be slightly larger
             bool coversScreen =
                 windowRect.left <= 0 &&
                 windowRect.top <= 0 &&
-                windowRect.right >= screenW - 2 &&
-                windowRect.bottom >= screenH - 2;
+                windowRect.right >= screenW - FullscreenBorderTolerance &&
+                windowRect.bottom >= screenH - FullscreenBorderTolerance;
 
             return coversScreen;
         }

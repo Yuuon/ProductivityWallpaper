@@ -69,6 +69,7 @@ namespace ProductivityWallpaper.Services
         private bool _bgAudioEndReachedSubscribed;
         private readonly Dictionary<string, int> _regionAudioIndex = new();
         private const int MinWallpaperDurationSeconds = 5;
+        private const int DesktopRecoveryDelayMs = 500;
 
         // Track Media objects for disposal during cleanup
         private readonly List<Media> _activeMediaObjects = new();
@@ -184,7 +185,7 @@ namespace ProductivityWallpaper.Services
             Application.Current?.Dispatcher.BeginInvoke(async () =>
             {
                 // Brief delay for Windows to recreate desktop structures
-                await Task.Delay(500);
+                await Task.Delay(DesktopRecoveryDelayMs);
                 
                 if (_isDynamicWallpaperActive)
                 {
