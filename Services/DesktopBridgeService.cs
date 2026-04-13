@@ -173,8 +173,9 @@ namespace ProductivityWallpaper.Services
 
             // Also check if the window at point is the desktop itself (class "Progman" or "WorkerW")
             // This handles edge cases where handles may have been recycled
-            var className = new System.Text.StringBuilder(256);
-            Win32Api.GetClassName(hwndAtPoint, className, 256);
+            const int maxClassNameLength = 256;
+            var className = new StringBuilder(maxClassNameLength);
+            Win32Api.GetClassName(hwndAtPoint, className, maxClassNameLength);
             string cls = className.ToString();
             if (cls == "Progman" || cls == "WorkerW")
                 return true;
