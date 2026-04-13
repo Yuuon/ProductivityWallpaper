@@ -428,49 +428,88 @@ namespace ProductivityWallpaper.Services
         }
 
         // --- 播放动作视频 (核心优化：淡入淡出 + 缓冲) ---
+        // 
+        // CRITICAL: This method manages the lifecycle of two VLC windows simultaneously:
+        //   1. The action video window (overlay)
+        //   2. The idle video window (must be reset in background while action plays)
+        //
+        // The key safety requirement: NEVER stop/dispose one VLC window while another
+        // is being created or rendered. VLC's native threads share process-level state,
+        // so concurrent Stop()/Dispose() and Play() can corrupt internal state and cause
+        // AccessViolationException that .NET 8 cannot catch.
+        //
+        // Solution: Use _isActionTransitioning guard + await StopAndCloseAsync() to ensure
+        // each VLC lifecycle completes before the next one begins.
+        private bool _isActionTransitioning;
+
         private async void PlayActionVideo(string videoPath)
         {
-            if (_actionVideoWindow != null) return;
+            // Guard: prevent overlapping action video plays
+            if (_isActionTransitioning || _actionVideoWindow != null) return;
+            _isActionTransitioning = true;
 
-            long durationMs = 3000;
-            if (_tempLibVLC != null)
+            try
             {
-                try
+                long durationMs = 3000;
+                if (_tempLibVLC != null)
                 {
-                    using (var media = new Media(_tempLibVLC, new Uri(videoPath)))
+                    try
                     {
-                        await media.Parse(MediaParseOptions.ParseLocal);
-                        if (media.Duration > 0) durationMs = media.Duration;
+                        using (var media = new Media(_tempLibVLC, new Uri(videoPath)))
+                        {
+                            await media.Parse(MediaParseOptions.ParseLocal);
+                            if (media.Duration > 0) durationMs = media.Duration;
+                        }
                     }
+                    catch { }
                 }
-                catch { }
+
+                _actionVideoWindow = CreateHiddenVideoWindow(videoPath);
+                _actionVideoWindow.Show();
+
+                // Inject into desktop layer (uses DesktopBridge for Win11 compatibility)
+                InjectActionLayer(_actionVideoWindow, _idleVideoWindow, _currentUiWindow);
+
+                await Task.Delay(100);
+
+                // Expand to full screen
+                var helper = new WindowInteropHelper(_actionVideoWindow);
+                var (screenW, screenH) = _desktopBridge.GetScreenDimensions();
+                Win32Api.SetWindowPos(helper.Handle, Win32Api.HWND_TOP, 0, 0, screenW, screenH, Win32Api.SWP_NOACTIVATE);
+
+                // Reset idle video while action video plays (awaited to prevent race)
+                await ResetIdleVideoAsync();
+
+                int remainingTime = (int)durationMs - 500 - 300;
+                if (remainingTime > 0) await Task.Delay(remainingTime);
+
+                // Capture reference before fade (prevents null ref if cleanup runs during fade)
+                var actionWindow = _actionVideoWindow;
+                if (actionWindow != null)
+                {
+                    await FadeWindowAsync(actionWindow, 1, 0, 300);
+                    actionWindow.Visibility = Visibility.Hidden;
+
+                    // CRITICAL: Await full VLC shutdown before clearing reference.
+                    // This ensures VLC's native rendering thread is completely stopped before
+                    // the idle video's VLC instance takes over rendering to the same WorkerW surface.
+                    try { await actionWindow.StopAndCloseAsync(); } catch { }
+                    _actionVideoWindow = null;
+                }
             }
-
-            _actionVideoWindow = CreateHiddenVideoWindow(videoPath);
-            _actionVideoWindow.Show();
-
-            // Inject into desktop layer (uses DesktopBridge for Win11 compatibility)
-            InjectActionLayer(_actionVideoWindow, _idleVideoWindow, _currentUiWindow);
-
-            await Task.Delay(100);
-
-            // Expand to full screen
-            var helper = new WindowInteropHelper(_actionVideoWindow);
-            var (screenW, screenH) = _desktopBridge.GetScreenDimensions();
-            Win32Api.SetWindowPos(helper.Handle, Win32Api.HWND_TOP, 0, 0, screenW, screenH, Win32Api.SWP_NOACTIVATE);
-
-            ResetIdleVideoInBackground();
-
-            int remainingTime = (int)durationMs - 500 - 300;
-            if (remainingTime > 0) await Task.Delay(remainingTime);
-
-            await FadeWindowAsync(_actionVideoWindow, 1, 0, 300);
-
-            if (_actionVideoWindow != null)
+            catch (Exception ex)
             {
-                _actionVideoWindow.Visibility = Visibility.Hidden;
-                try { _actionVideoWindow.StopAndClose(); } catch { }
-                _actionVideoWindow = null;
+                Debug.WriteLine($"[WallpaperService] PlayActionVideo error: {ex.Message}");
+                // Emergency cleanup
+                if (_actionVideoWindow != null)
+                {
+                    try { _actionVideoWindow.StopAndClose(); } catch { }
+                    _actionVideoWindow = null;
+                }
+            }
+            finally
+            {
+                _isActionTransitioning = false;
             }
         }
 
@@ -529,33 +568,47 @@ namespace ProductivityWallpaper.Services
             }
         }
 
-        private void ResetIdleVideoInBackground()
+        /// <summary>
+        /// Resets the idle video by creating a new window and properly disposing the old one.
+        /// 
+        /// CRITICAL: Must await the old idle window's StopAndCloseAsync() to ensure VLC's
+        /// native rendering thread is fully stopped before the new idle window begins rendering.
+        /// Without this await, two VLC instances render to the same WorkerW surface simultaneously,
+        /// causing AccessViolationException from native thread conflicts.
+        /// </summary>
+        private async Task ResetIdleVideoAsync()
         {
             if (_currentInteractiveItem?.InteractiveConfig != null)
             {
                 var idlePath = Path.Combine(_currentInteractiveItem.FilePath, _currentInteractiveItem.InteractiveConfig.IdleVideo);
                 if (File.Exists(idlePath))
                 {
-                    // 创建新 Idle (透明)
+                    // Create new idle window (hidden, 1x1 at -32000,-32000)
                     var newIdleWindow = CreateHiddenVideoWindow(idlePath);
                     newIdleWindow.Show();
 
-                    // 挂载到最底层
+                    // Inject at bottom Z-order
                     InjectIdleLayer(newIdleWindow);
-
-                    // 因为在 Action 之下，直接设为可见即可，无需动画
-                    // 但为了保险（防止层级偶尔错乱导致的闪烁），也可以淡入或者延时设为1
                     newIdleWindow.Opacity = 1;
 
-                    // 销毁旧 Idle
-                    if (_idleVideoWindow != null)
-                    {
-                        try { _idleVideoWindow.StopAndClose(); } catch { }
-                    }
-
+                    // CRITICAL: Stop old idle AFTER new one is ready, and AWAIT completion.
+                    // This ensures VLC's native threads from the old window are fully stopped
+                    // before we return control to the caller.
+                    var oldIdle = _idleVideoWindow;
                     _idleVideoWindow = newIdleWindow;
+
+                    if (oldIdle != null)
+                    {
+                        try { await oldIdle.StopAndCloseAsync(); } catch { }
+                    }
                 }
             }
+        }
+
+        // Keep synchronous version for non-critical paths (cleanup only)
+        private void ResetIdleVideoInBackground()
+        {
+            _ = ResetIdleVideoAsync();
         }
 
         // --- 动画辅助方法 ---
@@ -899,7 +952,7 @@ namespace ProductivityWallpaper.Services
                 if (oldWindow != null)
                 {
                     await FadeWindowAsync(oldWindow, 1, 0, 300);
-                    CloseBackgroundWindow(oldWindow);
+                    await CloseBackgroundWindowAsync(oldWindow);
                 }
 
                 // Also keep legacy _idleVideoWindow reference updated for action video compatibility
@@ -958,12 +1011,16 @@ namespace ProductivityWallpaper.Services
             return win;
         }
 
-        private static void CloseBackgroundWindow(Window window)
+        /// <summary>
+        /// Closes a background window, awaiting VLC shutdown for video windows.
+        /// This prevents concurrent VLC native threads from conflicting during transitions.
+        /// </summary>
+        private static async Task CloseBackgroundWindowAsync(Window window)
         {
             try
             {
                 if (window is VideoPlayerWindow vpw)
-                    vpw.StopAndClose();
+                    await vpw.StopAndCloseAsync();
                 else if (window is ImagePlayerWindow ipw)
                     ipw.StopAndClose();
                 else
@@ -973,6 +1030,11 @@ namespace ProductivityWallpaper.Services
             {
                 System.Diagnostics.Debug.WriteLine($"[WallpaperService] CloseBackgroundWindow error: {ex.Message}");
             }
+        }
+
+        private static void CloseBackgroundWindow(Window window)
+        {
+            _ = CloseBackgroundWindowAsync(window);
         }
 
         // --- Background Audio ---
@@ -1267,6 +1329,9 @@ namespace ProductivityWallpaper.Services
 
         private void CleanupCurrentWallpaper()
         {
+            // Reset transition guard to allow new actions after cleanup
+            _isActionTransitioning = false;
+
             // Stop playback monitor and reset pause state
             _playbackMonitor.Stop();
             _isPausedByFullscreen = false;
