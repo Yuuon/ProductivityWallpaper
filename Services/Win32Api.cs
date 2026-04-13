@@ -169,6 +169,13 @@ namespace ProductivityWallpaper.Services
         [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
         public static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
 
+        // --- Window-at-point detection (for click-through verification) ---
+        [DllImport("user32.dll")]
+        public static extern IntPtr WindowFromPoint(POINT point);
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr GetParent(IntPtr hWnd);
+
         // --- Registered window messages ---
         [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
         public static extern uint RegisterWindowMessage(string lpString);

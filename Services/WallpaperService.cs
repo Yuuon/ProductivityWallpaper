@@ -383,6 +383,9 @@ namespace ProductivityWallpaper.Services
             // 鼠标点击事件 (named handler for proper cleanup)
             _interactiveMouseClickHandler = (screenPoint) =>
             {
+                // Only handle clicks that target the desktop — ignore clicks on foreground windows
+                if (!_desktopBridge.IsDesktopClick((int)screenPoint.X, (int)screenPoint.Y)) return;
+
                 if (_currentUiWindow != null)
                 {
                     Application.Current?.Dispatcher.Invoke(() =>
@@ -1158,12 +1161,19 @@ namespace ProductivityWallpaper.Services
         /// Named handler for mouse clicks in theme-based dynamic wallpaper mode.
         /// Uses stored _activeResolver and _activeWallpaperSettings instead of captured locals
         /// so the handler can be properly unsubscribed during cleanup (preventing memory leaks).
+        /// 
+        /// Checks IsDesktopClick first to ensure no foreground window is covering the click point.
+        /// This prevents accidental triggers when clicking on browsers, popups, or other windows
+        /// that overlap with the desktop click regions.
         /// </summary>
         private void OnThemeMouseClick(System.Windows.Point screenPoint)
         {
             var resolver = _activeResolver;
             var settings = _activeWallpaperSettings;
             if (resolver == null || settings == null) return;
+
+            // Verify the click actually targets the desktop — not a foreground window covering it
+            if (!_desktopBridge.IsDesktopClick((int)screenPoint.X, (int)screenPoint.Y)) return;
 
             Application.Current.Dispatcher.Invoke(() =>
             {

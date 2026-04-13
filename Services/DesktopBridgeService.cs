@@ -138,6 +138,50 @@ namespace ProductivityWallpaper.Services
             _cachedShellDefView = IntPtr.Zero;
         }
 
+        /// <summary>
+        /// Checks whether a physical screen point targets the desktop (not covered by any foreground window).
+        /// Uses WindowFromPoint to find the topmost window at the given coordinates, then walks
+        /// the parent chain to determine if it belongs to the desktop hierarchy (WorkerW or Progman).
+        /// 
+        /// This prevents click regions from firing when other windows (browsers, popups, file explorer)
+        /// are covering the desktop at the click point.
+        /// </summary>
+        /// <param name="physicalX">X coordinate in physical screen pixels.</param>
+        /// <param name="physicalY">Y coordinate in physical screen pixels.</param>
+        /// <returns>True if the click targets the desktop layer; false if another window covers it.</returns>
+        public bool IsDesktopClick(int physicalX, int physicalY)
+        {
+            var pt = new Win32Api.POINT { x = physicalX, y = physicalY };
+            IntPtr hwndAtPoint = Win32Api.WindowFromPoint(pt);
+
+            if (hwndAtPoint == IntPtr.Zero) return false;
+
+            // Walk the parent chain to check if the window belongs to our desktop injection layer.
+            // Our injected windows are children of either WorkerW (classic) or Progman (raised desktop).
+            IntPtr current = hwndAtPoint;
+            while (current != IntPtr.Zero)
+            {
+                // Direct match: the window IS one of our desktop containers
+                if (current == _cachedWorkerW || current == _cachedProgman)
+                    return true;
+
+                IntPtr parent = Win32Api.GetParent(current);
+                if (parent == IntPtr.Zero || parent == current)
+                    break;
+                current = parent;
+            }
+
+            // Also check if the window at point is the desktop itself (class "Progman" or "WorkerW")
+            // This handles edge cases where handles may have been recycled
+            var className = new System.Text.StringBuilder(256);
+            Win32Api.GetClassName(hwndAtPoint, className, 256);
+            string cls = className.ToString();
+            if (cls == "Progman" || cls == "WorkerW")
+                return true;
+
+            return false;
+        }
+
         // --- Private Setup Methods ---
 
         private bool SetupRaisedDesktopMode()
