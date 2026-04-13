@@ -141,10 +141,16 @@ namespace ProductivityWallpaper.Services
         /// <summary>
         /// Checks whether a physical screen point targets the desktop (not covered by any foreground window).
         /// Uses WindowFromPoint to find the topmost window at the given coordinates, then walks
-        /// the parent chain to determine if it belongs to the desktop hierarchy (WorkerW or Progman).
+        /// the parent chain checking window class names to determine if it belongs to the desktop
+        /// hierarchy (any "WorkerW" or "Progman" class window).
         /// 
         /// This prevents click regions from firing when other windows (browsers, popups, file explorer)
         /// are covering the desktop at the click point.
+        /// 
+        /// Note: We check class names instead of comparing cached handle values because in classic mode,
+        /// the 0x052C message may create multiple WorkerW windows — one holds SHELLDLL_DefView (desktop
+        /// icons) and a different one is our injection target. Both are part of the desktop hierarchy but
+        /// only the injection target is cached in _cachedWorkerW.
         /// </summary>
         /// <param name="physicalX">X coordinate in physical screen pixels.</param>
         /// <param name="physicalY">Y coordinate in physical screen pixels.</param>
@@ -156,13 +162,19 @@ namespace ProductivityWallpaper.Services
 
             if (hwndAtPoint == IntPtr.Zero) return false;
 
-            // Walk the parent chain to check if the window belongs to our desktop injection layer.
-            // Our injected windows are children of either WorkerW (classic) or Progman (raised desktop).
+            // Walk the parent chain checking class names at each level.
+            // If any window in the chain has class "Progman" or "WorkerW", the click
+            // targets the desktop layer (not a foreground application window).
+            const int maxClassNameLength = 256;
+            var className = new StringBuilder(maxClassNameLength);
             IntPtr current = hwndAtPoint;
             while (current != IntPtr.Zero)
             {
-                // Direct match: the window IS one of our desktop containers
-                if (current == _cachedWorkerW || current == _cachedProgman)
+                className.Clear();
+                Win32Api.GetClassName(current, className, maxClassNameLength);
+                string cls = className.ToString();
+
+                if (cls == "Progman" || cls == "WorkerW")
                     return true;
 
                 IntPtr parent = Win32Api.GetParent(current);
@@ -170,15 +182,6 @@ namespace ProductivityWallpaper.Services
                     break;
                 current = parent;
             }
-
-            // Also check if the window at point is the desktop itself (class "Progman" or "WorkerW")
-            // This handles edge cases where handles may have been recycled
-            const int maxClassNameLength = 256;
-            var className = new StringBuilder(maxClassNameLength);
-            Win32Api.GetClassName(hwndAtPoint, className, maxClassNameLength);
-            string cls = className.ToString();
-            if (cls == "Progman" || cls == "WorkerW")
-                return true;
 
             return false;
         }
