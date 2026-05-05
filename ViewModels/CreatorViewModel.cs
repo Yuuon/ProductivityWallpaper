@@ -989,9 +989,13 @@ namespace ProductivityWallpaper.ViewModels
                         var imageVideoIndex = 0;
                         foreach (var resourceId in scheme.DesktopBackgroundMedia.MediaIds)
                         {
-                            var mediaItem = ResolveMediaItem(resourceId, imageVideoIndex);
+                            var perItemMode = imageVideoIndex < scheme.DesktopBackgroundMedia.ItemDisplayModes.Count
+                                ? scheme.DesktopBackgroundMedia.ItemDisplayModes[imageVideoIndex]
+                                : scheme.DesktopBackgroundMedia.DisplayMode;
+                            var mediaItem = ResolveMediaItem(resourceId, imageVideoIndex, perItemMode);
                             if (mediaItem != null)
                             {
+                                SubscribeMediaItemDirty(mediaItem);
                                 mediaVm.ImageVideoItems.Add(mediaItem);
                                 imageVideoIndex++;
                             }
@@ -1010,6 +1014,7 @@ namespace ProductivityWallpaper.ViewModels
                             var mediaItem = ResolveMediaItem(resourceId, audioIndex);
                             if (mediaItem != null)
                             {
+                                SubscribeMediaItemDirty(mediaItem);
                                 mediaVm.AudioItems.Add(mediaItem);
                                 audioIndex++;
                             }
@@ -1026,7 +1031,8 @@ namespace ProductivityWallpaper.ViewModels
                             // Resolve VisualMediaId to VisualContent MediaItemModel
                             if (!string.IsNullOrEmpty(region.ClickAction.VisualMediaId))
                             {
-                                var visualItem = ResolveMediaItem(region.ClickAction.VisualMediaId);
+                                var visualItem = ResolveMediaItem(region.ClickAction.VisualMediaId, 0, region.ClickAction.VisualDisplayMode);
+                                if (visualItem != null) SubscribeMediaItemDirty(visualItem);
                                 region.VisualContent = visualItem; // null if resource not found
                             }
                             else
@@ -1042,11 +1048,13 @@ namespace ProductivityWallpaper.ViewModels
                                 var audioItem = ResolveMediaItem(audioId, audioIndex);
                                 if (audioItem != null)
                                 {
+                                    SubscribeMediaItemDirty(audioItem);
                                     region.AudioContent.Add(audioItem);
                                     audioIndex++;
                                 }
                             }
 
+                            region.PropertyChanged += OnClickRegionPropertyChanged;
                             mouseVm.Regions.Add(region);
                         }
                     }
@@ -1076,7 +1084,7 @@ namespace ProductivityWallpaper.ViewModels
         /// Resolves a resource ID to a MediaItemModel by looking up the ResourceLibrary.
         /// Restores thumbnail paths and generates missing video thumbnails.
         /// </summary>
-        private MediaItemModel? ResolveMediaItem(string resourceId, int orderIndex = 0)
+        private MediaItemModel? ResolveMediaItem(string resourceId, int orderIndex = 0, DisplayMode displayMode = DisplayMode.Fill)
         {
             if (CurrentTheme == null) return null;
 
@@ -1098,7 +1106,7 @@ namespace ProductivityWallpaper.ViewModels
                 },
                 FileSize = resource.FileSize,
                 Duration = resource.Duration,
-                DisplayMode = DisplayMode.Fill,
+                DisplayMode = displayMode,
                 OrderIndex = orderIndex
             };
 
@@ -1215,10 +1223,12 @@ namespace ProductivityWallpaper.ViewModels
                 if (vm is MediaConfigurationViewModel mediaVm)
                 {
                     scheme.DesktopBackgroundMedia.MediaIds.Clear();
+                    scheme.DesktopBackgroundMedia.ItemDisplayModes.Clear();
                     foreach (var item in mediaVm.ImageVideoItems)
                     {
                         var resourceId = RegisterOrFindResource(item);
                         scheme.DesktopBackgroundMedia.MediaIds.Add(resourceId);
+                        scheme.DesktopBackgroundMedia.ItemDisplayModes.Add(item.DisplayMode);
                     }
                     scheme.DesktopBackgroundMedia.PlaybackMode = mediaVm.SelectedPlaybackMode;
 
@@ -1260,6 +1270,7 @@ namespace ProductivityWallpaper.ViewModels
                         {
                             var visualResourceId = RegisterOrFindResource(region.VisualContent);
                             region.ClickAction.VisualMediaId = visualResourceId;
+                            region.ClickAction.VisualDisplayMode = region.VisualContent.DisplayMode;
                         }
                         else
                         {
@@ -1380,11 +1391,95 @@ namespace ProductivityWallpaper.ViewModels
         }
 
         /// <summary>
+        /// Subscribes a MediaItemModel's PropertyChanged so per-item edits (e.g. DisplayMode, IsMuted)
+        /// propagate to the dirty-tracking system. Idempotent: unsubscribes first to avoid duplicates.
+        /// </summary>
+        private void SubscribeMediaItemDirty(MediaItemModel item)
+        {
+            if (item == null) return;
+            item.PropertyChanged -= OnMediaItemPropertyChanged;
+            item.PropertyChanged += OnMediaItemPropertyChanged;
+        }
+
+        private void UnsubscribeMediaItemDirty(MediaItemModel item)
+        {
+            if (item == null) return;
+            item.PropertyChanged -= OnMediaItemPropertyChanged;
+        }
+
+        /// <summary>
+        /// PropertyChanged handler for individual MediaItemModel instances.
+        /// Any property change on a media item is treated as a user edit.
+        /// </summary>
+        private void OnMediaItemPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            // Ignore transient/UI-only properties that should not mark the theme dirty.
+            if (e.PropertyName == nameof(MediaItemModel.ThumbnailPath))
+            {
+                return;
+            }
+            MarkDirty();
+        }
+
+        /// <summary>
+        /// PropertyChanged handler for ClickRegionModel — re-subscribes when VisualContent is swapped
+        /// so the new MediaItemModel's edits also mark the theme dirty.
+        /// </summary>
+        private void OnClickRegionPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (sender is not ClickRegionModel region) return;
+
+            if (e.PropertyName == nameof(ClickRegionModel.VisualContent))
+            {
+                if (region.VisualContent != null)
+                {
+                    SubscribeMediaItemDirty(region.VisualContent);
+                }
+                MarkDirty();
+                return;
+            }
+
+            // Any other region property change is also a user edit (position, size, name, etc.).
+            if (e.PropertyName != nameof(ClickRegionModel.IsSelected))
+            {
+                MarkDirty();
+            }
+        }
+
+        /// <summary>
         /// Named handler for CollectionChanged events on child VM collections.
-        /// Used instead of anonymous lambdas so the handler can be properly unsubscribed.
+        /// Hooks/unhooks per-item dirty subscriptions for MediaItemModel collections,
+        /// and per-region subscriptions for ClickRegionModel collections.
         /// </summary>
         private void OnChildCollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
         {
+            if (e.NewItems != null)
+            {
+                foreach (var newItem in e.NewItems)
+                {
+                    if (newItem is MediaItemModel mi) SubscribeMediaItemDirty(mi);
+                    else if (newItem is ClickRegionModel cr)
+                    {
+                        cr.PropertyChanged -= OnClickRegionPropertyChanged;
+                        cr.PropertyChanged += OnClickRegionPropertyChanged;
+                        if (cr.VisualContent != null) SubscribeMediaItemDirty(cr.VisualContent);
+                        foreach (var audio in cr.AudioContent) SubscribeMediaItemDirty(audio);
+                    }
+                }
+            }
+            if (e.OldItems != null)
+            {
+                foreach (var oldItem in e.OldItems)
+                {
+                    if (oldItem is MediaItemModel mi) UnsubscribeMediaItemDirty(mi);
+                    else if (oldItem is ClickRegionModel cr)
+                    {
+                        cr.PropertyChanged -= OnClickRegionPropertyChanged;
+                        if (cr.VisualContent != null) UnsubscribeMediaItemDirty(cr.VisualContent);
+                        foreach (var audio in cr.AudioContent) UnsubscribeMediaItemDirty(audio);
+                    }
+                }
+            }
             MarkDirty();
         }
 
@@ -1414,12 +1509,20 @@ namespace ProductivityWallpaper.ViewModels
 
                 if (vm is MediaConfigurationViewModel mediaVm)
                 {
+                    foreach (var item in mediaVm.ImageVideoItems) UnsubscribeMediaItemDirty(item);
+                    foreach (var item in mediaVm.AudioItems) UnsubscribeMediaItemDirty(item);
                     mediaVm.ImageVideoItems.CollectionChanged -= OnChildCollectionChanged;
                     mediaVm.AudioItems.CollectionChanged -= OnChildCollectionChanged;
                 }
 
                 if (vm is MouseClickViewModel mouseVm)
                 {
+                    foreach (var region in mouseVm.Regions)
+                    {
+                        region.PropertyChanged -= OnClickRegionPropertyChanged;
+                        if (region.VisualContent != null) UnsubscribeMediaItemDirty(region.VisualContent);
+                        foreach (var audio in region.AudioContent) UnsubscribeMediaItemDirty(audio);
+                    }
                     mouseVm.Regions.CollectionChanged -= OnChildCollectionChanged;
                 }
             }

@@ -48,6 +48,10 @@ namespace ProductivityWallpaper.Services
 
         // --- Theme-based dynamic wallpaper state ---
         private Window? _currentBackgroundWindow;  // Either VideoPlayerWindow or ImagePlayerWindow
+        // Tracks the DisplayMode of the active background window so that re-injection
+        // after desktop-layer invalidation (Win11 raised desktop recovery) restores the
+        // user-selected mode rather than always falling back to Fill.
+        private DisplayMode _currentBackgroundDisplayMode = DisplayMode.Fill;
         private DispatcherTimer? _wallpaperCycleTimer;
         private List<MediaItemModel> _wallpaperPlaylist = new();
         private List<MediaItemModel> _audioPlaylist = new();
@@ -205,7 +209,10 @@ namespace ProductivityWallpaper.Services
                                 _desktopBridge.PositionWallpaperWindow(helper.Handle, 0, 0, screenW, screenH);
 
                                 if (_currentBackgroundWindow is VideoPlayerWindow vpwFill)
-                                    vpwFill.SetAspectFill(screenW, screenH);
+                                {
+                                    vpwFill.ApplyDisplayMode(_currentBackgroundDisplayMode, screenW, screenH);
+                                    vpwFill.ReassertBackdrop();
+                                }
                             }
                         }
 
@@ -446,7 +453,7 @@ namespace ProductivityWallpaper.Services
         // each VLC lifecycle completes before the next one begins.
         private bool _isActionTransitioning;
 
-        private async void PlayActionVideo(string videoPath)
+        private async void PlayActionVideo(string videoPath, DisplayMode displayMode = DisplayMode.Fill)
         {
             // Guard: prevent overlapping action video plays.
             // Safe without Interlocked: this method always runs on the UI thread
@@ -486,8 +493,12 @@ namespace ProductivityWallpaper.Services
                 var (screenW, screenH) = _desktopBridge.GetScreenDimensions();
                 _desktopBridge.PositionOverlayWindow(helper.Handle, 0, 0, screenW, screenH);
 
-                // Force VLC to fill every pixel (no letterbox / no transparent gaps).
-                _actionVideoWindow.SetAspectFill(screenW, screenH);
+                // Apply per-item display mode. Fill stretches to surface (legacy behavior),
+                // Center clears VLC's aspect override so source AR is preserved and the
+                // opaque WPF Black background paints letterbox edges. Tile is video-invalid
+                // and falls back to Fill inside ApplyDisplayMode.
+                _actionVideoWindow.ApplyDisplayMode(displayMode, screenW, screenH);
+                _actionVideoWindow.ReassertBackdrop();
 
                 // Reset idle video while action video plays (awaited to prevent race)
                 await ResetIdleVideoAsync();
@@ -537,7 +548,7 @@ namespace ProductivityWallpaper.Services
         /// Displays a full-screen image overlay for a set duration (default 3 seconds) on click region trigger.
         /// Uses the same anti-flicker pattern as PlayActionVideo: create hidden → show → inject → expand.
         /// </summary>
-        private async void PlayActionImage(string imagePath, int displayDurationMs = 3000)
+        private async void PlayActionImage(string imagePath, int displayDurationMs = 3000, DisplayMode displayMode = DisplayMode.Fill)
         {
             // Reuse _actionVideoWindow field as guard (null = no action playing)
             if (_actionVideoWindow != null) return;
@@ -545,7 +556,12 @@ namespace ProductivityWallpaper.Services
             Window? actionWindow = null;
             try
             {
-                var imageWindow = CreateHiddenImageWindow(imagePath);
+                // For Tile mode on image media, swap to a pre-tiled screen-sized bitmap
+                // and render Fill (VLC has no image-tile mode). See ResolveImagePathForDisplayMode.
+                var resolvedPath = ResolveImagePathForDisplayMode(imagePath, displayMode);
+                var effectiveMode = displayMode == DisplayMode.Tile ? DisplayMode.Fill : displayMode;
+
+                var imageWindow = CreateHiddenImageWindow(resolvedPath);
                 actionWindow = imageWindow;
 
                 imageWindow.Show();
@@ -560,8 +576,11 @@ namespace ProductivityWallpaper.Services
                 var (screenW, screenH) = _desktopBridge.GetScreenDimensions();
                 _desktopBridge.PositionOverlayWindow(helper.Handle, 0, 0, screenW, screenH);
 
-                // Force VLC to fill every pixel (no letterbox / no transparent gaps).
-                imageWindow.SetAspectFill(screenW, screenH);
+                // Apply per-item display mode (image path supports Fill/Center/Tile;
+                // Tile rendering is handled by VLC video-filters when supported, otherwise
+                // it degrades to Fill — see ApplyDisplayMode for exact mapping).
+                imageWindow.ApplyDisplayMode(effectiveMode, screenW, screenH);
+                imageWindow.ReassertBackdrop();
 
                 // Fade in
                 await FadeWindowAsync(imageWindow, 0, 1, 300);
@@ -806,8 +825,27 @@ namespace ProductivityWallpaper.Services
                 return;
             }
 
-            // Build wallpaper playlist from scheme's media IDs
-            _wallpaperPlaylist = resolver.ResolveToMediaItems(bgScheme.DesktopBackgroundMedia.MediaIds)
+            // Build wallpaper playlist from scheme's media IDs.
+            // Stitch in the saved per-item DisplayMode from ItemDisplayModes[] (parallel array to MediaIds).
+            // ResolveToMediaItem does not populate DisplayMode (defaults to Fill on the model),
+            // so we MUST overlay the saved modes here, otherwise per-item Center/Tile is silently lost.
+            var bgMedia = bgScheme.DesktopBackgroundMedia;
+            var mediaIds = bgMedia.MediaIds;
+            var perItemModes = bgMedia.ItemDisplayModes;
+            var fallbackMode = bgMedia.DisplayMode;
+
+            _wallpaperPlaylist = mediaIds
+                .Select((id, idx) =>
+                {
+                    var item = resolver.ResolveToMediaItem(id);
+                    if (item != null)
+                    {
+                        item.DisplayMode = idx < perItemModes.Count ? perItemModes[idx] : fallbackMode;
+                    }
+                    return item;
+                })
+                .Where(item => item != null)
+                .Select(item => item!)
                 .Where(item => item.Type == MediaFileType.Image || item.Type == MediaFileType.Video)
                 .Where(item => !string.IsNullOrEmpty(item.FilePath) && File.Exists(item.FilePath))
                 .ToList();
@@ -945,13 +983,23 @@ namespace ProductivityWallpaper.Services
 
             try
             {
+                // For image media in Tile mode, swap to a pre-tiled screen-sized bitmap
+                // and render Fill (VLC has no image-tile demuxer mode).
+                // See ResolveImagePathForDisplayMode + ImageTileCache.
+                var resolvedPath = mediaItem.Type == MediaFileType.Image
+                    ? ResolveImagePathForDisplayMode(mediaItem.FilePath, mediaItem.DisplayMode)
+                    : mediaItem.FilePath;
+                var effectiveMode = (mediaItem.Type == MediaFileType.Image && mediaItem.DisplayMode == DisplayMode.Tile)
+                    ? DisplayMode.Fill
+                    : mediaItem.DisplayMode;
+
                 if (mediaItem.Type == MediaFileType.Video)
                 {
-                    newWindow = CreateHiddenVideoWindow(mediaItem.FilePath);
+                    newWindow = CreateHiddenVideoWindow(resolvedPath);
                 }
                 else if (mediaItem.Type == MediaFileType.Image)
                 {
-                    newWindow = CreateHiddenImageWindow(mediaItem.FilePath);
+                    newWindow = CreateHiddenImageWindow(resolvedPath);
                 }
 
                 if (newWindow == null) return;
@@ -969,11 +1017,15 @@ namespace ProductivityWallpaper.Services
                 var (screenW, screenH) = _desktopBridge.GetScreenDimensions();
                 _desktopBridge.PositionWallpaperWindow(helper.Handle, 0, 0, screenW, screenH);
 
-                // Force VLC to fill every pixel (no letterbox / no transparent gaps).
-                // Required on Win11 24H2 raised desktop because the WPF Grid behind
-                // VideoView is not composited.
+                // Apply per-item display mode. Track the original (user-selected) mode so
+                // that OnDesktopLayerInvalidated re-injection (Win11 raised-desktop recovery)
+                // can restore it rather than always falling back to Fill.
+                _currentBackgroundDisplayMode = mediaItem.DisplayMode;
                 if (newWindow is VideoPlayerWindow vpwFill)
-                    vpwFill.SetAspectFill(screenW, screenH);
+                {
+                    vpwFill.ApplyDisplayMode(effectiveMode, screenW, screenH);
+                    vpwFill.ReassertBackdrop();
+                }
 
                 // Fade in the new window
                 await FadeWindowAsync(newWindow, 0, 1, 500);
@@ -1052,6 +1104,31 @@ namespace ProductivityWallpaper.Services
             win.ResizeMode = ResizeMode.NoResize;
             win.ShowInTaskbar = false;
             return win;
+        }
+
+        /// <summary>
+        /// Resolves the actual file path to hand to VLC for a given image item.
+        /// For <see cref="DisplayMode.Tile"/> on image media we pre-generate a screen-sized
+        /// tiled bitmap (cached on disk) and feed THAT to VLC, then render it as Fill.
+        /// VLC's image demuxer has no native tile mode and a WPF tiled brush would not
+        /// composite under Progman+WS_EX_NOREDIRECTIONBITMAP — see <see cref="ImageTileCache"/>.
+        ///
+        /// Returns the original path unchanged for Fill/Center, for non-image media,
+        /// or if tiling fails (cache returns the source path on error).
+        /// </summary>
+        private string ResolveImagePathForDisplayMode(string sourcePath, DisplayMode mode)
+        {
+            if (mode != DisplayMode.Tile) return sourcePath;
+            try
+            {
+                var (sw, sh) = _desktopBridge.GetScreenDimensions();
+                if (sw <= 0 || sh <= 0) return sourcePath;
+                return ImageTileCache.GetOrCreate(sourcePath, sw, sh);
+            }
+            catch
+            {
+                return sourcePath;
+            }
         }
 
         /// <summary>
@@ -1263,13 +1340,16 @@ namespace ProductivityWallpaper.Services
                     var visualItem = resolver.ResolveToMediaItem(region.ClickAction.VisualMediaId);
                     if (visualItem != null && File.Exists(visualItem.FilePath))
                     {
+                        // Use saved per-region DisplayMode from ClickAction, NOT the freshly-resolved
+                        // MediaItemModel (whose DisplayMode is always the model default — Fill).
+                        var effectiveMode = region.ClickAction.VisualDisplayMode;
                         if (visualItem.Type == MediaFileType.Video)
                         {
-                            PlayActionVideo(visualItem.FilePath);
+                            PlayActionVideo(visualItem.FilePath, effectiveMode);
                         }
                         else if (visualItem.Type == MediaFileType.Image)
                         {
-                            PlayActionImage(visualItem.FilePath);
+                            PlayActionImage(visualItem.FilePath, displayMode: effectiveMode);
                         }
                     }
                 }
@@ -1506,6 +1586,13 @@ namespace ProductivityWallpaper.Services
             _desktopBridge.InjectWindow(helper.Handle, asTopmost: false);
             var (screenW, screenH) = _desktopBridge.GetScreenDimensions();
             _desktopBridge.PositionWallpaperWindow(helper.Handle, 0, 0, screenW, screenH);
+
+            // The native black backdrop child HWND was created at SourceInitialized when
+            // the window was still at its 1×1 offscreen anti-flicker init size. Now that
+            // PositionWallpaperWindow has resized the parent to full screen, force the
+            // backdrop to grow with it AND reassert HWND_BOTTOM so VLC's HwndHost child
+            // (which may have been created later) sits above us.
+            if (playerWindow is Views.VideoPlayerWindow vpw) vpw.ReassertBackdrop();
         }
 
         private void InjectIdleLayer(Window idleWin)
@@ -1517,6 +1604,9 @@ namespace ProductivityWallpaper.Services
             _desktopBridge.InjectWindow(idleHelper.Handle, asTopmost: false);
             var (screenW, screenH) = _desktopBridge.GetScreenDimensions();
             _desktopBridge.PositionWallpaperWindow(idleHelper.Handle, 0, 0, screenW, screenH);
+
+            // See InjectDynamicWallpaper — same backdrop resize-after-reposition rationale.
+            if (idleWin is Views.VideoPlayerWindow vpw) vpw.ReassertBackdrop();
         }
 
         private void InjectInteractiveLayers(Window idleWin, InteractiveUiWindow uiWin)

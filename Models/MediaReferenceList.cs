@@ -27,9 +27,17 @@ namespace ProductivityWallpaper.Models
 
         /// <summary>
         /// Display mode for images/videos: Fill, Center, or Tile.
+        /// Used as the default/fallback when per-item modes are not specified.
         /// </summary>
         [ObservableProperty]
         private DisplayMode _displayMode = DisplayMode.Fill;
+
+        /// <summary>
+        /// Per-item display modes, aligned by index with <see cref="MediaIds"/>.
+        /// When this list is shorter than MediaIds, missing entries fall back to <see cref="DisplayMode"/>.
+        /// </summary>
+        [ObservableProperty]
+        private ObservableCollection<DisplayMode> _itemDisplayModes = new();
 
         /// <summary>
         /// Whether audio should be muted during playback.
@@ -65,6 +73,12 @@ namespace ProductivityWallpaper.Models
         /// </summary>
         [ObservableProperty]
         private string? _visualMediaId;
+
+        /// <summary>
+        /// Display mode for the visual content (image or video).
+        /// </summary>
+        [ObservableProperty]
+        private DisplayMode _visualDisplayMode = DisplayMode.Fill;
 
         /// <summary>
         /// Resource IDs for audio content (max 5).

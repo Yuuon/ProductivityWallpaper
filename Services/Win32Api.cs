@@ -58,11 +58,15 @@ namespace ProductivityWallpaper.Services
         public const int WS_CHILD = 0x40000000;
         public const int WS_VISIBLE = 0x10000000;
         public const int WS_POPUP = unchecked((int)0x80000000);
+        public const int WS_DISABLED = 0x08000000;
+        public const int WS_CLIPSIBLINGS = 0x04000000;
+        public const int WS_CLIPCHILDREN = 0x02000000;
 
         public const int WS_EX_NOREDIRECTIONBITMAP = 0x00200000;
         public const int WS_EX_LAYERED = 0x80000;
         public const int WS_EX_TRANSPARENT = 0x20;
         public const int WS_EX_TOOLWINDOW = 0x00000080;
+        public const int WS_EX_NOPARENTNOTIFY = 0x00000004;
 
         // Z-Order flags
         public static readonly IntPtr HWND_BOTTOM = new IntPtr(1);
@@ -72,6 +76,16 @@ namespace ProductivityWallpaper.Services
         public const uint SWP_NOZORDER = 0x0004;
         public const uint SWP_NOACTIVATE = 0x0010;
         public const uint SWP_SHOWWINDOW = 0x0040;
+        public const uint SWP_NOOWNERZORDER = 0x0200;
+        public const uint SWP_FRAMECHANGED = 0x0020;
+
+        // Window messages
+        public const uint WM_PAINT = 0x000F;
+        public const uint WM_ERASEBKGND = 0x0014;
+        public const uint WM_DESTROY = 0x0002;
+
+        // GDI stock objects
+        public const int BLACK_BRUSH = 4;
 
         // --- Hook 相关 API ---
         public delegate IntPtr LowLevelMouseProc(int nCode, IntPtr wParam, IntPtr lParam);
@@ -180,6 +194,50 @@ namespace ProductivityWallpaper.Services
 
         [DllImport("user32.dll")]
         public static extern bool EndPaint(IntPtr hWnd, ref PAINTSTRUCT lpPaint);
+
+        // --- Native child window creation (for black backdrop under VLC HwndHost) ---
+        public delegate IntPtr WndProcDelegate(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        public struct WNDCLASSEX
+        {
+            public uint cbSize;
+            public uint style;
+            [MarshalAs(UnmanagedType.FunctionPtr)] public WndProcDelegate lpfnWndProc;
+            public int cbClsExtra;
+            public int cbWndExtra;
+            public IntPtr hInstance;
+            public IntPtr hIcon;
+            public IntPtr hCursor;
+            public IntPtr hbrBackground;
+            [MarshalAs(UnmanagedType.LPWStr)] public string? lpszMenuName;
+            [MarshalAs(UnmanagedType.LPWStr)] public string lpszClassName;
+            public IntPtr hIconSm;
+        }
+
+        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        public static extern ushort RegisterClassEx([In] ref WNDCLASSEX lpwcx);
+
+        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        public static extern IntPtr CreateWindowEx(
+            int dwExStyle,
+            string lpClassName,
+            string? lpWindowName,
+            int dwStyle,
+            int X, int Y, int nWidth, int nHeight,
+            IntPtr hWndParent, IntPtr hMenu, IntPtr hInstance, IntPtr lpParam);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern bool DestroyWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        public static extern IntPtr DefWindowProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        public static extern int FillRect(IntPtr hDC, [In] ref RECT lprc, IntPtr hbr);
+
+        [DllImport("gdi32.dll")]
+        public static extern IntPtr GetStockObject(int fnObject);
 
         [StructLayout(LayoutKind.Sequential)]
         public struct PAINTSTRUCT

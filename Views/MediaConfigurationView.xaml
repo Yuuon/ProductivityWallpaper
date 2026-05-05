@@ -18,6 +18,9 @@
         
         <!-- Media Type to Visibility Converter -->
         <converters:MediaTypeIsVideoConverter x:Key="MediaTypeIsVideoConverter"/>
+
+        <!-- DisplayMode options per media type (Tile is image-only) -->
+        <converters:DisplayModeOptionsConverter x:Key="DisplayModeOptionsConverter"/>
         
         <!-- Dark-themed ComboBox Style for DisplayMode -->
         <Style x:Key="DisplayModeComboStyle" TargetType="ComboBox">
@@ -323,7 +326,8 @@
                     <!-- DisplayMode ComboBox -->
                     <ComboBox Width="80"
                              Margin="4,0"
-                             SelectedItem="{Binding DisplayMode}">
+                             SelectedItem="{Binding DisplayMode}"
+                             ItemsSource="{Binding Type, Converter={StaticResource DisplayModeOptionsConverter}}">
                         <ComboBox.Style>
                             <Style TargetType="ComboBox" BasedOn="{StaticResource DisplayModeComboStyle}">
                                 <Style.Triggers>
@@ -333,13 +337,6 @@
                                 </Style.Triggers>
                             </Style>
                         </ComboBox.Style>
-                        <ComboBox.ItemsSource>
-                            <x:Array Type="models:DisplayMode">
-                                <models:DisplayMode>Fill</models:DisplayMode>
-                                <models:DisplayMode>Center</models:DisplayMode>
-                                <models:DisplayMode>Tile</models:DisplayMode>
-                            </x:Array>
-                        </ComboBox.ItemsSource>
                     </ComboBox>
                     
                     <!-- Remove Button -->

@@ -1,8 +1,12 @@
 using LibVLCSharp.Shared;
+using ProductivityWallpaper.Models;
+using ProductivityWallpaper.Services;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Interop;
+using System.Windows.Threading;
 using Application = System.Windows.Application;
 
 namespace ProductivityWallpaper.Views
@@ -13,9 +17,17 @@ namespace ProductivityWallpaper.Views
         private MediaPlayer? _mediaPlayer;
         private bool _isStopping;
 
+        // Native black backdrop child HWND. Required because on Win11 24H2 raised desktop
+        // (Progman with WS_EX_NOREDIRECTIONBITMAP), WPF-painted Background="Black" is not
+        // reliably composited for windows reparented under Progman, so any pixels NOT
+        // covered by VLC's child HWND (e.g. letterbox edges in Center mode) fall through
+        // to the OS desktop wallpaper. This native HWND paints real black pixels.
+        private readonly BlackBackdropHost _backdrop = new();
+
         public VideoPlayerWindow(string videoPath, bool muted = true)
         {
             InitializeComponent();
+            HookBackdropLifecycle();
 
             _libVLC = new LibVLC();
             _mediaPlayer = new MediaPlayer(_libVLC);
@@ -50,6 +62,7 @@ namespace ProductivityWallpaper.Views
         private VideoPlayerWindow(string mediaPath, ImageMarker _)
         {
             InitializeComponent();
+            HookBackdropLifecycle();
 
             // For image mode we instruct VLC to keep the image displayed indefinitely.
             // image-duration is honored by the image demuxer; -1 = forever.
@@ -68,6 +81,57 @@ namespace ProductivityWallpaper.Views
 
             _mediaPlayer.Play(media);
             _mediaPlayer.Mute = true;
+        }
+
+        // --- Native black backdrop wiring ---
+
+        private void HookBackdropLifecycle()
+        {
+            SourceInitialized += OnSourceInitializedAttachBackdrop;
+            SizeChanged += OnSizeChangedResizeBackdrop;
+            Loaded += OnLoadedReassertBackdropZOrder;
+            Closed += OnClosedDisposeBackdrop;
+        }
+
+        private void OnSourceInitializedAttachBackdrop(object? sender, EventArgs e)
+        {
+            try
+            {
+                var hwnd = new WindowInteropHelper(this).Handle;
+                _backdrop.Attach(hwnd);
+            }
+            catch { /* non-fatal: window simply lacks the backdrop */ }
+        }
+
+        private void OnSizeChangedResizeBackdrop(object? sender, SizeChangedEventArgs e)
+        {
+            try { _backdrop.Resize(); } catch { }
+        }
+
+        private void OnLoadedReassertBackdropZOrder(object? sender, RoutedEventArgs e)
+        {
+            // VLC's HwndHost child HWND is created lazily after the window appears.
+            // Defer to after layout so VideoView's child HWND already exists, then
+            // resize the backdrop and push it back to HWND_BOTTOM so VLC paints on top.
+            Dispatcher.BeginInvoke(new Action(() => { try { _backdrop.Resize(); } catch { } }),
+                                   DispatcherPriority.Background);
+        }
+
+        private void OnClosedDisposeBackdrop(object? sender, EventArgs e)
+        {
+            try { _backdrop.Dispose(); } catch { }
+        }
+
+        /// <summary>
+        /// Forces the native black backdrop to fill the parent's current client rect and
+        /// reasserts <c>HWND_BOTTOM</c> z-order. Call this from <see cref="Services.WallpaperService"/>
+        /// AFTER the window is restored from its offscreen anti-flicker init position to its
+        /// final on-screen size, since the backdrop is sized at <c>SourceInitialized</c> when
+        /// the parent is still 1×1 and offscreen.
+        /// </summary>
+        public void ReassertBackdrop()
+        {
+            try { _backdrop.Resize(); } catch { }
         }
 
         /// <summary>
@@ -97,6 +161,52 @@ namespace ProductivityWallpaper.Views
                 // VLC accepts "W:H" strings; setting it to the window aspect makes VLC
                 // stretch the video to exactly fill the surface without letterboxing.
                 _mediaPlayer.AspectRatio = $"{screenWidth}:{screenHeight}";
+            }
+            catch { }
+        }
+
+        /// <summary>
+        /// Applies a per-item <see cref="DisplayMode"/> to the underlying VLC surface.
+        /// <para>
+        /// Fill   → forces VLC to stretch to the window aspect (no letterbox; matches
+        ///          legacy <see cref="SetAspectFill(int, int)"/> behavior).
+        /// </para>
+        /// <para>
+        /// Center → clears VLC's aspect override so VLC preserves the source aspect
+        ///          ratio and letterboxes inside the surface. The opaque
+        ///          <c>Background="Black"</c> on both <see cref="Window"/> and the inner
+        ///          <c>Grid</c> guarantees the uncovered edges paint solid black on the
+        ///          Win11 24H2 raised desktop where Progman has WS_EX_NOREDIRECTIONBITMAP.
+        /// </para>
+        /// <para>
+        /// Tile   → not supported for video by product spec; falls back to Fill so
+        ///          accidental selection (e.g. legacy data) never produces a transparent
+        ///          surface. Tile is enforced as image-only by <see cref="MediaItemModel"/>.
+        /// </para>
+        /// <paramref name="screenWidth"/> and <paramref name="screenHeight"/> are the
+        /// destination surface dimensions and are only consumed in Fill mode.
+        /// </summary>
+        public void ApplyDisplayMode(DisplayMode mode, int screenWidth, int screenHeight)
+        {
+            try
+            {
+                if (_mediaPlayer == null) return;
+
+                switch (mode)
+                {
+                    case DisplayMode.Center:
+                        // Clear aspect override → VLC preserves source AR and letterboxes.
+                        // Empty string is the documented "use source aspect" sentinel for
+                        // libvlc's video_set_aspect_ratio API.
+                        _mediaPlayer.AspectRatio = string.Empty;
+                        break;
+
+                    case DisplayMode.Tile:
+                    case DisplayMode.Fill:
+                    default:
+                        _mediaPlayer.AspectRatio = $"{screenWidth}:{screenHeight}";
+                        break;
+                }
             }
             catch { }
         }

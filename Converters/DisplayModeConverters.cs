@@ -8,6 +8,36 @@ using ProductivityWallpaper.Models;
 namespace ProductivityWallpaper.Converters
 {
     /// <summary>
+    /// Converts a <see cref="MediaFileType"/> into the list of valid <see cref="DisplayMode"/>
+    /// values for that type. Images get Fill/Center/Tile; video and audio get Fill/Center only
+    /// (Tile is image-only by product spec).
+    /// </summary>
+    public class DisplayModeOptionsConverter : IValueConverter
+    {
+        private static readonly DisplayMode[] _imageOptions = new[]
+        {
+            DisplayMode.Fill, DisplayMode.Center, DisplayMode.Tile
+        };
+
+        private static readonly DisplayMode[] _nonImageOptions = new[]
+        {
+            DisplayMode.Fill, DisplayMode.Center
+        };
+
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is MediaFileType type && type == MediaFileType.Image)
+                return _imageOptions;
+            return _nonImageOptions;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    /// <summary>
     /// Converts DisplayMode enum to Stretch enum for image display.
     /// </summary>
     public class DisplayModeToStretchConverter : IValueConverter

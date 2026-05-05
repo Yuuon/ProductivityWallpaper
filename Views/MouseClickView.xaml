@@ -23,6 +23,7 @@
         <converters:PercentageToPixelConverter x:Key="PercentageToPixelConverter"/>
         <converters:PercentageToPixelMultiConverter x:Key="PercentageToPixelMultiConverter"/>
         <converters:MediaTypeIsVideoConverter x:Key="MediaTypeIsVideoConverter"/>
+        <converters:DisplayModeOptionsConverter x:Key="DisplayModeOptionsConverter"/>
 
         <!-- Region Item Template -->
         <DataTemplate x:Key="RegionItemTemplate" DataType="{x:Type models:ClickRegionModel}">
@@ -317,7 +318,15 @@
                                   Visibility="{Binding IsMuted, Converter={StaticResource InverseBooleanToVisibilityConverter}}"/>
                         </Grid>
                     </Button>
-                    
+
+                    <!-- DisplayMode ComboBox — Tile only available for images -->
+                    <ComboBox Style="{StaticResource RegionAudioPlaybackComboStyle}"
+                              Width="80"
+                              Margin="4,0"
+                              SelectedItem="{Binding DisplayMode}"
+                              ItemsSource="{Binding Type, Converter={StaticResource DisplayModeOptionsConverter}}"
+                              ToolTip="Display mode"/>
+
                     <!-- Remove Button -->
                     <Button Command="{Binding DataContext.RemoveRegionVisualCommand, RelativeSource={RelativeSource AncestorType=Border}}"
                             ToolTip="Remove"
@@ -1160,6 +1169,15 @@
                                           Visibility="{Binding SelectedRegion.VisualContent.IsMuted, Converter={StaticResource InverseBooleanToVisibilityConverter}}"/>
                                 </Grid>
                             </Button>
+
+                            <!-- DisplayMode ComboBox — Tile only available for images -->
+                            <ComboBox Style="{StaticResource RegionAudioPlaybackComboStyle}"
+                                      Width="80"
+                                      Margin="4,0"
+                                      VerticalAlignment="Center"
+                                      SelectedItem="{Binding SelectedRegion.VisualContent.DisplayMode}"
+                                      ItemsSource="{Binding SelectedRegion.VisualContent.Type, Converter={StaticResource DisplayModeOptionsConverter}}"
+                                      ToolTip="Display mode"/>
 
                             <!-- Remove Button -->
                             <Button Command="{Binding RemoveRegionVisualCommand}"
