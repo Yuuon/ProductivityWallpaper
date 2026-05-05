@@ -58,6 +58,75 @@ namespace ProductivityWallpaper.Services
         public IntPtr ShellDefView => _cachedShellDefView;
 
         /// <summary>
+        /// Places an injected wallpaper/background window in the correct z-order for the current desktop mode.
+        /// In Win11 Raised Desktop, using HWND_TOP after injection can lift wallpaper above icons; keep it
+        /// behind SHELLDLL_DefView and above WorkerW instead.
+        /// </summary>
+        public void PositionWallpaperWindow(IntPtr windowHandle, int x, int y, int width, int height)
+        {
+            IntPtr zOrder = _isRaisedDesktop && _cachedShellDefView != IntPtr.Zero
+                ? _cachedShellDefView
+                : Win32Api.HWND_BOTTOM;
+
+            Win32Api.SetWindowPos(windowHandle, zOrder,
+                x, y, width, height, Win32Api.SWP_NOACTIVATE);
+
+            // After repositioning a child of Progman with WS_EX_LAYERED, the redirection bitmap
+            // does not always repaint automatically when the size changes. Force a full redraw so
+            // GDI/WPF content (image wallpaper) renders at the new size instead of the original
+            // 1x1 pre-injection size.
+            Win32Api.InvalidateRect(windowHandle, IntPtr.Zero, true);
+            Win32Api.UpdateWindow(windowHandle);
+        }
+
+        /// <summary>
+        /// Places an injected overlay/action window above wallpaper content but still below desktop icons
+        /// on raised Win11 desktops.
+        /// </summary>
+        public void PositionOverlayWindow(IntPtr windowHandle, int x, int y, int width, int height)
+        {
+            IntPtr zOrder = _isRaisedDesktop && _cachedShellDefView != IntPtr.Zero
+                ? _cachedShellDefView
+                : Win32Api.HWND_TOP;
+
+            Win32Api.SetWindowPos(windowHandle, zOrder,
+                x, y, width, height, Win32Api.SWP_NOACTIVATE);
+
+            Win32Api.InvalidateRect(windowHandle, IntPtr.Zero, true);
+            Win32Api.UpdateWindow(windowHandle);
+        }
+
+        /// <summary>
+        /// Re-applies overlay z-order without changing size or position.
+        /// </summary>
+        public void KeepOverlayBehindIcons(IntPtr windowHandle)
+        {
+            IntPtr zOrder = _isRaisedDesktop && _cachedShellDefView != IntPtr.Zero
+                ? _cachedShellDefView
+                : Win32Api.HWND_TOP;
+
+            Win32Api.SetWindowPos(windowHandle, zOrder,
+                0, 0, 0, 0, Win32Api.SWP_NOMOVE | Win32Api.SWP_NOSIZE | Win32Api.SWP_NOACTIVATE);
+        }
+
+        /// <summary>
+        /// Re-applies wallpaper z-order without changing size or position.
+        /// </summary>
+        public void KeepWallpaperBehindIcons(IntPtr windowHandle)
+        {
+            if (_isRaisedDesktop && _cachedShellDefView != IntPtr.Zero)
+            {
+                Win32Api.SetWindowPos(windowHandle, _cachedShellDefView,
+                    0, 0, 0, 0, Win32Api.SWP_NOMOVE | Win32Api.SWP_NOSIZE | Win32Api.SWP_NOACTIVATE);
+            }
+            else
+            {
+                Win32Api.SetWindowPos(windowHandle, Win32Api.HWND_BOTTOM,
+                    0, 0, 0, 0, Win32Api.SWP_NOMOVE | Win32Api.SWP_NOSIZE | Win32Api.SWP_NOACTIVATE);
+            }
+        }
+
+        /// <summary>
         /// Sets up the desktop layer: finds WorkerW, detects raised desktop mode,
         /// and starts lifecycle monitoring.
         /// </summary>
@@ -71,7 +140,7 @@ namespace ProductivityWallpaper.Services
             }
 
             // Send the magic 0x052C message to trigger WorkerW creation
-            Win32Api.SendMessageTimeout(_cachedProgman, 0x052C, UIntPtr.Zero, IntPtr.Zero,
+            Win32Api.SendMessageTimeout(_cachedProgman, 0x052C, new UIntPtr(0xD), new IntPtr(0x1),
                 0x0, 1000, out _);
 
             // Detect raised desktop mode: check if Progman has WS_EX_NOREDIRECTIONBITMAP
@@ -100,6 +169,16 @@ namespace ProductivityWallpaper.Services
         /// If false, place at the bottom (for wallpaper content).</param>
         public void InjectWindow(IntPtr windowHandle, bool asTopmost = false)
         {
+            // Bug 4 fix (Oracle-diagnosed): on Win11 24H2 the desktop topology can be
+            // recomposed by Explorer between injections. Cached Progman/DefView handles
+            // can become stale or no longer reflect the active desktop host. Re-validate
+            // before every inject; refresh cached topology if anything looks off.
+            if (!ValidateCachedTopology())
+            {
+                Debug.WriteLine("[DesktopBridge] Cached topology invalid — refreshing before inject.");
+                SetupDesktopLayer();
+            }
+
             if (_isRaisedDesktop)
             {
                 InjectRaisedDesktop(windowHandle, asTopmost);
@@ -108,6 +187,44 @@ namespace ProductivityWallpaper.Services
             {
                 InjectClassic(windowHandle, asTopmost);
             }
+        }
+
+        /// <summary>
+        /// Validates that cached desktop handles still reflect a coherent desktop topology.
+        /// Returns false if anything is stale, signaling that SetupDesktopLayer should re-run.
+        /// </summary>
+        private bool ValidateCachedTopology()
+        {
+            if (_cachedProgman == IntPtr.Zero || !Win32Api.IsWindow(_cachedProgman))
+                return false;
+
+            var className = new StringBuilder(64);
+            Win32Api.GetClassName(_cachedProgman, className, className.Capacity);
+            if (className.ToString() != "Progman")
+                return false;
+
+            if (_isRaisedDesktop)
+            {
+                if (_cachedShellDefView == IntPtr.Zero || !Win32Api.IsWindow(_cachedShellDefView))
+                    return false;
+
+                className.Clear();
+                Win32Api.GetClassName(_cachedShellDefView, className, className.Capacity);
+                if (className.ToString() != "SHELLDLL_DefView")
+                    return false;
+
+                // DefView must still be a child of cached Progman; otherwise the
+                // SetWindowPos sibling-anchor in InjectRaisedDesktop is invalid.
+                if (Win32Api.GetParent(_cachedShellDefView) != _cachedProgman)
+                    return false;
+            }
+            else
+            {
+                if (_cachedWorkerW == IntPtr.Zero || !Win32Api.IsWindow(_cachedWorkerW))
+                    return false;
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -239,12 +356,15 @@ namespace ProductivityWallpaper.Services
 
         private void InjectRaisedDesktop(IntPtr windowHandle, bool asTopmost)
         {
-            // Set as child window style
+            // Convert to child window. Preserve WS_VISIBLE explicitly — when transitioning
+            // popup -> child, some style flags get dropped and the window can disappear.
             int style = Win32Api.GetWindowLong(windowHandle, Win32Api.GWL_STYLE);
-            style = (style & ~Win32Api.WS_POPUP) | Win32Api.WS_CHILD;
+            style = (style & ~Win32Api.WS_POPUP) | Win32Api.WS_CHILD | Win32Api.WS_VISIBLE;
             Win32Api.SetWindowLong(windowHandle, Win32Api.GWL_STYLE, style);
 
-            // Add WS_EX_LAYERED for DWM compositing in raised desktop mode
+            // Add WS_EX_LAYERED for DWM compositing in raised desktop mode — Lively does this
+            // and it is required for the redirection bitmap to be created so DWM can composite
+            // our content into the desktop scene.
             int exStyle = Win32Api.GetWindowLong(windowHandle, Win32Api.GWL_EXSTYLE);
             exStyle |= Win32Api.WS_EX_LAYERED;
             Win32Api.SetWindowLong(windowHandle, Win32Api.GWL_EXSTYLE, exStyle);
@@ -253,42 +373,62 @@ namespace ProductivityWallpaper.Services
             Win32Api.SetLayeredWindowAttributes(windowHandle, 0, 255, Win32Api.LWA_ALPHA);
 
             // Parent to Progman (not WorkerW!)
+            // Bug 4 fix: verify SetParent actually stuck. On Win11 24H2 with stale
+            // topology, SetParent can succeed-as-call but the desktop host isn't the
+            // currently-active one, leaving the window as a free-floating top-level.
             Win32Api.SetParent(windowHandle, _cachedProgman);
+            var actualParent = Win32Api.GetParent(windowHandle);
+            if (actualParent != _cachedProgman)
+            {
+                Debug.WriteLine($"[DesktopBridge] SetParent verification failed (actual=0x{actualParent.ToInt64():X}, expected=0x{_cachedProgman.ToInt64():X}). Refreshing topology and retrying.");
+                SetupDesktopLayer();
+                Win32Api.SetParent(windowHandle, _cachedProgman);
+                actualParent = Win32Api.GetParent(windowHandle);
+                if (actualParent != _cachedProgman)
+                {
+                    Debug.WriteLine($"[DesktopBridge] SetParent retry FAILED. Window 0x{windowHandle.ToInt64():X} will remain free-floating.");
+                    return; // give up — caller's window stays top-level but at least we don't crash
+                }
+            }
 
-            if (asTopmost)
-            {
-                // For overlays (click regions, UI): place just below DefView (desktop icons).
-                // SetWindowPos with hwndInsertAfter=DefView places our window right behind DefView
-                // in the z-order, which means above wallpaper but below icons — exactly what we want.
-                Win32Api.SetWindowPos(windowHandle, _cachedShellDefView,
-                    0, 0, 0, 0, Win32Api.SWP_NOMOVE | Win32Api.SWP_NOSIZE | Win32Api.SWP_NOACTIVATE);
-            }
-            else
-            {
-                // For wallpaper content: z-order under DefView, above WorkerW
-                if (_cachedWorkerW != IntPtr.Zero)
-                {
-                    // Place just above WorkerW
-                    Win32Api.SetWindowPos(windowHandle, _cachedWorkerW,
-                        0, 0, 0, 0, Win32Api.SWP_NOMOVE | Win32Api.SWP_NOSIZE | Win32Api.SWP_NOACTIVATE);
-                }
-                else
-                {
-                    Win32Api.SetWindowPos(windowHandle, Win32Api.HWND_BOTTOM,
-                        0, 0, 0, 0, Win32Api.SWP_NOMOVE | Win32Api.SWP_NOSIZE | Win32Api.SWP_NOACTIVATE);
-                }
-            }
+            // Place behind SHELLDLL_DefView so desktop icons and wallpaper content remain in the
+            // correct order. Same anchor for both wallpaper and overlay — caller controls intent
+            // via subsequent PositionWallpaperWindow / PositionOverlayWindow calls.
+            IntPtr insertAfter = _cachedShellDefView != IntPtr.Zero
+                ? _cachedShellDefView
+                : Win32Api.HWND_BOTTOM;
+
+            Win32Api.SetWindowPos(windowHandle, insertAfter,
+                0, 0, 0, 0, Win32Api.SWP_NOMOVE | Win32Api.SWP_NOSIZE | Win32Api.SWP_NOACTIVATE);
         }
 
         private void InjectClassic(IntPtr windowHandle, bool asTopmost)
         {
             if (_cachedWorkerW == IntPtr.Zero) return;
 
+            // Preserve WS_VISIBLE through reparent — same rationale as InjectRaisedDesktop.
+            int style = Win32Api.GetWindowLong(windowHandle, Win32Api.GWL_STYLE);
+            style = (style & ~Win32Api.WS_POPUP) | Win32Api.WS_CHILD | Win32Api.WS_VISIBLE;
+            Win32Api.SetWindowLong(windowHandle, Win32Api.GWL_STYLE, style);
+
             Win32Api.SetParent(windowHandle, _cachedWorkerW);
 
             IntPtr zOrder = asTopmost ? Win32Api.HWND_TOP : Win32Api.HWND_BOTTOM;
             Win32Api.SetWindowPos(windowHandle, zOrder,
                 0, 0, 0, 0, Win32Api.SWP_NOMOVE | Win32Api.SWP_NOSIZE | Win32Api.SWP_NOACTIVATE);
+        }
+
+        private void EnsureWorkerWZOrder()
+        {
+            // NOTE: previously we pushed WorkerW to HWND_BOTTOM inside Progman whenever it
+            // was not the last child. That fights DefView's natural z-order on Win11 24H2 raised
+            // desktop and can sink injected wallpaper windows below the rendering surface,
+            // resulting in a blank/black screen. Lively does not perform this correction —
+            // it relies on the SetWindowPos(handle, SHELLDLL_DefView, ...) anchor in
+            // PositionWallpaperWindow / InjectRaisedDesktop to keep wallpaper behind icons.
+            //
+            // Kept as a no-op so existing call sites compile; remove call sites in a future cleanup.
+            if (!_isRaisedDesktop) return;
         }
 
         // --- Lifecycle Monitoring ---

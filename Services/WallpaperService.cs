@@ -202,8 +202,10 @@ namespace ProductivityWallpaper.Services
                             {
                                 _desktopBridge.InjectWindow(helper.Handle, asTopmost: false);
                                 var (screenW, screenH) = _desktopBridge.GetScreenDimensions();
-                                Win32Api.SetWindowPos(helper.Handle, Win32Api.HWND_TOP,
-                                    0, 0, screenW, screenH, Win32Api.SWP_NOACTIVATE);
+                                _desktopBridge.PositionWallpaperWindow(helper.Handle, 0, 0, screenW, screenH);
+
+                                if (_currentBackgroundWindow is VideoPlayerWindow vpwFill)
+                                    vpwFill.SetAspectFill(screenW, screenH);
                             }
                         }
 
@@ -215,8 +217,7 @@ namespace ProductivityWallpaper.Services
                             {
                                 _desktopBridge.InjectWindow(overlayHelper.Handle, asTopmost: true);
                                 var (screenW, screenH) = _desktopBridge.GetScreenDimensions();
-                                Win32Api.SetWindowPos(overlayHelper.Handle, Win32Api.HWND_TOP,
-                                    0, 0, screenW, screenH, Win32Api.SWP_NOACTIVATE);
+                                _desktopBridge.PositionOverlayWindow(overlayHelper.Handle, 0, 0, screenW, screenH);
                             }
                         }
                     }
@@ -483,10 +484,21 @@ namespace ProductivityWallpaper.Services
                 // Expand to full screen
                 var helper = new WindowInteropHelper(_actionVideoWindow);
                 var (screenW, screenH) = _desktopBridge.GetScreenDimensions();
-                Win32Api.SetWindowPos(helper.Handle, Win32Api.HWND_TOP, 0, 0, screenW, screenH, Win32Api.SWP_NOACTIVATE);
+                _desktopBridge.PositionOverlayWindow(helper.Handle, 0, 0, screenW, screenH);
+
+                // Force VLC to fill every pixel (no letterbox / no transparent gaps).
+                _actionVideoWindow.SetAspectFill(screenW, screenH);
 
                 // Reset idle video while action video plays (awaited to prevent race)
                 await ResetIdleVideoAsync();
+
+                // Bug 3 fix: ResetIdleVideoAsync just injected a NEW idle window using the
+                // same SHELLDLL_DefView z-anchor, which placed it directly below DefView —
+                // i.e. ABOVE our action window in sibling order. Re-assert action z-order
+                // by re-positioning it at the same anchor; SetWindowPos with hwndInsertAfter=
+                // _cachedShellDefView places action directly below DefView, demoting the
+                // newly-injected idle below action again.
+                _desktopBridge.PositionOverlayWindow(helper.Handle, 0, 0, screenW, screenH);
 
                 int remainingTime = (int)durationMs - 500 - 300;
                 if (remainingTime > 0) await Task.Delay(remainingTime);
@@ -546,7 +558,10 @@ namespace ProductivityWallpaper.Services
                 // Expand to full screen
                 var helper = new WindowInteropHelper(imageWindow);
                 var (screenW, screenH) = _desktopBridge.GetScreenDimensions();
-                Win32Api.SetWindowPos(helper.Handle, Win32Api.HWND_TOP, 0, 0, screenW, screenH, Win32Api.SWP_NOACTIVATE);
+                _desktopBridge.PositionOverlayWindow(helper.Handle, 0, 0, screenW, screenH);
+
+                // Force VLC to fill every pixel (no letterbox / no transparent gaps).
+                imageWindow.SetAspectFill(screenW, screenH);
 
                 // Fade in
                 await FadeWindowAsync(imageWindow, 0, 1, 300);
@@ -566,8 +581,8 @@ namespace ProductivityWallpaper.Services
                 {
                     try
                     {
-                        if (actionWindow is ImagePlayerWindow ipw)
-                            ipw.StopAndClose();
+                        if (actionWindow is VideoPlayerWindow vpw)
+                            vpw.StopAndClose();
                         else
                             actionWindow.Close();
                     }
@@ -597,6 +612,11 @@ namespace ProductivityWallpaper.Services
 
                     // Inject at bottom Z-order
                     InjectIdleLayer(newIdleWindow);
+
+                    // Force VLC to fill every pixel (no transparent gaps on Win11 24H2).
+                    var (sw, sh) = _desktopBridge.GetScreenDimensions();
+                    newIdleWindow.SetAspectFill(sw, sh);
+
                     newIdleWindow.Opacity = 1;
 
                     // CRITICAL: Stop old idle AFTER new one is ready, and AWAIT completion.
@@ -947,8 +967,13 @@ namespace ProductivityWallpaper.Services
                 // Expand to full screen
                 var helper = new WindowInteropHelper(newWindow);
                 var (screenW, screenH) = _desktopBridge.GetScreenDimensions();
-                Win32Api.SetWindowPos(helper.Handle, Win32Api.HWND_TOP,
-                    0, 0, screenW, screenH, Win32Api.SWP_NOACTIVATE);
+                _desktopBridge.PositionWallpaperWindow(helper.Handle, 0, 0, screenW, screenH);
+
+                // Force VLC to fill every pixel (no letterbox / no transparent gaps).
+                // Required on Win11 24H2 raised desktop because the WPF Grid behind
+                // VideoView is not composited.
+                if (newWindow is VideoPlayerWindow vpwFill)
+                    vpwFill.SetAspectFill(screenW, screenH);
 
                 // Fade in the new window
                 await FadeWindowAsync(newWindow, 0, 1, 500);
@@ -1009,9 +1034,15 @@ namespace ProductivityWallpaper.Services
             }
         }
 
-        private ImagePlayerWindow CreateHiddenImageWindow(string path)
+        private VideoPlayerWindow CreateHiddenImageWindow(string path)
         {
-            var win = new ImagePlayerWindow(path);
+            // CRITICAL Win11 24H2 fix: image rendered via VLC (not WPF Image element) so the
+            // visible pixels come from VLC's native DirectX child HWND. WPF's redirection
+            // bitmap is not composited when the host window is a child of Progman with
+            // WS_EX_NOREDIRECTIONBITMAP (the raised-desktop case), which previously caused
+            // image wallpapers to render fully black. VideoView's HwndHost paints itself
+            // via DirectX and is unaffected.
+            var win = VideoPlayerWindow.CreateForImage(path);
             win.WindowStartupLocation = WindowStartupLocation.Manual;
             win.Left = -32000;
             win.Top = -32000;
@@ -1193,17 +1224,18 @@ namespace ProductivityWallpaper.Services
 
             var helper = new WindowInteropHelper(overlay);
 
-            // Remove popup style, keep child window style
+            // Remove popup style only — DesktopBridgeService.InjectWindow() flips WS_CHILD on
+            // and explicitly preserves WS_VISIBLE during the popup -> child transition. Stripping
+            // WS_VISIBLE here was a leftover that caused injected windows to render blank on
+            // Win11 raised desktop because the bridge no longer needed to compensate for it.
             int style = Win32Api.GetWindowLong(helper.Handle, Win32Api.GWL_STYLE);
-            style = style & ~Win32Api.WS_POPUP & ~Win32Api.WS_VISIBLE;
+            style = style & ~Win32Api.WS_POPUP;
             Win32Api.SetWindowLong(helper.Handle, Win32Api.GWL_STYLE, style);
 
             _desktopBridge.InjectWindow(helper.Handle, asTopmost: true);
-            overlay.WindowState = WindowState.Maximized;
 
             var (screenW, screenH) = _desktopBridge.GetScreenDimensions();
-            Win32Api.SetWindowPos(helper.Handle, Win32Api.HWND_TOP, 0, 0,
-                screenW, screenH, Win32Api.SWP_NOACTIVATE);
+            _desktopBridge.PositionOverlayWindow(helper.Handle, 0, 0, screenW, screenH);
         }
 
         private void HandleThemeClick(System.Windows.Point screenPoint,
@@ -1472,7 +1504,8 @@ namespace ProductivityWallpaper.Services
             var helper = new WindowInteropHelper(playerWindow);
             RemoveBorderAndSetTransparent(helper.Handle);
             _desktopBridge.InjectWindow(helper.Handle, asTopmost: false);
-            playerWindow.WindowState = WindowState.Maximized;
+            var (screenW, screenH) = _desktopBridge.GetScreenDimensions();
+            _desktopBridge.PositionWallpaperWindow(helper.Handle, 0, 0, screenW, screenH);
         }
 
         private void InjectIdleLayer(Window idleWin)
@@ -1482,9 +1515,8 @@ namespace ProductivityWallpaper.Services
             var idleHelper = new WindowInteropHelper(idleWin);
             RemoveBorderAndSetTransparent(idleHelper.Handle);
             _desktopBridge.InjectWindow(idleHelper.Handle, asTopmost: false);
-            Win32Api.SetWindowPos(idleHelper.Handle, Win32Api.HWND_BOTTOM, 0, 0, 0, 0,
-                Win32Api.SWP_NOMOVE | Win32Api.SWP_NOSIZE | Win32Api.SWP_NOACTIVATE);
-            idleWin.WindowState = WindowState.Maximized;
+            var (screenW, screenH) = _desktopBridge.GetScreenDimensions();
+            _desktopBridge.PositionWallpaperWindow(idleHelper.Handle, 0, 0, screenW, screenH);
         }
 
         private void InjectInteractiveLayers(Window idleWin, InteractiveUiWindow uiWin)
@@ -1495,14 +1527,13 @@ namespace ProductivityWallpaper.Services
 
             var uiHelper = new WindowInteropHelper(uiWin);
             int style = Win32Api.GetWindowLong(uiHelper.Handle, Win32Api.GWL_STYLE);
-            style = style & ~Win32Api.WS_POPUP & ~Win32Api.WS_VISIBLE;
+            style = style & ~Win32Api.WS_POPUP;
             Win32Api.SetWindowLong(uiHelper.Handle, Win32Api.GWL_STYLE, style);
 
             _desktopBridge.InjectWindow(uiHelper.Handle, asTopmost: true);
-            uiWin.WindowState = WindowState.Maximized;
 
             var (screenW, screenH) = _desktopBridge.GetScreenDimensions();
-            Win32Api.SetWindowPos(uiHelper.Handle, Win32Api.HWND_TOP, 0, 0, screenW, screenH, Win32Api.SWP_NOACTIVATE);
+            _desktopBridge.PositionOverlayWindow(uiHelper.Handle, 0, 0, screenW, screenH);
             uiWin.UpdateLayout(SystemParameters.PrimaryScreenWidth, SystemParameters.PrimaryScreenHeight);
         }
 
@@ -1513,17 +1544,15 @@ namespace ProductivityWallpaper.Services
             var actionHelper = new WindowInteropHelper(actionWin);
             RemoveBorderAndSetTransparent(actionHelper.Handle);
             _desktopBridge.InjectWindow(actionHelper.Handle, asTopmost: false);
-            actionWin.WindowState = WindowState.Maximized;
 
             // Z-Order: UI > Action > Idle
-            Win32Api.SetWindowPos(actionHelper.Handle, Win32Api.HWND_TOP, 0, 0, 0, 0,
-                Win32Api.SWP_NOMOVE | Win32Api.SWP_NOSIZE | Win32Api.SWP_NOACTIVATE);
+            var (screenW, screenH) = _desktopBridge.GetScreenDimensions();
+            _desktopBridge.PositionOverlayWindow(actionHelper.Handle, 0, 0, screenW, screenH);
 
             if (uiWin != null)
             {
                 var uiHandle = new WindowInteropHelper(uiWin).Handle;
-                Win32Api.SetWindowPos(uiHandle, Win32Api.HWND_TOP, 0, 0, 0, 0,
-                    Win32Api.SWP_NOMOVE | Win32Api.SWP_NOSIZE | Win32Api.SWP_NOACTIVATE);
+                _desktopBridge.KeepOverlayBehindIcons(uiHandle);
             }
         }
 
@@ -1533,7 +1562,7 @@ namespace ProductivityWallpaper.Services
         {
             int style = Win32Api.GetWindowLong(hwnd, Win32Api.GWL_STYLE);
             int exStyle = Win32Api.GetWindowLong(hwnd, Win32Api.GWL_EXSTYLE);
-            style = style & ~Win32Api.WS_POPUP & ~Win32Api.WS_VISIBLE;
+            style = style & ~Win32Api.WS_POPUP;
             exStyle = exStyle | Win32Api.WS_EX_TRANSPARENT | Win32Api.WS_EX_LAYERED | Win32Api.WS_EX_TOOLWINDOW;
             Win32Api.SetWindowLong(hwnd, Win32Api.GWL_STYLE, style);
             Win32Api.SetWindowLong(hwnd, Win32Api.GWL_EXSTYLE, exStyle);

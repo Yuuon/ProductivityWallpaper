@@ -30,11 +30,75 @@ namespace ProductivityWallpaper.Views
         }
 
         /// <summary>
+        /// Image-mode constructor. Renders a static image through VLC's DirectX child HWND
+        /// so that on Win11 24H2 raised desktop (where Progman has WS_EX_NOREDIRECTIONBITMAP and
+        /// WPF's redirection bitmap is not composited for child windows), the image actually
+        /// becomes visible — same render path that already works for video.
+        ///
+        /// Uses --image-duration=-1 (infinite) so VLC keeps the image surface alive forever.
+        /// </summary>
+        public static VideoPlayerWindow CreateForImage(string imagePath)
+        {
+            return new VideoPlayerWindow(imagePath, ImageMarker.Instance);
+        }
+
+        // Private marker type used purely to disambiguate the image-mode constructor
+        // overload from the existing public (string, bool) video constructor — both
+        // would otherwise share a (string, bool) signature and cause CS0111.
+        private sealed class ImageMarker { public static readonly ImageMarker Instance = new(); }
+
+        private VideoPlayerWindow(string mediaPath, ImageMarker _)
+        {
+            InitializeComponent();
+
+            // For image mode we instruct VLC to keep the image displayed indefinitely.
+            // image-duration is honored by the image demuxer; -1 = forever.
+            _libVLC = new LibVLC("--image-duration=-1", "--no-audio");
+
+            _mediaPlayer = new MediaPlayer(_libVLC);
+            VideoView.MediaPlayer = _mediaPlayer;
+
+            var media = new Media(_libVLC, new Uri(mediaPath));
+            // Belt-and-suspenders: also set the option on the Media itself so it works
+            // regardless of whether the LibVLC-wide option is honored by this build.
+            media.AddOption(":image-duration=-1");
+            media.AddOption(":no-audio");
+            // Loop just in case VLC ends-of-stream the still image.
+            media.AddOption("input-repeat=65535");
+
+            _mediaPlayer.Play(media);
+            _mediaPlayer.Mute = true;
+        }
+
+        /// <summary>
         /// Sets the mute state for video audio.
         /// </summary>
         public void SetMute(bool muted)
         {
             try { if (_mediaPlayer != null) _mediaPlayer.Mute = muted; } catch { }
+        }
+
+        /// <summary>
+        /// Forces VLC to fill the entire window with video pixels (no letterbox bars).
+        /// On Win11 24H2 raised desktop, the WPF Grid behind VideoView is not composited
+        /// (Progman has WS_EX_NOREDIRECTIONBITMAP), so any uncovered pixels show through as
+        /// transparent gaps revealing the OS desktop wallpaper. Eliminating letterbox via
+        /// VLC aspect override guarantees VLC paints every pixel.
+        ///
+        /// Slight aspect distortion is the trade-off but matches the user constraint:
+        /// "A general non-transparent black background for the video window should be fine."
+        /// — the goal is no transparent gaps, not pixel-perfect aspect preservation.
+        /// </summary>
+        public void SetAspectFill(int screenWidth, int screenHeight)
+        {
+            try
+            {
+                if (_mediaPlayer == null) return;
+                // VLC accepts "W:H" strings; setting it to the window aspect makes VLC
+                // stretch the video to exactly fill the surface without letterboxing.
+                _mediaPlayer.AspectRatio = $"{screenWidth}:{screenHeight}";
+            }
+            catch { }
         }
 
         /// <summary>

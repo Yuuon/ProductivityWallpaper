@@ -169,6 +169,29 @@ namespace ProductivityWallpaper.Services
         [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
         public static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
 
+        [DllImport("user32.dll")]
+        public static extern bool InvalidateRect(IntPtr hWnd, IntPtr lpRect, bool bErase);
+
+        [DllImport("user32.dll")]
+        public static extern bool UpdateWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr BeginPaint(IntPtr hWnd, out PAINTSTRUCT lpPaint);
+
+        [DllImport("user32.dll")]
+        public static extern bool EndPaint(IntPtr hWnd, ref PAINTSTRUCT lpPaint);
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct PAINTSTRUCT
+        {
+            public IntPtr hdc;
+            [MarshalAs(UnmanagedType.Bool)] public bool fErase;
+            public RECT rcPaint;
+            [MarshalAs(UnmanagedType.Bool)] public bool fRestore;
+            [MarshalAs(UnmanagedType.Bool)] public bool fIncUpdate;
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 32)] public byte[] rgbReserved;
+        }
+
         // --- Window-at-point detection (for click-through verification) ---
         [DllImport("user32.dll")]
         public static extern IntPtr WindowFromPoint(POINT point);

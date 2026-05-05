@@ -6,7 +6,7 @@
         WindowStyle="None" ResizeMode="NoResize"
         AllowsTransparency="False" Background="Black"
         ShowInTaskbar="False">
-    <Grid>
+    <Grid Background="Black">
         <!-- VLC 视频控件 -->
         <vlc:VideoView x:Name="VideoView" />
     </Grid>

@@ -28,6 +28,11 @@
     <Content Remove="ReferenceResources\**" />
     <EmbeddedResource Remove="ReferenceResources\**" />
     <Page Remove="ReferenceResources\**" />
+    <None Remove="lively-repo\**" />
+    <Compile Remove="lively-repo\**" />
+    <Content Remove="lively-repo\**" />
+    <EmbeddedResource Remove="lively-repo\**" />
+    <Page Remove="lively-repo\**" />
   </ItemGroup>
 
 </Project>
